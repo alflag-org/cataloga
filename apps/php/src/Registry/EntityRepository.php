@@ -175,6 +175,31 @@ final class EntityRepository
         ];
     }
 
+
+    /**
+     * @return array<int,array{path:string,record:array<string,mixed>}>
+     */
+    public function loadSchemaRecords(): array
+    {
+        $records = [];
+
+        foreach ($this->schemaFiles() as $entry) {
+            try {
+                $record = $this->recordParser->parseFile($entry['absolute']);
+                if (is_array($record)) {
+                    $records[] = [
+                        'path' => $entry['relative'],
+                        'record' => $record,
+                    ];
+                }
+            } catch (\Throwable) {
+                continue;
+            }
+        }
+
+        return $records;
+    }
+
     private function absolutePath(string $relativePath): string
     {
         return rtrim($this->registryRoot, '/') . '/' . ltrim($relativePath, '/');
@@ -221,4 +246,63 @@ final class EntityRepository
 
         return $files;
     }
+    /**
+     * @return array<int,array{absolute:string,relative:string}>
+     */
+    private function schemaFiles(): array
+    {
+        $roots = [
+            [
+                'absolute' => $this->registryRoot . '/schemas',
+                'relativePrefix' => 'schemas',
+            ],
+        ];
+
+        $projectRoot = dirname($this->registryRoot);
+        $domainPacksRoot = $projectRoot . '/domain-packs';
+        if (is_dir($domainPacksRoot)) {
+            $packs = array_filter(scandir($domainPacksRoot) ?: [], static fn (string $name): bool => $name !== '.' && $name !== '..');
+            foreach ($packs as $packName) {
+                $schemaDir = $domainPacksRoot . '/' . $packName . '/schemas';
+                $roots[] = [
+                    'absolute' => $schemaDir,
+                    'relativePrefix' => 'domain-packs/' . $packName . '/schemas',
+                ];
+            }
+        }
+
+        $files = [];
+        foreach ($roots as $root) {
+            if (!is_dir($root['absolute'])) {
+                continue;
+            }
+
+            $iterator = new \RecursiveIteratorIterator(
+                new \RecursiveDirectoryIterator($root['absolute'], \FilesystemIterator::SKIP_DOTS)
+            );
+
+            foreach ($iterator as $fileInfo) {
+                if (!$fileInfo instanceof \SplFileInfo || !$fileInfo->isFile()) {
+                    continue;
+                }
+
+                $extension = strtolower($fileInfo->getExtension());
+                if (!in_array($extension, ['yaml', 'yml', 'json'], true)) {
+                    continue;
+                }
+
+                $absolutePath = $fileInfo->getPathname();
+                $relativeWithinRoot = ltrim(substr($absolutePath, strlen(rtrim($root['absolute'], '/'))), '/');
+                $files[] = [
+                    'absolute' => $absolutePath,
+                    'relative' => $root['relativePrefix'] . ($relativeWithinRoot === '' ? '' : '/' . $relativeWithinRoot),
+                ];
+            }
+        }
+
+        usort($files, static fn (array $a, array $b): int => strcmp($a['relative'], $b['relative']));
+
+        return $files;
+    }
+
 }

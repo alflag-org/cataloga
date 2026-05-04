@@ -96,11 +96,13 @@ final class ChangeService
         }
 
         $projection = $this->projectedState($session);
-        $registryScan = $this->entityRepository->scanRegistryRecords();
+        $registryScan = $this->projectRegistryScan($projection);
+        $schemaRecords = $this->entityRepository->loadSchemaRecords();
         $validation = $this->validator->validateProjectedState(
             $projection['projectedById'],
             $projection['finalIdPaths'],
             $registryScan,
+            $schemaRecords,
             $projection['errors']
         );
 
@@ -121,12 +123,14 @@ final class ChangeService
         ];
 
         $projection = $this->projectedState($session);
-        $registryScan = $this->entityRepository->scanRegistryRecords();
+        $registryScan = $this->projectRegistryScan($projection);
+        $schemaRecords = $this->entityRepository->loadSchemaRecords();
 
         return $this->validator->validateProjectedState(
             $projection['projectedById'],
             $projection['finalIdPaths'],
             $registryScan,
+            $schemaRecords,
             $projection['errors']
         );
     }
@@ -388,6 +392,44 @@ final class ChangeService
             'errors' => $errors,
             'deletePaths' => $deletePaths,
         ];
+    }
+
+
+    /**
+     * @param array<string,mixed> $projection
+     * @return array<string,mixed>
+     */
+    private function projectRegistryScan(array $projection): array
+    {
+        $scan = $this->entityRepository->scanRegistryRecords();
+        $recordsByPath = [];
+
+        foreach ($scan['records'] ?? [] as $item) {
+            $path = (string) ($item['path'] ?? '');
+            if ($path === '') {
+                continue;
+            }
+            $recordsByPath[$path] = $item;
+        }
+
+        foreach ($projection['deletePaths'] as $path) {
+            unset($recordsByPath[$path]);
+        }
+
+        foreach ($projection['projectedById'] as $entity) {
+            $path = (string) ($entity['sourcePath'] ?? '');
+            if ($path === '') {
+                continue;
+            }
+            $recordsByPath[$path] = [
+                'path' => $path,
+                'record' => $entity['record'],
+            ];
+        }
+
+        $scan['records'] = array_values($recordsByPath);
+
+        return $scan;
     }
 
     private function readFileIfExists(string $relativePath): ?string

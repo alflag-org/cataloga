@@ -105,6 +105,8 @@ All writes must go through change sessions; direct entity write endpoints are in
 - Authentication/RBAC is not implemented yet.
 - CSRF protection is UI-only; API auth is not implemented.
 - Relation mutation operations are not implemented yet (entity mutations only).
+- Schema validation currently checks only that each Entity `metadata.type` has a matching schema definition loaded from `registry/schemas/*` or `domain-packs/*/schemas/*`.
+- Full schema conformance validation (required fields, field types, constraint evaluation, cross-field rules) is not implemented yet.
 - Diff preview is file-content based and minimal.
 - Existing TypeScript v1/vlegacy modules remain in-repo for migration safety but are not the primary v2 runtime.
 

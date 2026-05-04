@@ -21,6 +21,7 @@ final class RegistryValidator
      * @param array<string,array{record: array<string,mixed>, sourcePath: string}> $projectedEntities
      * @param array<string,array<int,string>> $finalIdPaths
      * @param array<string,mixed> $registryScan
+     * @param array<int,array{path:string,record:array<string,mixed>}> $schemaRecords
      * @param array<int,string> $projectionErrors
      * @return array<string,mixed>
      */
@@ -28,6 +29,7 @@ final class RegistryValidator
         array $projectedEntities,
         array $finalIdPaths,
         array $registryScan,
+        array $schemaRecords = [],
         array $projectionErrors = []
     ): array {
         $errors = [];
@@ -73,6 +75,8 @@ final class RegistryValidator
             }
         }
 
+        $schemaTypes = $this->extractSchemaTypes($schemaRecords);
+
         foreach ($projectedEntities as $entity) {
             $record = $entity['record'];
             $path = $entity['sourcePath'];
@@ -100,6 +104,11 @@ final class RegistryValidator
                 $errors[] = [
                     'code' => 'entity_type_required',
                     'message' => sprintf('%s requires metadata.type.', $path),
+                ];
+            } elseif (!isset($schemaTypes[$type])) {
+                $errors[] = [
+                    'code' => 'entity_type_schema_missing',
+                    'message' => sprintf('%s references metadata.type "%s" but no matching schema was found.', $path, $type),
                 ];
             }
 
@@ -130,14 +139,24 @@ final class RegistryValidator
             $fromId = $this->extractRelationEndpoint($spec['from'] ?? null, $spec['source'] ?? null);
             $toId = $this->extractRelationEndpoint($spec['to'] ?? null, $spec['target'] ?? null);
 
-            if ($fromId !== null && !in_array($fromId, $entityIds, true)) {
+            if ($fromId === null) {
+                $errors[] = [
+                    'code' => 'relation_source_required',
+                    'message' => sprintf('%s requires spec.from/spec.source.id.', (string) ($item['path'] ?? '')),
+                ];
+            } elseif (!in_array($fromId, $entityIds, true)) {
                 $errors[] = [
                     'code' => 'relation_source_missing',
                     'message' => sprintf('%s references missing source entity "%s".', (string) ($item['path'] ?? ''), $fromId),
                 ];
             }
 
-            if ($toId !== null && !in_array($toId, $entityIds, true)) {
+            if ($toId === null) {
+                $errors[] = [
+                    'code' => 'relation_target_required',
+                    'message' => sprintf('%s requires spec.to/spec.target.id.', (string) ($item['path'] ?? '')),
+                ];
+            } elseif (!in_array($toId, $entityIds, true)) {
                 $errors[] = [
                     'code' => 'relation_target_missing',
                     'message' => sprintf('%s references missing target entity "%s".', (string) ($item['path'] ?? ''), $toId),
@@ -167,5 +186,25 @@ final class RegistryValidator
         }
 
         return null;
+    }
+
+    /**
+     * @param array<int,array{path:string,record:array<string,mixed>}> $schemaRecords
+     * @return array<string,string>
+     */
+    private function extractSchemaTypes(array $schemaRecords): array
+    {
+        $schemaTypes = [];
+
+        foreach ($schemaRecords as $schema) {
+            $record = $schema['record'];
+            $metadata = is_array($record['metadata'] ?? null) ? $record['metadata'] : [];
+            $type = (string) ($metadata['type'] ?? '');
+            if ($type !== '') {
+                $schemaTypes[$type] = (string) ($schema['path'] ?? '');
+            }
+        }
+
+        return $schemaTypes;
     }
 }
