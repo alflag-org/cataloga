@@ -78,8 +78,18 @@ docker-compose.yml
 
 ## JSON API
 
+### Explore (read-only)
+
 - `GET /api/entities`
 - `GET /api/entities/{id}`
+- `GET /api/relations` (relation records with stable `id/type/path` metadata)
+- `GET /api/schemas` (schema records with stable `id/type/path` metadata)
+- `GET /api/entities/{id}/neighbors` (entity graph neighbors + relation edges + counts/errors)
+- `GET /api/search?q=` (registry-wide search with stable metadata and counts)
+- `GET /api/changes/{id}/summary` (change-session summary optimized for agents)
+
+### Mutate (change-session only)
+
 - `POST /api/changes`
 - `GET /api/changes/{id}`
 - `POST /api/changes/{id}/operations`
@@ -89,6 +99,7 @@ docker-compose.yml
 - `POST /api/changes/{id}/abort`
 
 All writes must go through change sessions; direct entity write endpoints are intentionally omitted.
+Explore endpoints are read-only and reuse existing repositories/services so mutation paths stay unchanged.
 
 ## Change session flow
 
