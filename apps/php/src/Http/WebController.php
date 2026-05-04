@@ -7,6 +7,7 @@ namespace Cataloga\Http;
 use Cataloga\Git\GitService;
 use Cataloga\Mutation\ChangeService;
 use Cataloga\Registry\EntityRepository;
+use Cataloga\Registry\RelationRepository;
 use Cataloga\View\TemplateRenderer;
 
 final class WebController
@@ -14,6 +15,7 @@ final class WebController
     public function __construct(
         private readonly TemplateRenderer $renderer,
         private readonly EntityRepository $entityRepository,
+        private readonly RelationRepository $relationRepository,
         private readonly ChangeService $changeService,
         private readonly GitService $gitService,
     ) {
@@ -53,6 +55,17 @@ final class WebController
             'title' => 'Changes',
             'currentPath' => '/changes',
             'changes' => $this->changeService->listRecentChanges(50),
+        ]);
+
+        return Response::html($html);
+    }
+
+    public function relationList(Request $request): Response
+    {
+        $html = $this->renderer->render('relations/list', [
+            'title' => 'Relations',
+            'currentPath' => '/relations',
+            'relations' => $this->relationRepository->listRelations(),
         ]);
 
         return Response::html($html);
