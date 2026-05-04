@@ -1,0 +1,40 @@
+name: cataloga-v2-php
+
+on:
+  pull_request:
+  push:
+    branches:
+      - master
+
+permissions:
+  contents: read
+
+jobs:
+  v2-php-checks:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v6
+
+      - name: Setup PHP
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.3'
+
+      - name: Validate Composer manifest
+        working-directory: apps/php
+        run: composer validate
+
+      - name: Install Composer dependencies
+        working-directory: apps/php
+        run: composer install --no-interaction --prefer-dist
+
+      - name: Lint PHP files
+        working-directory: apps/php
+        run: find . -name '*.php' -print0 | xargs -0 -n1 php -l
+
+      - name: Validate Docker Compose config
+        run: docker compose config
+
+      - name: Build Docker Compose services
+        run: docker compose build

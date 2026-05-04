@@ -1,4 +1,4 @@
-name: cataloga-demo-production
+name: legacy-demo-production
 
 on:
   workflow_dispatch:
