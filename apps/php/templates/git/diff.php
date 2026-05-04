@@ -1,5 +1,5 @@
 <div class="card">
-  <h2>Git Diff (registry + .cataloga)</h2>
+  <h2>Git Diff (registry)</h2>
   <?php if (($diff['ok'] ?? false) === true): ?>
     <pre><?= h((string) ($diff['stdout'] ?? 'No diff')) ?></pre>
   <?php else: ?>

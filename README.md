@@ -74,7 +74,7 @@ docker-compose.yml
 - `/changes` change-session list
 - `/changes/{id}` change-session page (validation/diff/commit/abort)
 - `/validation` registry validation
-- `/git/diff` git diff (`registry` + `.cataloga`)
+- `/git/diff` git diff (`registry`)
 
 ## JSON API
 
@@ -98,7 +98,15 @@ All writes must go through change sessions; direct entity write endpoints are in
 4. Review diff.
 5. Commit to registry files.
 6. Optionally create a Git commit.
-7. Audit log written to `.cataloga/audit.log`.
+7. Audit log written to `.cataloga/audit.log` (runtime/derived state, non-canonical and non-Git-managed by default).
+
+
+## Runtime state policy (`.cataloga`)
+
+- `.cataloga/` is runtime/derived state and is **not** part of canonical registry truth.
+- Canonical, reviewable data lives under `registry/` and is the only default Git staging target in the PHP runtime.
+- If long-term audit retention is required, design an explicit canonical path such as `registry/audit/` with schema and review rules; otherwise keep audit artifacts under `.cataloga/` and out of Git.
+- If `.cataloga/` files were previously tracked, untrack them with `git rm -r --cached .cataloga` and commit that removal while keeping local runtime files.
 
 ## Known limitations
 

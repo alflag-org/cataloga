@@ -47,8 +47,9 @@ All core records are file-backed and typed.
 - Commit/abort orchestration.
 
 3. Derived State
-- Optional SQLite/local DB caches for search index, lock state, audit materialization.
+- Optional SQLite/local DB caches for search index, lock state, audit materialization, and runtime session artifacts (for example `.cataloga/`).
 - Never the source of truth for canonical registry content.
+- Runtime/derived paths (including `.cataloga/`) are non-canonical and should be excluded from default Git staging/commit flows.
 
 4. Interfaces
 - CLI, API, UI, MCP tools/resources/prompts.
@@ -86,8 +87,15 @@ Mutation API contract:
 2. `apply_mutation` applies typed operations.
 3. `validate_change` runs schema/policy/rule checks.
 4. `show_diff` returns semantic and file-level diffs.
-5. `commit_change` writes files and creates a Git commit (or staged commit input).
+5. `commit_change` writes canonical files and creates a Git commit (or staged commit input).
 6. `abort_change` discards staged changes.
+
+
+Audit retention note:
+
+- Default runtime audit logs under `.cataloga/` are derived operational artifacts and non-Git-managed.
+- If `.cataloga/` was tracked in earlier revisions, remove from index with `git rm -r --cached .cataloga` and commit the change to enforce runtime-only handling.
+- For persistent, reviewable audit history in canonical data, explicitly model and store it under `registry/` (for example `registry/audit/`) with schema/policy coverage.
 
 ## MCP-first interface
 
