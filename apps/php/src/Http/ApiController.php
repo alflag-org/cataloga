@@ -45,6 +45,148 @@ final class ApiController
         return Response::json($entity);
     }
 
+    public function relations(Request $request): Response
+    {
+        return $this->listRecordsByType('relation');
+    }
+
+    public function schemas(Request $request): Response
+    {
+        return $this->listRecordsByType('schema');
+    }
+
+    /**
+     * @param array<string,string> $params
+     */
+    public function entityNeighbors(Request $request, array $params): Response
+    {
+        $id = $params['id'] ?? '';
+        $entity = $this->entityRepository->getEntity($id);
+        if ($entity === null) {
+            return Response::json(['error' => 'Entity not found', 'id' => $id], 404);
+        }
+
+        $scan = $this->entityRepository->scanRegistryRecords();
+        $neighbors = [];
+        $relatedRelations = [];
+
+        foreach ($scan['records'] as $item) {
+            $record = $item['record'];
+            $metadata = is_array($record['metadata'] ?? null) ? $record['metadata'] : [];
+            if ((string) ($metadata['type'] ?? '') !== 'relation') {
+                continue;
+            }
+
+            $from = (string) ($record['from'] ?? '');
+            $to = (string) ($record['to'] ?? '');
+            if ($from !== $id && $to !== $id) {
+                continue;
+            }
+
+            $neighborId = $from === $id ? $to : $from;
+            if ($neighborId !== '') {
+                $neighborEntity = $this->entityRepository->getEntity($neighborId);
+                $neighborMetadata = is_array($neighborEntity['record']['metadata'] ?? null) ? $neighborEntity['record']['metadata'] : [];
+                $neighbors[] = [
+                    'id' => $neighborId,
+                    'type' => (string) ($neighborMetadata['type'] ?? ''),
+                    'path' => $neighborEntity['sourcePath'] ?? null,
+                    'exists' => $neighborEntity !== null,
+                ];
+            }
+
+            $relatedRelations[] = [
+                'id' => (string) ($metadata['id'] ?? ''),
+                'type' => 'relation',
+                'path' => $item['path'],
+                'from' => $from,
+                'to' => $to,
+            ];
+        }
+
+        usort($neighbors, static fn (array $a, array $b): int => strcmp((string) $a['id'], (string) $b['id']));
+
+        return Response::json([
+            'id' => $id,
+            'type' => (string) (($entity['record']['metadata']['type'] ?? '')),
+            'path' => $entity['sourcePath'] ?? null,
+            'neighbors' => $neighbors,
+            'relations' => $relatedRelations,
+            'counts' => [
+                'neighbors' => count($neighbors),
+                'relations' => count($relatedRelations),
+                'errors' => count($scan['parseErrors']),
+            ],
+            'errors' => $scan['parseErrors'],
+        ]);
+    }
+
+    public function search(Request $request): Response
+    {
+        $query = trim((string) $request->query('q', ''));
+        $needle = strtolower($query);
+        $scan = $this->entityRepository->scanRegistryRecords();
+        $items = [];
+
+        foreach ($scan['records'] as $item) {
+            $record = $item['record'];
+            $metadata = is_array($record['metadata'] ?? null) ? $record['metadata'] : [];
+            $id = (string) ($metadata['id'] ?? '');
+            $type = (string) ($metadata['type'] ?? '');
+            $name = (string) ($metadata['name'] ?? '');
+
+            $haystack = strtolower($id . ' ' . $type . ' ' . $name . ' ' . $item['path'] . ' ' . json_encode($record));
+            if ($needle !== '' && !str_contains($haystack, $needle)) {
+                continue;
+            }
+
+            $items[] = [
+                'id' => $id,
+                'type' => $type,
+                'path' => $item['path'],
+                'name' => $name,
+            ];
+        }
+
+        return Response::json([
+            'query' => $query,
+            'items' => $items,
+            'counts' => [
+                'items' => count($items),
+                'errors' => count($scan['parseErrors']),
+            ],
+            'errors' => $scan['parseErrors'],
+        ]);
+    }
+
+    /**
+     * @param array<string,string> $params
+     */
+    public function changeSummary(Request $request, array $params): Response
+    {
+        $id = $params['id'] ?? '';
+        $session = $this->changeService->getChange($id);
+        if ($session === null) {
+            return Response::json(['error' => 'Change session not found', 'id' => $id], 404);
+        }
+
+        $operations = is_array($session['operations'] ?? null) ? $session['operations'] : [];
+        $validation = is_array($session['validation'] ?? null) ? $session['validation'] : [];
+        $errors = is_array($validation['errors'] ?? null) ? $validation['errors'] : [];
+
+        return Response::json([
+            'id' => (string) ($session['id'] ?? $id),
+            'type' => 'change_session',
+            'status' => (string) ($session['status'] ?? 'unknown'),
+            'path' => $session['stagingPath'] ?? null,
+            'counts' => [
+                'operations' => count($operations),
+                'errors' => count($errors),
+            ],
+            'errors' => $errors,
+        ]);
+    }
+
     public function createChange(Request $request): Response
     {
         try {
@@ -175,5 +317,31 @@ final class ApiController
         }
 
         return false;
+    }
+
+    private function listRecordsByType(string $type): Response
+    {
+        $scan = $this->entityRepository->scanRegistryRecords();
+        $items = [];
+        foreach ($scan['records'] as $item) {
+            $record = $item['record'];
+            $metadata = is_array($record['metadata'] ?? null) ? $record['metadata'] : [];
+            if ((string) ($metadata['type'] ?? '') !== $type) {
+                continue;
+            }
+
+            $items[] = [
+                'id' => (string) ($metadata['id'] ?? ''),
+                'type' => $type,
+                'path' => $item['path'],
+                'record' => $record,
+            ];
+        }
+
+        return Response::json([
+            'items' => $items,
+            'counts' => ['items' => count($items), 'errors' => count($scan['parseErrors'])],
+            'errors' => $scan['parseErrors'],
+        ]);
     }
 }
