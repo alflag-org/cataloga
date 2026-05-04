@@ -1,3 +1,7 @@
+> [!WARNING]
+> Deprecated for Cataloga v2: managed hosting is out of scope for the current product direction.
+> This document is retained temporarily for historical reference during migration.
+
 # Managed hosting architecture
 
 This document defines the target architecture for Cataloga managed hosting.

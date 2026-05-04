@@ -2,6 +2,7 @@
   "name": "@cataloga/managed-hosting",
   "version": "0.1.0",
   "private": true,
+  "description": "Deprecated in Cataloga v2: managed-hosting contracts retained temporarily for legacy migration.",
   "type": "module",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",

@@ -1,3 +1,7 @@
+> [!WARNING]
+> Legacy v1 delivery model: this read-only/static-first model is not the Cataloga v2 write architecture.
+> Kept temporarily while v2 mutation/session interfaces are implemented.
+
 # Read-only and static-first delivery model
 
 ## Read-only contract

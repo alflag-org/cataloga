@@ -1,3 +1,7 @@
+> [!WARNING]
+> Deprecated for Cataloga v2: managed hosting is out of scope for the current product direction.
+> This document is retained temporarily for historical reference during migration.
+
 # Managed hosting roadmap
 
 This document turns the managed-hosting architecture into phased delivery work through M6.

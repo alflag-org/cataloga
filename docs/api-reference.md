@@ -1,3 +1,6 @@
+> [!WARNING]
+> Legacy v1 API reference. Cataloga v2 primary runtime is the PHP app with change-session APIs under `/api/changes`.
+
 # API reference
 
 Cataloga v1 exposes a read-only API over canonical graph data.

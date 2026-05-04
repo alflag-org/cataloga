@@ -1,0 +1,7 @@
+kind: policy
+id: policy-core-governance
+title: Core Governance
+mode: enforced
+ruleIds:
+  - rule-entity-must-reference-schema
+owner: platform-governance

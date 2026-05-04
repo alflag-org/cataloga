@@ -1,0 +1,12 @@
+kind: entity
+id: entity-app-portal
+schemaId: schema-application
+title: Customer Portal
+tags:
+  - critical
+attributes:
+  name: customer-portal
+  owner: platform-team
+evidenceRefs:
+  - evidenceId: evidence-cmdb-portal
+    summary: CMDB export

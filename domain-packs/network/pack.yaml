@@ -1,0 +1,9 @@
+id: network
+version: 0.1.0
+title: network domain pack
+description: Example network extension for Cataloga v2.
+entrypoints:
+  schemas: schemas
+  policies: policies
+  views: views
+  rules: rules

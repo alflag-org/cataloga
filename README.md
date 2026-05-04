@@ -1,104 +1,116 @@
 # Cataloga
 
-Cataloga is a read-only infrastructure knowledge platform for Git-managed registry data.
+Cataloga is an AI-native, Git/file-backed, domain-agnostic registry platform.
 
-It provides:
+Cataloga v2 uses audited change sessions so humans and AI agents can explore, validate, edit, diff, and commit registry data through one mutation flow.
 
-- a canonical registry loader for entities, relations, views, and policies
-- validation diagnostics for graph integrity and policy rules
-- static bundle export for the React viewer and Cloudflare Workers + Assets
-- an optional read-only `/api/v1` runtime for canonical graph, topology, drift, and query endpoints
-- managed-hosting contracts for a future operator-controlled hosting plane
+## Current v2 implementation
 
-## Requirements
+- Self-hosted PHP web app (`apps/php`) as the primary runtime.
+- Docker Compose execution for local/self-hosted operation.
+- Canonical file-backed registry under `registry/` (`yaml`/`json`).
+- Change-session based mutations (`upsert_entity`, `delete_entity`).
+- Validation before commit.
+- Git diff and Git commit integration via allowlisted commands.
+- Minimal JSON API for agent workflows (future MCP-ready).
 
-- Node.js 24.x
-- npm
-- Git
+Managed hosting control plane and multi-tenant SaaS abstractions are out of scope for v2.
 
-The repository-local `mise.toml` pins Node 24 for local development.
-
-## Quick Start
+## Quick start (Docker)
 
 ```bash
-mise install
-npm install
-npm run build
-npm exec --workspace @cataloga/cli cataloga -- validate --registry packages/sample-data/registry
-npm exec --workspace @cataloga/cli cataloga -- export --registry packages/sample-data/registry --out .artifacts/bundle.json
-```
-
-Run the read-only API against a registry tree:
-
-```bash
-npm exec --workspace @cataloga/cli cataloga -- serve --registry packages/sample-data/registry --port 3000
+docker compose up --build
 ```
 
 Open:
 
-- `http://127.0.0.1:3000/health`
-- `http://127.0.0.1:3000/api/v1/entities`
-- `http://127.0.0.1:3000/api/v1/snapshots`
-- `http://127.0.0.1:3000/api/v1/query/find-public-exposure`
+```text
+http://localhost:8080
+```
 
-## CLI Commands
+## Repository layout (v2 runtime)
 
-- `cataloga validate --registry <path>`
-- `cataloga inspect --registry <path> [--query type=<entity_type>|id=<id>|tag=<tag>]`
-- `cataloga build --registry <path> --out <path>`
-- `cataloga export --registry <path> --out <path>`
-- `cataloga source add --config <path> --id <id> --type <type>`
-- `cataloga source list --config <path>`
-- `cataloga ingest run --config <path> [--source <id>]`
-- `cataloga snapshot list --config <path>`
-- `cataloga topology build --config <path>`
-- `cataloga topology export --config <path> --id <topology-id> --out <path>`
-- `cataloga drift compute --config <path>`
-- `cataloga serve --config <path> --port <port>`
-- `cataloga serve --registry <path> --port <port>`
+```text
+apps/
+  php/
+    composer.json
+    public/
+      index.php
+    src/
+      Http/
+      Registry/
+      Mutation/
+      Validation/
+      Git/
+      Audit/
+      View/
+    templates/
+registry/
+  schemas/
+  entities/
+  relations/
+  views/
+  policies/
+  evidence/
+domain-packs/
+  example/
+    pack.yaml
+    schemas/
+    views/
+    policies/
+docker/
+  php/
+    Dockerfile
+docker-compose.yml
+```
 
-## API v1
+## UI pages
 
-Human-facing:
+- `/` dashboard
+- `/entities` entity list
+- `/entities/{id}` entity detail
+- `/entities/new` create form
+- `/entities/{id}/edit` edit form
+- `/changes` change-session list
+- `/changes/{id}` change-session page (validation/diff/commit/abort)
+- `/validation` registry validation
+- `/git/diff` git diff (`registry` + `.cataloga`)
 
-- `GET /health`
-- `GET /api/v1/entities`
-- `GET /api/v1/entities/{id}`
-- `GET /api/v1/relations`
-- `GET /api/v1/snapshots`
-- `GET /api/v1/drift`
-- `GET /api/v1/topologies`
-- `GET /api/v1/topologies/{id}`
-- `GET /api/v1/topologies/{id}/svg`
+## JSON API
 
-AI-facing:
+- `GET /api/entities`
+- `GET /api/entities/{id}`
+- `POST /api/changes`
+- `GET /api/changes/{id}`
+- `POST /api/changes/{id}/operations`
+- `POST /api/changes/{id}/validate`
+- `GET /api/changes/{id}/diff`
+- `POST /api/changes/{id}/commit`
+- `POST /api/changes/{id}/abort`
 
-- `GET /api/v1/query/find-assets?q=<text>&type=<entity_type>`
-- `GET /api/v1/query/get-neighbors?id=<entity_id>`
-- `GET /api/v1/query/find-public-exposure`
-- `GET /api/v1/query/find-ingress-paths?id=<entity_id>`
-- `GET /api/v1/query/diff-snapshots?left=<snapshot_id>&right=<snapshot_id>`
-- `GET /api/v1/query/get-evidence?subject_id=<entity_or_relation_id>`
+All writes must go through change sessions; direct entity write endpoints are intentionally omitted.
 
-Query responses include `observed_at`, `source`, `confidence`, `evidence_refs`, and `data`.
+## Change session flow
 
-## Deployment Paths
+1. Start change session (`POST /api/changes` or UI form).
+2. Add mutation operations (`upsert_entity` / `delete_entity`).
+3. Validate pending state.
+4. Review diff.
+5. Commit to registry files.
+6. Optionally create a Git commit.
+7. Audit log written to `.cataloga/audit.log`.
 
-- Static viewer bundle: `docs/read-only-and-delivery-model.md`
-- Cloudflare Workers + Assets: `deploy/cloudflare/README.md`
-- Docker read-only API: `deploy/docker/README.md`
-- Managed-hosting architecture: `docs/managed-hosting-architecture.md`
+## Known limitations
 
-## Monorepo Layout
+- Authentication/RBAC is not implemented yet.
+- CSRF protection is UI-only; API auth is not implemented.
+- Relation mutation operations are not implemented yet (entity mutations only).
+- Diff preview is file-content based and minimal.
+- Existing TypeScript v1/vlegacy modules remain in-repo for migration safety but are not the primary v2 runtime.
 
-- `apps/cli`: CLI entrypoint
-- `apps/api`: read-only HTTP API
-- `apps/web`: static React viewer
-- `apps/worker`: ingest worker
-- `packages/core`: registry loader and runtime assembly
-- `packages/validator`: registry validation
-- `packages/bundle`: static bundle builder
-- `packages/search`: viewer search helpers
-- `packages/managed-hosting`: managed-hosting contracts and helpers
-- `deploy/cloudflare`: Cloudflare packaging/runtime example
-- `deploy/docker`: Docker API example
+## Next steps
+
+1. Add authentication and RBAC for UI/API/MCP tool boundaries.
+2. Implement relation mutation operations and richer validation rules.
+3. Add semantic diff rendering and review workflows.
+4. Implement MCP server using the existing mutation engine (`apps/mcp/README.md`).

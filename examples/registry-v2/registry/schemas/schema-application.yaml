@@ -1,0 +1,13 @@
+kind: schema
+id: schema-application
+title: Application Schema
+appliesTo: entity
+fields:
+  - name: name
+    type: string
+    required: true
+  - name: owner
+    type: string
+    required: false
+identityFields:
+  - name

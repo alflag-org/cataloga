@@ -1,3 +1,7 @@
+> [!WARNING]
+> Deprecated for Cataloga v2: managed hosting is out of scope for the current product direction.
+> This document is retained temporarily for historical reference during migration.
+
 # Managed hosting operational model
 
 This document defines the M2 operational model for Cataloga managed hosting.

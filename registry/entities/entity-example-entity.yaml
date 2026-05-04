@@ -1,0 +1,9 @@
+apiVersion: cataloga.io/v2
+kind: Entity
+metadata:
+  id: example:entity
+  type: example.type
+  name: Example Entity
+  labels: {}
+  tags: []
+spec: {}

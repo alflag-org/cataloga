@@ -1,73 +1,57 @@
-# Self-host guide
+# Self-host guide (Cataloga v2)
 
-This guide shows how to run Cataloga against a Git-managed registry repository.
+Cataloga v2 primary runtime is the PHP self-hosted app with a file-backed registry and audited change sessions.
 
 ## Requirements
 
-- Node.js 24.x
-- npm
-- Git
+- Docker with Compose
+- Git (optional but recommended for diff/commit workflows)
 
-## 1) Install and build
-
-```bash
-mise install
-npm install
-npm run build
-```
-
-If you use `mise`, the repository-local `mise.toml` installs the expected Node.js runtime.
-
-## 2) Prepare a registry data repository
-
-Use the included canonical example as a baseline:
+## Quick start
 
 ```bash
-mkdir -p ./.local/registry-data
-cp -R examples/minimal-registry/. ./.local/registry-data/
+docker compose up --build
 ```
 
-Treat `./.local/registry-data` as your Git-tracked registry repo:
+Open:
 
-```bash
-cd ./.local/registry-data
-git init
-git add .
-git commit -m "chore: bootstrap registry data"
-cd ../..
+```text
+http://localhost:8080
 ```
 
-## 3) Validate, inspect, and build
+## Runtime paths
 
-```bash
-npm exec --workspace @cataloga/cli cataloga -- validate --registry ./.local/registry-data
-npm exec --workspace @cataloga/cli cataloga -- inspect --registry ./.local/registry-data --query "type=host"
-npm exec --workspace @cataloga/cli cataloga -- build --registry ./.local/registry-data --out ./.local/bundle.json
-```
+- Canonical registry: `registry/`
+- Runtime state and audits: `.cataloga/`
 
-## 4) Serve a read-only API
+`docker-compose.yml` mounts both into the container:
 
-```bash
-npm exec --workspace @cataloga/cli cataloga -- serve --registry ./.local/registry-data --port 3000
-curl http://127.0.0.1:3000/health
-curl http://127.0.0.1:3000/api/v1/entities
-curl http://127.0.0.1:3000/api/v1/query/find-public-exposure
-```
+- `./registry:/app/registry`
+- `./.cataloga:/app/.cataloga`
 
-## 5) Update loop
+## Mutation flow
 
-1. Change files inside `registry/`.
-2. Commit changes in the data repo.
-3. Re-run `validate`.
-4. Re-run `build` or `export`.
-5. Redeploy static assets or API runtime.
+All writes must use change sessions:
 
-## Cloudflare production note
+1. Create or edit an entity from UI (`/entities/new`, `/entities/{id}/edit`) or API (`POST /api/changes`).
+2. Add operations.
+3. Validate.
+4. Review diff.
+5. Commit and optionally create a Git commit.
 
-For Cloudflare production, the recommended model is no longer a local `wrangler deploy` from this
-repository. Use a deployment repository, usually a fork of Cataloga, and run deployment from GitHub Actions.
+## API endpoints
 
-- Deployment repo: Cataloga runtime, Worker, viewer, packaging script, `registry/`, and workflow templates.
-- Runtime contract: Cloudflare serves packaged assets only. It never reads GitHub live.
+- `GET /api/entities`
+- `GET /api/entities/{id}`
+- `POST /api/changes`
+- `GET /api/changes/{id}`
+- `POST /api/changes/{id}/operations`
+- `POST /api/changes/{id}/validate`
+- `GET /api/changes/{id}/diff`
+- `POST /api/changes/{id}/commit`
+- `POST /api/changes/{id}/abort`
 
-Use `docs/cloudflare-deployment.md` and `deploy/cloudflare/README.md` when setting up that model.
+## Notes
+
+- Managed hosting/operator control plane is out of scope for v2.
+- Existing Node read-only assets remain temporarily for migration and are not the primary runtime path.

@@ -1,3 +1,7 @@
+> [!WARNING]
+> Legacy v1 deployment notes are kept for migration context.
+> For Cataloga v2 use the PHP runtime and `docker compose up --build` from repository root.
+
 # Reproducible deployment (Cloudflare / Docker)
 
 This document ties the runnable examples under `deploy/` to the Git-native registry workflow.

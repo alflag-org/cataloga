@@ -1,0 +1,9 @@
+id: dns
+version: 0.1.0
+title: dns domain pack
+description: Example dns extension for Cataloga v2.
+entrypoints:
+  schemas: schemas
+  policies: policies
+  views: views
+  rules: rules

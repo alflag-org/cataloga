@@ -1,0 +1,11 @@
+apiVersion: cataloga.io/v2
+kind: DomainPack
+metadata:
+  id: example
+  name: Example Domain Pack
+spec:
+  description: >-
+    Minimal example pack for Cataloga v2.
+  schemasPath: schemas
+  viewsPath: views
+  policiesPath: policies
