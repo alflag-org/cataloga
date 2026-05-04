@@ -5,15 +5,15 @@
   <?php else: ?>
     <table>
       <thead>
-      <tr><th>ID</th><th>Type</th><th>Source</th><th>Target</th><th>Source Path</th></tr>
+      <tr><th>ID</th><th>Type</th><th>From</th><th>To</th><th>Source Path</th></tr>
       </thead>
       <tbody>
       <?php foreach ($relations as $relation): ?>
         <tr>
           <td><?= h((string) $relation['id']) ?></td>
           <td><?= h((string) $relation['type']) ?></td>
-          <td><?= h((string) $relation['source']) ?></td>
-          <td><?= h((string) $relation['target']) ?></td>
+          <td><?= h((string) $relation['from']) ?></td>
+          <td><?= h((string) $relation['to']) ?></td>
           <td><code><?= h((string) $relation['sourcePath']) ?></code></td>
         </tr>
       <?php endforeach; ?>
