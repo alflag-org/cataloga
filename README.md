@@ -114,3 +114,18 @@ All writes must go through change sessions; direct entity write endpoints are in
 2. Implement relation mutation operations and richer validation rules.
 3. Add semantic diff rendering and review workflows.
 4. Implement MCP server using the existing mutation engine (`apps/mcp/README.md`).
+
+
+## CI (v2 mainline)
+
+Primary v2 CI check is GitHub Actions workflow `cataloga-v2-php` (`.github/workflows/cataloga-v2-php.yml`) and runs on pull requests plus pushes to `master`.
+
+It verifies:
+
+- `composer validate` in `apps/php`
+- `composer install --no-interaction --prefer-dist` in `apps/php`
+- `php -l` lint over `apps/php/**/*.php`
+- `docker compose config` at repo root
+- `docker compose build` at repo root
+
+Legacy demo deployment workflow remains for demo deployment purposes and is not part of v2 mainline quality checks.
