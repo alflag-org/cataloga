@@ -17,12 +17,12 @@ final class GitService
 
     public function diffRegistryAndCataloga(): array
     {
-        return $this->runGitCommand(['diff', '--', 'registry', '.cataloga']);
+        return $this->runGitCommand(['diff', '--', 'registry']);
     }
 
-    public function addRegistryAndCataloga(): array
+    public function addRegistry(): array
     {
-        return $this->runGitCommand(['add', 'registry', '.cataloga']);
+        return $this->runGitCommand(['add', 'registry']);
     }
 
     public function commit(string $message): array

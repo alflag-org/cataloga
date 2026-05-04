@@ -175,7 +175,7 @@ final class ChangeService
 
             if ($createGitCommit) {
                 $message = trim($commitMessage) !== '' ? trim($commitMessage) : 'Cataloga change ' . $session['id'];
-                $addResult = $this->gitService->addRegistryAndCataloga();
+                $addResult = $this->gitService->addRegistry();
 
                 if (!$addResult['ok']) {
                     $git['message'] = $addResult['stderr'] ?: 'git add failed.';

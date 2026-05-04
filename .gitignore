@@ -1,3 +1,5 @@
 node_modules/
 dist/
+
+# Runtime/derived state (non-canonical)
 .cataloga/
