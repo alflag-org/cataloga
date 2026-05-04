@@ -6,13 +6,22 @@ namespace Cataloga\Http;
 
 use Cataloga\Mutation\ChangeService;
 use Cataloga\Registry\EntityRepository;
+use Cataloga\Registry\RelationRepository;
 
 final class ApiController
 {
     public function __construct(
         private readonly EntityRepository $entityRepository,
+        private readonly RelationRepository $relationRepository,
         private readonly ChangeService $changeService,
     ) {
+    }
+
+    public function relations(Request $request): Response
+    {
+        return Response::json([
+            'items' => $this->relationRepository->listRelations(),
+        ]);
     }
 
     public function entities(Request $request): Response

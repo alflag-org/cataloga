@@ -13,6 +13,7 @@ use Cataloga\Mutation\ChangeService;
 use Cataloga\Mutation\ChangeSessionRepository;
 use Cataloga\Registry\EntityRepository;
 use Cataloga\Registry\PathGuard;
+use Cataloga\Registry\RelationRepository;
 use Cataloga\Registry\RecordParser;
 use Cataloga\Registry\RecordSerializer;
 use Cataloga\Validation\RegistryValidator;
@@ -50,12 +51,14 @@ $recordParser = new RecordParser();
 $recordSerializer = new RecordSerializer();
 $pathGuard = new PathGuard($registryRoot);
 $entityRepository = new EntityRepository($registryRoot, $recordParser, $recordSerializer, $pathGuard);
+$relationRepository = new RelationRepository($registryRoot, $recordParser, $recordSerializer, $pathGuard);
 $changeRepository = new ChangeSessionRepository($runtimeRoot);
 $validator = new RegistryValidator();
 $gitService = new GitService($projectRoot);
 $auditLogger = new AuditLogger($runtimeRoot);
 $changeService = new ChangeService(
     $entityRepository,
+    $relationRepository,
     $recordSerializer,
     $pathGuard,
     $changeRepository,
@@ -65,12 +68,13 @@ $changeService = new ChangeService(
 );
 $renderer = new TemplateRenderer(dirname(__DIR__) . '/templates');
 
-$web = new WebController($renderer, $entityRepository, $changeService, $gitService);
-$api = new ApiController($entityRepository, $changeService);
+$web = new WebController($renderer, $entityRepository, $relationRepository, $changeService, $gitService);
+$api = new ApiController($entityRepository, $relationRepository, $changeService);
 
 $router = new Router();
 $router->add('GET', '/', [$web, 'dashboard']);
 $router->add('GET', '/entities', [$web, 'entityList']);
+$router->add('GET', '/relations', [$web, 'relationList']);
 $router->add('GET', '/changes', [$web, 'changeList']);
 $router->add('GET', '/entities/new', [$web, 'newEntityForm']);
 $router->add('POST', '/entities', [$web, 'upsertEntity']);
@@ -85,6 +89,7 @@ $router->add('GET', '/validation', [$web, 'validationPage']);
 $router->add('GET', '/git/diff', [$web, 'gitDiffPage']);
 
 $router->add('GET', '/api/entities', [$api, 'entities']);
+$router->add('GET', '/api/relations', [$api, 'relations']);
 $router->add('GET', '/api/entities/{id}', [$api, 'entity']);
 $router->add('POST', '/api/changes', [$api, 'createChange']);
 $router->add('GET', '/api/changes/{id}', [$api, 'getChange']);

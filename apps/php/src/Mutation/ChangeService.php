@@ -7,16 +7,18 @@ namespace Cataloga\Mutation;
 use Cataloga\Audit\AuditLogger;
 use Cataloga\Git\GitService;
 use Cataloga\Registry\EntityRepository;
+use Cataloga\Registry\RelationRepository;
 use Cataloga\Registry\PathGuard;
 use Cataloga\Registry\RecordSerializer;
 use Cataloga\Validation\RegistryValidator;
 
 final class ChangeService
 {
-    private const ALLOWED_OPERATIONS = ['upsert_entity', 'delete_entity'];
+    private const ALLOWED_OPERATIONS = ['upsert_entity', 'delete_entity', 'upsert_relation', 'delete_relation'];
 
     public function __construct(
         private readonly EntityRepository $entityRepository,
+        private readonly RelationRepository $relationRepository,
         private readonly RecordSerializer $recordSerializer,
         private readonly PathGuard $pathGuard,
         private readonly ChangeSessionRepository $changeRepository,
@@ -243,10 +245,10 @@ final class ChangeService
             if (isset($projection['baselineById'][$id])) {
                 $baselinePath = $projection['baselineById'][$id]['sourcePath'];
                 if ($baselinePath === $path) {
-                    $before = $this->readFileIfExists($baselinePath);
+                    $before = $this->readFileIfExists($baselinePath, true);
                     $status = $before === $after ? 'unchanged' : 'modified';
                 } else {
-                    $before = $this->readFileIfExists($baselinePath);
+                    $before = $this->readFileIfExists($baselinePath, true);
                     $status = 'modified';
                 }
             }
@@ -258,17 +260,37 @@ final class ChangeService
             $items[] = [
                 'status' => $status,
                 'path' => $path,
-                'entityId' => $id,
+                'recordId' => $id,
                 'before' => $before,
                 'after' => $after,
             ];
         }
 
-        foreach ($projection['deletePaths'] as $path) {
+
+        foreach ($projection['projectedRelationsById'] as $id => $relation) {
+            $path = $relation['sourcePath'];
+            $after = $this->recordSerializer->encode($relation['record'], $path);
+            $before = null;
+            $status = 'added';
+
+            if (isset($projection['baselineRelationsById'][$id])) {
+                $baselinePath = $projection['baselineRelationsById'][$id]['sourcePath'];
+                $before = $this->readFileIfExists($baselinePath, false);
+                $status = $before === $after ? 'unchanged' : 'modified';
+            }
+
+            if ($status === 'unchanged') {
+                continue;
+            }
+
+            $items[] = ['status' => $status, 'path' => $path, 'recordId' => $id, 'before' => $before, 'after' => $after];
+        }
+
+        foreach (array_merge($projection['deleteEntityPaths'], $projection['deleteRelationPaths']) as $path) {
             $items[] = [
                 'status' => 'deleted',
                 'path' => $path,
-                'before' => $this->readFileIfExists($path),
+                'before' => $this->readFileIfExists($path, str_starts_with($path, 'entities/')),
                 'after' => null,
             ];
         }
@@ -283,12 +305,18 @@ final class ChangeService
      */
     private function applyProjectedState(array $projection): void
     {
-        if ($projection['deletePaths'] !== []) {
-            $this->entityRepository->deleteEntityPaths($projection['deletePaths']);
+        if ($projection['deleteEntityPaths'] !== []) {
+            $this->entityRepository->deleteEntityPaths($projection['deleteEntityPaths']);
+        }
+        if ($projection['deleteRelationPaths'] !== []) {
+            $this->relationRepository->deleteRelationPaths($projection['deleteRelationPaths']);
         }
 
         foreach ($projection['projectedById'] as $entity) {
             $this->entityRepository->writeEntity($entity['record'], $entity['sourcePath']);
+        }
+        foreach ($projection['projectedRelationsById'] as $relation) {
+            $this->relationRepository->writeRelation($relation['record'], $relation['sourcePath']);
         }
     }
 
@@ -303,13 +331,20 @@ final class ChangeService
         $baselineById = $index['byId'];
         $projectedById = $baselineById;
         $finalIdPaths = $index['idPaths'];
+        $relationIndex = $this->relationRepository->loadRelationIndex();
+
+        $baselineRelationsById = $relationIndex['byId'];
+        $projectedRelationsById = $baselineRelationsById;
+        $finalRelationPaths = $relationIndex['idPaths'];
+
         $errors = [];
         foreach ($index['parseErrors'] ?? [] as $parseError) {
             $path = (string) ($parseError['path'] ?? '');
             $message = (string) ($parseError['message'] ?? 'Invalid entity record.');
             $errors[] = trim($path . ': ' . $message);
         }
-        $deletePaths = [];
+        $deleteEntityPaths = [];
+        $deleteRelationPaths = [];
 
         foreach ($session['operations'] ?? [] as $operation) {
             $type = (string) ($operation['type'] ?? '');
@@ -346,7 +381,7 @@ final class ChangeService
                 if (isset($finalIdPaths[$id])) {
                     foreach ($finalIdPaths[$id] as $existingPath) {
                         if ($existingPath !== $normalizedPath) {
-                            $deletePaths[] = $existingPath;
+                            $deleteEntityPaths[] = $existingPath;
                         }
                     }
                 }
@@ -368,7 +403,7 @@ final class ChangeService
 
                 if (isset($finalIdPaths[$id])) {
                     foreach ($finalIdPaths[$id] as $existingPath) {
-                        $deletePaths[] = $existingPath;
+                        $deleteEntityPaths[] = $existingPath;
                     }
                 }
 
@@ -376,23 +411,102 @@ final class ChangeService
                 continue;
             }
 
+
+            if ($type === 'upsert_relation') {
+                $relation = is_array($operation['relation'] ?? null) ? $operation['relation'] : [
+                    'id' => $operation['id'] ?? null,
+                    'source' => $operation['source'] ?? null,
+                    'target' => $operation['target'] ?? null,
+                    'type' => $operation['relationType'] ?? ($operation['typeName'] ?? null),
+                ];
+
+                $id = is_string($relation['id'] ?? null) ? (string) $relation['id'] : '';
+                if ($id === '') {
+                    $errors[] = 'upsert_relation requires relation.id.';
+                    continue;
+                }
+                if (!is_string($relation['source'] ?? null) || trim((string) $relation['source']) === '') {
+                    $errors[] = 'upsert_relation requires relation.source.';
+                    continue;
+                }
+                if (!is_string($relation['target'] ?? null) || trim((string) $relation['target']) === '') {
+                    $errors[] = 'upsert_relation requires relation.target.';
+                    continue;
+                }
+                if (!is_string($relation['type'] ?? null) || trim((string) $relation['type']) === '') {
+                    $errors[] = 'upsert_relation requires relation.type.';
+                    continue;
+                }
+
+                $sourcePath = (string) ($operation['sourcePath'] ?? '');
+                if ($sourcePath === '' && isset($baselineRelationsById[$id])) {
+                    $sourcePath = (string) $baselineRelationsById[$id]['sourcePath'];
+                }
+                if ($sourcePath === '') {
+                    $sourcePath = $this->defaultRelationPathForId($id);
+                }
+
+                try {
+                    $normalizedPath = $this->pathGuard->normalizeWithinRegistry($sourcePath, 'relations');
+                } catch (\Throwable $exception) {
+                    $errors[] = $exception->getMessage();
+                    continue;
+                }
+
+                if (isset($finalRelationPaths[$id])) {
+                    foreach ($finalRelationPaths[$id] as $existingPath) {
+                        if ($existingPath !== $normalizedPath) {
+                            $deleteRelationPaths[] = $existingPath;
+                        }
+                    }
+                }
+
+                $projectedRelationsById[$id] = [
+                    'record' => $relation,
+                    'sourcePath' => $normalizedPath,
+                ];
+                $finalRelationPaths[$id] = [$normalizedPath];
+                continue;
+            }
+
+            if ($type === 'delete_relation') {
+                $id = (string) ($operation['id'] ?? '');
+                if ($id === '') {
+                    $errors[] = 'delete_relation requires id.';
+                    continue;
+                }
+
+                if (isset($finalRelationPaths[$id])) {
+                    foreach ($finalRelationPaths[$id] as $existingPath) {
+                        $deleteRelationPaths[] = $existingPath;
+                    }
+                }
+
+                unset($projectedRelationsById[$id], $finalRelationPaths[$id]);
+                continue;
+            }
+
             $errors[] = 'Unsupported operation in change session: ' . $type;
         }
 
-        $deletePaths = array_values(array_unique($deletePaths));
+        $deleteEntityPaths = array_values(array_unique($deleteEntityPaths));
+        $deleteRelationPaths = array_values(array_unique($deleteRelationPaths));
 
         return [
             'baselineById' => $baselineById,
+            'baselineRelationsById' => $baselineRelationsById,
             'projectedById' => $projectedById,
             'finalIdPaths' => $finalIdPaths,
+            'projectedRelationsById' => $projectedRelationsById,
             'errors' => $errors,
-            'deletePaths' => $deletePaths,
+            'deleteEntityPaths' => $deleteEntityPaths,
+            'deleteRelationPaths' => $deleteRelationPaths,
         ];
     }
 
-    private function readFileIfExists(string $relativePath): ?string
+    private function readFileIfExists(string $relativePath, bool $entity = true): ?string
     {
-        $absolute = $this->entityRepository->absolutePathForEntity($relativePath);
+        $absolute = $entity ? $this->entityRepository->absolutePathForEntity($relativePath) : $this->relationRepository->absolutePathForRelation($relativePath);
 
         if (!is_file($absolute)) {
             return null;
@@ -414,6 +528,20 @@ final class ChangeService
         }
 
         return 'entities/entity-' . $slug . '.yaml';
+    }
+
+
+    private function defaultRelationPathForId(string $id): string
+    {
+        $slug = strtolower($id);
+        $slug = preg_replace('/[^a-z0-9]+/', '-', $slug);
+        $slug = trim((string) $slug, '-');
+
+        if ($slug === '') {
+            $slug = 'relation';
+        }
+
+        return 'relations/relation-' . $slug . '.yaml';
     }
 
     /**
@@ -458,6 +586,15 @@ final class ChangeService
                 $metadata = is_array($operation['entity']['metadata'] ?? null) ? $operation['entity']['metadata'] : [];
                 if (is_string($metadata['id'] ?? null)) {
                     $targetIds[] = (string) $metadata['id'];
+                }
+            }
+            if (($operation['type'] ?? null) === 'delete_relation' && is_string($operation['id'] ?? null)) {
+                $targetIds[] = (string) $operation['id'];
+            }
+            if (($operation['type'] ?? null) === 'upsert_relation') {
+                $relation = is_array($operation['relation'] ?? null) ? $operation['relation'] : $operation;
+                if (is_string($relation['id'] ?? null)) {
+                    $targetIds[] = (string) $relation['id'];
                 }
             }
         }
