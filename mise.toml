@@ -57,3 +57,6 @@ run = [
   "curl -fsS \"$CATALOGA_BASE_URL/api/entities\" >/dev/null",
   "docker compose ps",
 ]
+
+[tools]
+"ubi:adwinying/php" = "8.5"
