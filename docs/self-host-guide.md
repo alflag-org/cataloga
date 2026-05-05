@@ -6,7 +6,7 @@ Cataloga primary runtime is the PHP self-hosted app with a file-backed registry 
 
 - mise
 - Docker with Compose
-- Git (optional but recommended for diff/commit workflows)
+- Git (optional; not required for normal save flow)
 
 ## Quick start
 
@@ -53,7 +53,7 @@ All writes must use change sessions:
 4. Review diff.
 5. Save to registry files or discard.
 
-Git commit creation is separate from the normal UI save path. API clients can request it explicitly when needed.
+Core save writes local `registry/` files. Git is not part of normal UI/API save behavior.
 
 ## API endpoints
 
@@ -64,8 +64,8 @@ Git commit creation is separate from the normal UI save path. API clients can re
 - `POST /api/changes/{id}/operations`
 - `POST /api/changes/{id}/validate`
 - `GET /api/changes/{id}/diff`
-- `POST /api/changes/{id}/commit`
-- `POST /api/changes/{id}/abort`
+- `POST /api/changes/{id}/save`
+- `POST /api/changes/{id}/discard`
 
 ## Notes
 

@@ -36,7 +36,7 @@ Compatibility aliases are kept for existing clients:
 - `POST /api/changes/{changeId}/save`
 - `POST /api/changes/{changeId}/discard`
 
-`save` applies validated changes to registry files. API clients that also want a Git commit must explicitly send `createGitCommit: true`.
+`save` applies validated changes to local registry files (`registry/`). Git is not part of the core save flow.
 
 Compatibility aliases are also available:
 

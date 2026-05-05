@@ -5,7 +5,6 @@ declare(strict_types=1);
 namespace Cataloga\Mutation;
 
 use Cataloga\Audit\AuditLogger;
-use Cataloga\Git\GitService;
 use Cataloga\Registry\EntityRepository;
 use Cataloga\Registry\RegistryFileRepository;
 use Cataloga\Registry\RelationRepository;
@@ -17,7 +16,9 @@ use Cataloga\Validation\RegistryValidator;
 final class ChangeService
 {
     private const ALLOWED_OPERATIONS = ['upsert_entity', 'delete_entity', 'upsert_relation', 'delete_relation', 'set_dependency_slot', 'upsert_settings'];
-    private const CLOSED_STATUSES = ['applied', 'committed', 'failed', 'discarded', 'aborted'];
+    private const MUTABLE_STATUSES = ['draft', 'validated', 'open'];
+    private const SAVED_STATUSES = ['saved', 'applied', 'committed'];
+    private const DISCARDED_STATUSES = ['discarded', 'aborted'];
 
     public function __construct(
         private readonly EntityRepository $entityRepository,
@@ -28,7 +29,6 @@ final class ChangeService
         private readonly ResourceDependencyProjector $dependencyProjector,
         private readonly ChangeSessionRepository $changeRepository,
         private readonly RegistryValidator $validator,
-        private readonly GitService $gitService,
         private readonly AuditLogger $auditLogger,
     ) {
     }
@@ -46,7 +46,12 @@ final class ChangeService
      */
     public function getChange(string $id): ?array
     {
-        return $this->changeRepository->get($id);
+        $session = $this->changeRepository->get($id);
+        if ($session === null) {
+            return null;
+        }
+
+        return $this->normalizeLegacyStatus($session);
     }
 
     /**
@@ -54,7 +59,9 @@ final class ChangeService
      */
     public function listRecentChanges(int $limit = 20): array
     {
-        return $this->changeRepository->listRecent($limit);
+        $sessions = $this->changeRepository->listRecent($limit);
+
+        return array_map(fn (array $session): array => $this->normalizeLegacyStatus($session), $sessions);
     }
 
     /**
@@ -64,7 +71,7 @@ final class ChangeService
     public function addOperations(string $changeId, array $operations): array
     {
         $session = $this->requireChange($changeId);
-        if (in_array($session['status'], self::CLOSED_STATUSES, true)) {
+        if (!$this->isMutableStatus((string) ($session['status'] ?? 'draft'))) {
             throw new \RuntimeException('Cannot add operations to closed change session.');
         }
 
@@ -86,8 +93,41 @@ final class ChangeService
             $session['operations'][] = $operation;
         }
 
-        $session['status'] = 'open';
+        $session['status'] = 'draft';
         $this->changeRepository->save($session);
+
+        return $this->normalizeLegacyStatus($session);
+    }
+
+    private function isMutableStatus(string $status): bool
+    {
+        return in_array($status, self::MUTABLE_STATUSES, true);
+    }
+
+    private function isSavedStatus(string $status): bool
+    {
+        return in_array($status, self::SAVED_STATUSES, true);
+    }
+
+    private function isDiscardedStatus(string $status): bool
+    {
+        return in_array($status, self::DISCARDED_STATUSES, true);
+    }
+
+    /**
+     * @param array<string,mixed> $session
+     * @return array<string,mixed>
+     */
+    private function normalizeLegacyStatus(array $session): array
+    {
+        $status = (string) ($session['status'] ?? 'draft');
+        if ($status === 'open') {
+            $session['status'] = 'draft';
+        } elseif ($status === 'applied' || $status === 'committed') {
+            $session['status'] = 'saved';
+        } elseif ($status === 'aborted') {
+            $session['status'] = 'discarded';
+        }
 
         return $session;
     }
@@ -98,7 +138,8 @@ final class ChangeService
     public function validateChange(string $changeId): array
     {
         $session = $this->requireChange($changeId);
-        if (in_array($session['status'], self::CLOSED_STATUSES, true)) {
+        $status = (string) ($session['status'] ?? 'draft');
+        if ($this->isSavedStatus($status) || $this->isDiscardedStatus($status) || $status === 'failed') {
             throw new \RuntimeException('Cannot validate closed change session.');
         }
 
@@ -114,7 +155,7 @@ final class ChangeService
         );
 
         $session['validation'] = $validation;
-        $session['status'] = $validation['valid'] ? 'validated' : 'open';
+        $session['status'] = $validation['valid'] ? 'validated' : 'draft';
         $this->changeRepository->save($session);
 
         return $session;
@@ -161,68 +202,41 @@ final class ChangeService
     /**
      * @return array<string,mixed>
      */
-    public function commitChange(string $changeId, string $commitMessage = '', bool $createGitCommit = true): array
+    public function saveChange(string $changeId): array
     {
         $session = $this->requireChange($changeId);
-        if (in_array($session['status'], self::CLOSED_STATUSES, true)) {
-            throw new \RuntimeException('Cannot commit closed change session.');
+        $status = (string) ($session['status'] ?? 'draft');
+
+        if ($this->isSavedStatus($status)) {
+            return $session;
+        }
+        if ($this->isDiscardedStatus($status)) {
+            throw new \RuntimeException('This draft change has already been discarded.');
+        }
+        if ($status === 'failed') {
+            throw new \RuntimeException('This draft change failed. Create a new draft change and retry.');
         }
 
         $session = $this->validateChange($changeId);
         if (!($session['validation']['valid'] ?? false)) {
-            $this->audit('commit_blocked', $session, null);
-            throw new \RuntimeException('Validation failed. Commit blocked.');
+            $this->audit('save_blocked', $session, null);
+            throw new \RuntimeException('Validation failed. Save blocked.');
         }
 
         $projection = $this->projectedState($session);
         try {
             $this->applyProjectedState($projection);
-
-            $commitHash = null;
-            $git = [
-                'enabled' => $createGitCommit,
-                'ok' => null,
-                'message' => '',
-            ];
-
-            if ($createGitCommit) {
-                $message = trim($commitMessage) !== '' ? trim($commitMessage) : 'Cataloga change ' . $session['id'];
-                $addResult = $this->gitService->addRegistry();
-
-                if (!$addResult['ok']) {
-                    $git['ok'] = false;
-                    $git['message'] = $addResult['stderr'] ?: 'git add failed.';
-                } else {
-                    $commitResult = $this->gitService->commit($message);
-                    if (!$commitResult['ok']) {
-                        $git['ok'] = false;
-                        $git['message'] = $commitResult['stderr'] ?: 'git commit failed.';
-                    } else {
-                        $git['ok'] = true;
-                        $head = $this->gitService->revParseHead();
-                        if ($head['ok']) {
-                            $commitHash = $head['stdout'];
-                        }
-                    }
-                }
-            } else {
-                $git['ok'] = null;
-                $git['message'] = 'Git commit was not requested.';
-            }
-
-            $session['status'] = $createGitCommit && $git['ok'] === true ? 'committed' : 'applied';
-            $session['commitHash'] = $commitHash;
-            $session['git'] = $git;
+            $session['status'] = 'saved';
             $this->changeRepository->save($session);
 
-            $this->audit($session['status'] === 'committed' ? 'commit' : 'apply', $session, $commitHash);
+            $this->audit('save', $session, null);
 
             return $session;
         } catch (\Throwable $exception) {
             $session['status'] = 'failed';
             $session['lastError'] = $exception->getMessage();
             $this->changeRepository->save($session);
-            $this->audit('commit_failed', $session, null);
+            $this->audit('save_failed', $session, null);
             throw $exception;
         }
     }
@@ -230,10 +244,18 @@ final class ChangeService
     /**
      * @return array<string,mixed>
      */
-    public function abortChange(string $changeId): array
+    public function commitChange(string $changeId, string $commitMessage = '', bool $createGitCommit = true): array
+    {
+        return $this->saveChange($changeId);
+    }
+
+    /**
+     * @return array<string,mixed>
+     */
+    public function discardChange(string $changeId): array
     {
         $session = $this->requireChange($changeId);
-        if (in_array($session['status'], self::CLOSED_STATUSES, true)) {
+        if ($this->isDiscardedStatus((string) ($session['status'] ?? 'draft'))) {
             return $session;
         }
 
@@ -243,6 +265,14 @@ final class ChangeService
         $this->audit('abort', $session, null);
 
         return $session;
+    }
+
+    /**
+     * @return array<string,mixed>
+     */
+    public function abortChange(string $changeId): array
+    {
+        return $this->discardChange($changeId);
     }
 
     /**

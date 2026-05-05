@@ -35,7 +35,7 @@
 
   <main class="workspace">
     <?= $content ?>
-    <div class="footer-status">Cataloga ・ ローカルワークスペース ・ すべての書き込みはドラフト変更を経由</div>
+    <div class="footer-status">Cataloga ・ ローカルワークスペース ・ 変更は保存前に確認されます</div>
   </main>
 </div>
 <script src="/assets/app.js"></script>

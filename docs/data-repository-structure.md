@@ -1,6 +1,6 @@
 # Data repository structure
 
-Cataloga reads a canonical `registry/` tree from a Git-managed data repository.
+Cataloga reads and writes a canonical local `registry/` tree.
 
 ## Canonical layout
 
@@ -30,6 +30,7 @@ registry/
 - Each record must live in exactly one file.
 - Cataloga reads `.json`, `.yaml`, and `.yml` files recursively.
 - `sourceFilePath` is preserved for diagnostics and viewer/API output.
+- Core save flow writes local files directly; Git integration is optional and outside the core flow.
 
 ## Record guidance
 

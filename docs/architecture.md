@@ -2,7 +2,7 @@
 
 ## Product definition
 
-Cataloga is a Git/file-backed registry for Resources and Dependencies.
+Cataloga is a local file-backed registry for Resources and Dependencies.
 
 - Humans operate it from a simple Web UI.
 - External systems operate it from an HTTP API.
@@ -27,7 +27,7 @@ Cataloga is a Git/file-backed registry for Resources and Dependencies.
 - Apply edit operations
 - Validate
 - Preview diff
-- Save or discard
+- Save (write local registry files) or discard
 
 4. Interfaces
 - Web UI
@@ -61,3 +61,4 @@ registry/
 
 Current codebase retains some internal names such as `EntityRepository`, `RelationRepository`, and `DomainPackRepository`.
 User-facing UI and primary docs use the product terms: Resource, Dependency, Type pack, and Draft change.
+Git is outside the core write path and may return later as an optional integration boundary.

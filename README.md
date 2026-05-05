@@ -74,8 +74,8 @@ docs/
 - Registry files under `registry/` are canonical source of truth.
 - Web UI and HTTP API use the same draft-change workflow for writes.
 - Save is blocked when validation errors exist.
-- Save applies changes to registry files. Git commit creation is a separate explicit integration concern, not part of the normal UI decision path.
-- Technical Git/file details are available as advanced/diagnostic views.
+- Save applies changes to local registry files.
+- Git is not part of the core save flow. Optional integrations (Git sync/history, SQLite, MySQL, remote registry backends) can be added later.
 
 ## API summary
 

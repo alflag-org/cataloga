@@ -26,7 +26,7 @@ final class ChangeSessionRepository
             'id' => $id,
             'actor' => $actor,
             'actorType' => $actorType,
-            'status' => 'open',
+            'status' => 'draft',
             'createdAt' => $timestamp,
             'updatedAt' => $timestamp,
             'operations' => [],

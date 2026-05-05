@@ -19,7 +19,7 @@
         <?php foreach ($changes as $change): ?>
           <?php
           $operations = is_array($change['operations'] ?? null) ? $change['operations'] : [];
-          $status = (string) ($change['status'] ?? 'open');
+          $status = (string) ($change['status'] ?? 'draft');
           $statusLabel = ui_change_status_label($status);
           $statusClass = ui_change_status_class($status);
           ?>

@@ -554,18 +554,7 @@ final class ApiController
      */
     public function commitChange(Request $request, array $params): Response
     {
-        try {
-            $id = $params['id'] ?? '';
-            $payload = $request->all();
-            $message = (string) ($payload['commitMessage'] ?? '');
-            $createGitCommit = $this->parseBoolean($payload['createGitCommit'] ?? false);
-
-            $session = $this->changeService->commitChange($id, $message, $createGitCommit);
-
-            return Response::json($session);
-        } catch (\Throwable $exception) {
-            return Response::json(['error' => $exception->getMessage()], 422);
-        }
+        return $this->saveChange($request, $params);
     }
 
     /**
@@ -573,7 +562,14 @@ final class ApiController
      */
     public function saveChange(Request $request, array $params): Response
     {
-        return $this->commitChange($request, $params);
+        try {
+            $id = $params['id'] ?? '';
+            $session = $this->changeService->saveChange($id);
+
+            return Response::json($session);
+        } catch (\Throwable $exception) {
+            return Response::json(['error' => $exception->getMessage()], 422);
+        }
     }
 
     /**
@@ -596,7 +592,14 @@ final class ApiController
      */
     public function discardChange(Request $request, array $params): Response
     {
-        return $this->abortChange($request, $params);
+        try {
+            $id = $params['id'] ?? '';
+            $session = $this->changeService->discardChange($id);
+
+            return Response::json($session);
+        } catch (\Throwable $exception) {
+            return Response::json(['error' => $exception->getMessage()], 422);
+        }
     }
 
     public function installTypePack(Request $request): Response
@@ -650,25 +653,6 @@ final class ApiController
         } catch (\Throwable $exception) {
             return Response::json(['error' => $exception->getMessage()], 422);
         }
-    }
-
-    private function parseBoolean(mixed $value): bool
-    {
-        if (is_bool($value)) {
-            return $value;
-        }
-
-        if (is_int($value)) {
-            return $value === 1;
-        }
-
-        if (is_string($value)) {
-            $normalized = strtolower(trim($value));
-
-            return in_array($normalized, ['1', 'true', 'yes', 'on'], true);
-        }
-
-        return false;
     }
 
     /**

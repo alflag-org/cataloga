@@ -50,9 +50,9 @@ All writes follow the same path:
 2. Add edits
 3. Validate
 4. Review diff
-5. Save changes to registry files or discard
+5. Save changes to local registry files or discard
 
-Git commit creation is intentionally separate from the normal save action.
+Git is not part of the core save flow. Optional integrations (Git sync/history, SQLite, MySQL, remote registry backends) can be added later.
 
 ## Non-goals for core product copy
 

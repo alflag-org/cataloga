@@ -4,7 +4,6 @@ declare(strict_types=1);
 
 namespace Cataloga\Http;
 
-use Cataloga\Git\GitService;
 use Cataloga\Mutation\ChangeService;
 use Cataloga\Registry\DomainPackRepository;
 use Cataloga\Registry\EntityRepository;
@@ -24,7 +23,6 @@ final class WebController
         private readonly SchemaRepository $schemaRepository,
         private readonly RegistrySettingsRepository $settingsRepository,
         private readonly ChangeService $changeService,
-        private readonly GitService $gitService,
     ) {
     }
 
@@ -37,8 +35,8 @@ final class WebController
 
         $draftCount = 0;
         foreach ($changes as $change) {
-            $status = (string) ($change['status'] ?? 'open');
-            if (!in_array($status, ['applied', 'committed', 'failed', 'discarded', 'aborted'], true)) {
+            $status = (string) ($change['status'] ?? 'draft');
+            if (!in_array($status, ['saved', 'failed', 'discarded'], true)) {
                 $draftCount++;
             }
         }
@@ -55,8 +53,6 @@ final class WebController
             }
         }
 
-        $gitStatus = $this->gitService->statusShort();
-
         $html = $this->renderer->render('dashboard', [
             'title' => 'ダッシュボード',
             'currentPath' => '/',
@@ -67,7 +63,6 @@ final class WebController
             'warningCount' => $warningCount,
             'recentResources' => $recentResources,
             'recentChanges' => $recentChanges,
-            'gitStatus' => $gitStatus,
         ]);
 
         return Response::html($html);
@@ -740,7 +735,7 @@ final class WebController
     /**
      * @param array<string,string> $params
      */
-    public function commitChange(Request $request, array $params): Response
+    public function saveChange(Request $request, array $params): Response
     {
         if (!$this->validateCsrf($request)) {
             return Response::html('CSRF トークンが一致しません。', 419);
@@ -749,9 +744,7 @@ final class WebController
         $id = $params['id'] ?? '';
 
         try {
-            $message = (string) $request->post('commitMessage', '');
-            $createGitCommit = $request->post('createGitCommit', '0') === '1';
-            $this->changeService->commitChange($id, $message, $createGitCommit);
+            $this->changeService->saveChange($id);
 
             return Response::redirect('/changes/' . rawurlencode($id));
         } catch (\Throwable $exception) {
@@ -762,7 +755,15 @@ final class WebController
     /**
      * @param array<string,string> $params
      */
-    public function abortChange(Request $request, array $params): Response
+    public function commitChange(Request $request, array $params): Response
+    {
+        return $this->saveChange($request, $params);
+    }
+
+    /**
+     * @param array<string,string> $params
+     */
+    public function discardChange(Request $request, array $params): Response
     {
         if (!$this->validateCsrf($request)) {
             return Response::html('CSRF トークンが一致しません。', 419);
@@ -771,12 +772,20 @@ final class WebController
         $id = $params['id'] ?? '';
 
         try {
-            $this->changeService->abortChange($id);
+            $this->changeService->discardChange($id);
 
             return Response::redirect('/changes/' . rawurlencode($id));
         } catch (\Throwable $exception) {
             return Response::html('破棄エラー: ' . $exception->getMessage(), 422);
         }
+    }
+
+    /**
+     * @param array<string,string> $params
+     */
+    public function abortChange(Request $request, array $params): Response
+    {
+        return $this->discardChange($request, $params);
     }
 
     public function validationPage(Request $request): Response
@@ -786,19 +795,6 @@ final class WebController
             'title' => '検証',
             'currentPath' => '/validation',
             'result' => $result,
-        ]);
-
-        return Response::html($html);
-    }
-
-    public function gitDiffPage(Request $request): Response
-    {
-        $diff = $this->gitService->diffRegistryAndCataloga();
-
-        $html = $this->renderer->render('git/diff', [
-            'title' => '技術差分',
-            'currentPath' => '/git/diff',
-            'diff' => $diff,
         ]);
 
         return Response::html($html);

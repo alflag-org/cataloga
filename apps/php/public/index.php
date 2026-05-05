@@ -3,7 +3,6 @@
 declare(strict_types=1);
 
 use Cataloga\Audit\AuditLogger;
-use Cataloga\Git\GitService;
 use Cataloga\Http\ApiController;
 use Cataloga\Http\Request;
 use Cataloga\Http\Response;
@@ -64,7 +63,6 @@ $schemaRepository = new SchemaRepository($projectRoot, $registryRoot, $recordPar
 $settingsRepository = new RegistrySettingsRepository($registryRoot, $recordParser);
 $changeRepository = new ChangeSessionRepository($runtimeRoot);
 $validator = new RegistryValidator($schemaRepository, $domainPackRepository, $settingsRepository);
-$gitService = new GitService($projectRoot);
 $auditLogger = new AuditLogger($runtimeRoot);
 $changeService = new ChangeService(
     $entityRepository,
@@ -75,12 +73,11 @@ $changeService = new ChangeService(
     $resourceDependencyProjector,
     $changeRepository,
     $validator,
-    $gitService,
     $auditLogger,
 );
 $renderer = new TemplateRenderer(dirname(__DIR__) . '/templates');
 
-$web = new WebController($renderer, $entityRepository, $relationRepository, $domainPackRepository, $schemaRepository, $settingsRepository, $changeService, $gitService);
+$web = new WebController($renderer, $entityRepository, $relationRepository, $domainPackRepository, $schemaRepository, $settingsRepository, $changeService);
 $api = new ApiController($entityRepository, $relationRepository, $domainPackRepository, $schemaRepository, $settingsRepository, $changeService);
 
 $router = new Router();
@@ -123,13 +120,12 @@ $router->add('POST', '/type-packs/{name}/uninstall', [$web, 'uninstallTypePack']
 $router->add('GET', '/changes', [$web, 'changeList']);
 $router->add('GET', '/changes/{id}', [$web, 'changeDetail']);
 $router->add('POST', '/changes/{id}/validate', [$web, 'validateChange']);
-$router->add('POST', '/changes/{id}/save', [$web, 'commitChange']);
+$router->add('POST', '/changes/{id}/save', [$web, 'saveChange']);
 $router->add('POST', '/changes/{id}/commit', [$web, 'commitChange']);
-$router->add('POST', '/changes/{id}/discard', [$web, 'abortChange']);
+$router->add('POST', '/changes/{id}/discard', [$web, 'discardChange']);
 $router->add('POST', '/changes/{id}/abort', [$web, 'abortChange']);
 
 $router->add('GET', '/validation', [$web, 'validationPage']);
-$router->add('GET', '/git/diff', [$web, 'gitDiffPage']);
 $router->add('GET', '/settings', [$web, 'settingsPage']);
 $router->add('POST', '/settings', [$web, 'upsertSettings']);
 

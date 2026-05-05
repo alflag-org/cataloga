@@ -104,7 +104,7 @@
         <tbody>
         <?php foreach ($recentChanges as $change): ?>
           <?php
-          $status = (string) ($change['status'] ?? 'open');
+          $status = (string) ($change['status'] ?? 'draft');
           $statusLabel = ui_change_status_label($status);
           $statusClass = ui_change_status_class($status);
           $operations = is_array($change['operations'] ?? null) ? $change['operations'] : [];

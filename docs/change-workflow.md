@@ -15,6 +15,23 @@ All writes are staged as draft changes.
 - Web UI and HTTP API use the same workflow service
 - Validation runs before save
 - File changes are previewable before save
+- Save writes local `registry/` files
+- Save is idempotent for already-saved draft changes
+- Git commit is not part of the normal save behavior
+
+## Statuses
+
+- `draft`
+- `validated`
+- `saved`
+- `failed`
+- `discarded`
+
+Compatibility mapping:
+
+- `applied` -> `saved`
+- `committed` -> `saved`
+- `aborted` -> `discarded`
 
 ## UI labels
 
