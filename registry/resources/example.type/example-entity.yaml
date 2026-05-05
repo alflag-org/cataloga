@@ -1,5 +1,5 @@
 apiVersion: cataloga.io/v2
-kind: Entity
+kind: Resource
 metadata:
   id: 'example:entity'
   type: example.type
@@ -12,3 +12,4 @@ metadata:
     site: ''
     zone: ''
 spec: {  }
+dependencies: {  }

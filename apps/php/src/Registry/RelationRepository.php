@@ -20,6 +20,19 @@ final class RelationRepository
         $idPaths = [];
         $parseErrors = [];
 
+        foreach ($this->dependencyRelationsFromResources() as $relation) {
+            $id = (string) ($relation['record']['metadata']['id'] ?? '');
+            if ($id === '') {
+                continue;
+            }
+            if (isset($byId[$id])) {
+                $id .= '-resource';
+                $relation['record']['metadata']['id'] = $id;
+            }
+            $byId[$id] = $relation;
+            $idPaths[$id] = [(string) ($relation['sourcePath'] ?? '')];
+        }
+
         foreach ($this->relationFiles() as $absolutePath) {
             $relativePath = $this->toRelativePath($absolutePath);
             try {
@@ -57,6 +70,8 @@ final class RelationRepository
                 'type' => (string) ($metadata['type'] ?? ''),
                 'from' => (string) ($spec['from'] ?? ''),
                 'to' => (string) ($spec['to'] ?? ''),
+                'slot' => (string) ($spec['attributes']['slot'] ?? ''),
+                'derived' => (bool) ($payload['derived'] ?? false),
                 'sourcePath' => (string) ($payload['sourcePath'] ?? ''),
                 'record' => $record,
             ];
@@ -156,5 +171,101 @@ final class RelationRepository
         }
         sort($files);
         return $files;
+    }
+
+    /**
+     * @return array<int,array{record:array<string,mixed>,sourcePath:string,derived:bool}>
+     */
+    private function dependencyRelationsFromResources(): array
+    {
+        $relations = [];
+        foreach ($this->resourceFiles() as $absolutePath) {
+            $relativePath = $this->toRelativePath($absolutePath);
+            try {
+                $record = $this->recordParser->parseFile($absolutePath);
+            } catch (\Throwable) {
+                continue;
+            }
+
+            $metadata = is_array($record['metadata'] ?? null) ? $record['metadata'] : [];
+            $from = (string) ($metadata['id'] ?? '');
+            if ($from === '') {
+                continue;
+            }
+
+            $dependencies = is_array($record['dependencies'] ?? null) ? $record['dependencies'] : [];
+            foreach ($dependencies as $slot => $targets) {
+                $slotKey = trim((string) $slot);
+                if ($slotKey === '') {
+                    continue;
+                }
+
+                $targetList = is_array($targets) ? $targets : [$targets];
+                foreach ($targetList as $target) {
+                    if (!is_scalar($target) && $target !== null) {
+                        continue;
+                    }
+                    $to = trim((string) ($target ?? ''));
+                    if ($to === '') {
+                        continue;
+                    }
+                    $id = $this->relationId($from, $slotKey, $to);
+                    $relations[] = [
+                        'record' => [
+                            'apiVersion' => 'cataloga.io/v2',
+                            'kind' => 'Relation',
+                            'metadata' => [
+                                'id' => $id,
+                                'type' => $slotKey,
+                                'name' => $from . ' ' . $slotKey . ' ' . $to,
+                            ],
+                            'spec' => [
+                                'from' => $from,
+                                'to' => $to,
+                                'attributes' => ['slot' => $slotKey, 'derived_from' => 'resource.dependencies'],
+                            ],
+                        ],
+                        'sourcePath' => $relativePath,
+                        'derived' => true,
+                    ];
+                }
+            }
+        }
+
+        return $relations;
+    }
+
+    /** @return array<int,string> */
+    private function resourceFiles(): array
+    {
+        $directory = $this->registryRoot . '/resources';
+        if (!is_dir($directory)) {
+            return [];
+        }
+
+        $files = [];
+        $iterator = new \RecursiveIteratorIterator(new \RecursiveDirectoryIterator($directory, \FilesystemIterator::SKIP_DOTS));
+        foreach ($iterator as $fileInfo) {
+            if (!$fileInfo instanceof \SplFileInfo || !$fileInfo->isFile()) {
+                continue;
+            }
+            $extension = strtolower($fileInfo->getExtension());
+            if (!in_array($extension, ['yaml', 'yml', 'json'], true)) {
+                continue;
+            }
+            $files[] = $fileInfo->getPathname();
+        }
+        sort($files);
+
+        return $files;
+    }
+
+    private function relationId(string $from, string $slot, string $to): string
+    {
+        $slug = strtolower($from . '-' . $slot . '-' . $to);
+        $slug = preg_replace('/[^a-z0-9]+/', '-', $slug) ?? '';
+        $slug = trim($slug, '-');
+
+        return $slug !== '' ? $slug : bin2hex(random_bytes(4));
     }
 }

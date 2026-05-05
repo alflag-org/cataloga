@@ -59,7 +59,13 @@ $typeFilter = (string) ($filters['type'] ?? '');
             <td><span class="pill"><?= h((string) ($relation['type'] ?? '')) ?></span></td>
             <td><a class="text-link" href="/resources/<?= rawurlencode((string) ($relation['to'] ?? '')) ?>"><?= h((string) ($relation['to'] ?? '')) ?></a></td>
             <td><span class="pill <?= h($statusClass) ?>"><?= h($statusLabel) ?></span></td>
-            <td><a class="text-link" href="/dependencies/<?= rawurlencode((string) ($relation['id'] ?? '')) ?>/edit">編集</a></td>
+            <td>
+              <?php if (($relation['derived'] ?? false) === true): ?>
+                <a class="text-link" href="/resources/<?= rawurlencode((string) ($relation['from'] ?? '')) ?>">リソースで編集</a>
+              <?php else: ?>
+                <a class="text-link" href="/dependencies/<?= rawurlencode((string) ($relation['id'] ?? '')) ?>/edit">編集</a>
+              <?php endif; ?>
+            </td>
           </tr>
         <?php endforeach; ?>
         </tbody>

@@ -706,6 +706,7 @@
       <a href="/changes" class="<?= str_starts_with((string) ($currentPath ?? ''), '/changes') ? 'active' : '' ?>">変更</a>
       <a href="/type-packs" class="<?= str_starts_with((string) ($currentPath ?? ''), '/type-packs') || str_starts_with((string) ($currentPath ?? ''), '/domain-packs') ? 'active' : '' ?>">タイプパック</a>
       <a href="/validation" class="<?= ($currentPath ?? '') === '/validation' ? 'active' : '' ?>">検証</a>
+      <a href="/settings" class="<?= ($currentPath ?? '') === '/settings' ? 'active' : '' ?>">設定</a>
     </nav>
   </aside>
 

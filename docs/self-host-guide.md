@@ -47,11 +47,13 @@ mise run down
 
 All writes must use change sessions:
 
-1. Create or edit an entity from UI (`/entities/new`, `/entities/{id}/edit`) or API (`POST /api/changes`).
+1. Create or edit a resource from UI (`/resources/new`, `/resources/{id}/edit`) or API (`POST /api/changes`).
 2. Add operations.
 3. Validate.
 4. Review diff.
-5. Commit and optionally create a Git commit.
+5. Save to registry files or discard.
+
+Git commit creation is separate from the normal UI save path. API clients can request it explicitly when needed.
 
 ## API endpoints
 

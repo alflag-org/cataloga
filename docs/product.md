@@ -24,9 +24,16 @@ It records operational resources (services, hosts, networks, DNS, databases, rep
 
 ## Dependency UX model
 
-- Underlying records remain `Relation`, but normal UI editing should be slot-based from resource detail pages.
-- Dependency slots are declared by type pack schema metadata and drive guided selection after the resource exists.
+- Normal dependency slots are stored in each resource file under `dependencies:`.
+- Runtime relation views are derived from resource dependency slot maps for list, graph, API, and validation.
 - Generic dependency create/edit screen remains available as an advanced path.
+
+## Canonical file model
+
+- `registry/resources/{type}/{resource}.yaml` is the normal source of truth.
+- `registry/entities` is legacy input only.
+- `registry/relations` is reserved for advanced, legacy, or imported graph data.
+- `registry/settings.yaml` stores workspace tag vocabulary.
 
 ## Interfaces
 

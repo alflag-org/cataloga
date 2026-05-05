@@ -87,6 +87,8 @@ $router->add('GET', '/resources/new', [$web, 'newEntityForm']);
 $router->add('GET', '/entities/new', [$web, 'newEntityForm']);
 $router->add('POST', '/resources', [$web, 'upsertEntity']);
 $router->add('POST', '/entities', [$web, 'upsertEntity']);
+$router->add('GET', '/resources/{id}/dependencies/{slot}', [$web, 'editDependencySlotForm']);
+$router->add('POST', '/resources/{id}/dependencies/{slot}', [$web, 'upsertDependencySlot']);
 $router->add('GET', '/resources/{id}', [$web, 'entityDetail']);
 $router->add('GET', '/entities/{id}', [$web, 'entityDetail']);
 $router->add('GET', '/resources/{id}/edit', [$web, 'editEntityForm']);
@@ -122,6 +124,8 @@ $router->add('POST', '/changes/{id}/abort', [$web, 'abortChange']);
 
 $router->add('GET', '/validation', [$web, 'validationPage']);
 $router->add('GET', '/git/diff', [$web, 'gitDiffPage']);
+$router->add('GET', '/settings', [$web, 'settingsPage']);
+$router->add('POST', '/settings', [$web, 'upsertSettings']);
 
 $router->add('GET', '/api/resources', [$api, 'resources']);
 $router->add('GET', '/api/entities', [$api, 'entities']);

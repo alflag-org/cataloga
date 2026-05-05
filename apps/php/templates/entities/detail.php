@@ -133,6 +133,11 @@ $owner = (string) ($tagGroups['basic']['owner'] ?? '');
             <?php endforeach; ?>
           </ul>
         <?php endif; ?>
+        <?php if ((string) ($slot['direction'] ?? 'outgoing') === 'outgoing'): ?>
+          <div class="actions mt-2">
+            <a class="secondary-button" href="/resources/<?= rawurlencode($id) ?>/dependencies/<?= rawurlencode((string) ($slot['key'] ?? '')) ?>"><?= $slotItems === [] ? '設定' : '変更' ?></a>
+          </div>
+        <?php endif; ?>
       <?php endforeach; ?>
 
       <?php if (($dependencySlotGroups['other'] ?? []) !== []): ?>

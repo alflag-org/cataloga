@@ -6,7 +6,7 @@ namespace Cataloga\Registry;
 
 final class EntityRepository
 {
-    private const REGISTRY_DIRECTORIES = ['schemas', 'entities', 'relations', 'views', 'policies', 'evidence'];
+    private const REGISTRY_DIRECTORIES = ['schemas', 'resources', 'entities', 'relations', 'views', 'policies', 'evidence'];
 
     public function __construct(
         private readonly string $registryRoot,
@@ -35,6 +35,7 @@ final class EntityRepository
                 continue;
             }
 
+            $record = $this->canonicalize($record);
             $metadata = $record['metadata'] ?? [];
             $id = is_array($metadata) ? (string) ($metadata['id'] ?? '') : '';
             if ($id === '') {
@@ -43,7 +44,9 @@ final class EntityRepository
             }
 
             $idPaths[$id] ??= [];
-            $idPaths[$id][] = $relativePath;
+            if (!in_array($relativePath, $idPaths[$id], true)) {
+                $idPaths[$id][] = $relativePath;
+            }
 
             $byId[$id] = [
                 'record' => $record,
@@ -96,14 +99,14 @@ final class EntityRepository
 
     public function writeEntity(array $record, string $sourcePath): void
     {
-        $normalized = $this->pathGuard->normalizeEntityPath($sourcePath);
+        $normalized = $this->pathGuard->normalizeResourcePath($sourcePath);
         $absolutePath = $this->absolutePath($normalized);
         $directory = dirname($absolutePath);
         if (!is_dir($directory) && !mkdir($directory, 0775, true) && !is_dir($directory)) {
             throw new \RuntimeException('Failed to create directory: ' . $directory);
         }
 
-        $content = $this->recordSerializer->encode($record, $normalized);
+        $content = $this->recordSerializer->encode($this->canonicalize($record, true), $normalized);
         if (file_put_contents($absolutePath, $content) === false) {
             throw new \RuntimeException('Failed to write entity file: ' . $normalized);
         }
@@ -149,6 +152,7 @@ final class EntityRepository
                 new \RecursiveDirectoryIterator($absolute, \FilesystemIterator::SKIP_DOTS)
             );
 
+            $bucket = [];
             foreach ($iterator as $fileInfo) {
                 if (!$fileInfo instanceof \SplFileInfo || !$fileInfo->isFile()) {
                     continue;
@@ -194,31 +198,90 @@ final class EntityRepository
      */
     private function entityFiles(): array
     {
-        $directory = $this->registryRoot . '/entities';
-        if (!is_dir($directory)) {
-            return [];
-        }
-
         $files = [];
-        $iterator = new \RecursiveIteratorIterator(
-            new \RecursiveDirectoryIterator($directory, \FilesystemIterator::SKIP_DOTS)
-        );
-
-        foreach ($iterator as $fileInfo) {
-            if (!$fileInfo instanceof \SplFileInfo || !$fileInfo->isFile()) {
+        foreach (['resources', 'entities'] as $topDirectory) {
+            $directory = $this->registryRoot . '/' . $topDirectory;
+            if (!is_dir($directory)) {
                 continue;
             }
 
-            $extension = strtolower($fileInfo->getExtension());
-            if (!in_array($extension, ['yaml', 'yml', 'json'], true)) {
-                continue;
-            }
+            $iterator = new \RecursiveIteratorIterator(
+                new \RecursiveDirectoryIterator($directory, \FilesystemIterator::SKIP_DOTS)
+            );
 
-            $files[] = $fileInfo->getPathname();
+            foreach ($iterator as $fileInfo) {
+                if (!$fileInfo instanceof \SplFileInfo || !$fileInfo->isFile()) {
+                    continue;
+                }
+
+                $extension = strtolower($fileInfo->getExtension());
+                if (!in_array($extension, ['yaml', 'yml', 'json'], true)) {
+                    continue;
+                }
+
+                $bucket[] = $fileInfo->getPathname();
+            }
+            sort($bucket);
+            array_push($files, ...$bucket);
         }
-
-        sort($files);
 
         return $files;
+    }
+
+    /**
+     * @param array<string,mixed> $record
+     * @return array<string,mixed>
+     */
+    private function canonicalize(array $record, bool $asResource = false): array
+    {
+        $metadata = is_array($record['metadata'] ?? null) ? $record['metadata'] : [];
+        $spec = is_array($record['spec'] ?? null) ? $record['spec'] : [];
+        $dependencies = is_array($record['dependencies'] ?? null) ? $record['dependencies'] : [];
+
+        return [
+            'apiVersion' => (string) ($record['apiVersion'] ?? 'cataloga.io/v2'),
+            'kind' => $asResource ? 'Resource' : (string) ($record['kind'] ?? 'Resource'),
+            'metadata' => [
+                'id' => (string) ($metadata['id'] ?? ''),
+                'type' => (string) ($metadata['type'] ?? ''),
+                'name' => (string) ($metadata['name'] ?? ''),
+                'labels' => is_array($metadata['labels'] ?? null) ? $metadata['labels'] : [],
+                'tags' => is_array($metadata['tags'] ?? null) ? $metadata['tags'] : [],
+            ],
+            'spec' => $spec,
+            'dependencies' => $this->normalizeDependencies($dependencies),
+        ];
+    }
+
+    /**
+     * @param array<string,mixed> $dependencies
+     * @return array<string,array<int,string>>
+     */
+    private function normalizeDependencies(array $dependencies): array
+    {
+        $normalized = [];
+        foreach ($dependencies as $slot => $targets) {
+            $slotKey = trim((string) $slot);
+            if ($slotKey === '') {
+                continue;
+            }
+            $targetList = is_array($targets) ? $targets : [$targets];
+            foreach ($targetList as $target) {
+                if (!is_scalar($target) && $target !== null) {
+                    continue;
+                }
+                $targetId = trim((string) ($target ?? ''));
+                if ($targetId === '') {
+                    continue;
+                }
+                $normalized[$slotKey][] = $targetId;
+            }
+            if (isset($normalized[$slotKey])) {
+                $normalized[$slotKey] = array_values(array_unique($normalized[$slotKey]));
+            }
+        }
+        ksort($normalized);
+
+        return $normalized;
     }
 }

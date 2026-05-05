@@ -11,6 +11,7 @@ Terminology is fixed by [docs/ui-terminology-ja.md](./ui-terminology-ja.md) for 
 - Dependencies
 - Changes
 - Type packs
+- Settings
 
 ## Resource flow
 
@@ -31,6 +32,11 @@ Terminology is fixed by [docs/ui-terminology-ja.md](./ui-terminology-ja.md) for 
 
 - Normal path: edit dependencies from resource detail using slot labels.
 - Advanced path (`/dependencies/new`): manual source/type/target editing for exceptional cases.
+
+## Settings Flow
+
+- Settings edits update `registry/settings.yaml` through the same draft-change workflow.
+- Tag keys can define label, required, allowed values, free value, and empty-value behavior.
 
 ## Change flow
 

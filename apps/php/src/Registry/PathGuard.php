@@ -12,10 +12,23 @@ final class PathGuard
 
     public function normalizeEntityPath(string $relativePath): string
     {
-        return $this->normalizeWithinRegistry($relativePath, 'entities');
+        return $this->normalizeRecordPath($relativePath, ['resources', 'entities']);
+    }
+
+    public function normalizeResourcePath(string $relativePath): string
+    {
+        return $this->normalizeWithinRegistry($relativePath, 'resources');
     }
 
     public function normalizeWithinRegistry(string $relativePath, string $expectedTopDirectory): string
+    {
+        return $this->normalizeRecordPath($relativePath, [$expectedTopDirectory]);
+    }
+
+    /**
+     * @param array<int,string> $allowedTopDirectories
+     */
+    private function normalizeRecordPath(string $relativePath, array $allowedTopDirectories): string
     {
         $normalized = str_replace('\\', '/', trim($relativePath));
         $normalized = ltrim($normalized, '/');
@@ -44,8 +57,8 @@ final class PathGuard
             throw new \RuntimeException('Invalid record path.');
         }
 
-        if ($clean[0] !== $expectedTopDirectory) {
-            throw new \RuntimeException('Write path must be under registry/' . $expectedTopDirectory . '.');
+        if (!in_array($clean[0], $allowedTopDirectories, true)) {
+            throw new \RuntimeException('Write path must be under registry/' . implode(' or registry/', $allowedTopDirectories) . '.');
         }
 
         $cleanPath = implode('/', $clean);

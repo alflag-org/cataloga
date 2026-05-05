@@ -471,6 +471,96 @@ final class WebController
     /**
      * @param array<string,string> $params
      */
+    public function editDependencySlotForm(Request $request, array $params): Response
+    {
+        $id = (string) ($params['id'] ?? '');
+        $slotKey = (string) ($params['slot'] ?? '');
+        $entity = $this->entityRepository->getEntity($id);
+        if ($entity === null) {
+            return Response::html('リソースが見つかりません。', 404);
+        }
+
+        $slot = $this->dependencySlotForEntity($entity, $slotKey);
+        if ($slot === null) {
+            return Response::html('依存関係スロットが見つかりません。', 404);
+        }
+        if ((string) ($slot['direction'] ?? 'outgoing') !== 'outgoing') {
+            return Response::html('このスロットはまだ詳細画面から編集できません。高度な依存関係を使用してください。', 422);
+        }
+
+        $record = is_array($entity['record'] ?? null) ? $entity['record'] : [];
+        $dependencies = is_array($record['dependencies'] ?? null) ? $record['dependencies'] : [];
+        $selectedTargets = is_array($dependencies[$slotKey] ?? null) ? array_values(array_map('strval', $dependencies[$slotKey])) : [];
+
+        $html = $this->renderer->render('entities/dependency-slot-form', [
+            'title' => '依存関係を設定',
+            'currentPath' => '/resources',
+            'entity' => $entity,
+            'slot' => $slot,
+            'selectedTargets' => $selectedTargets,
+            'candidates' => $this->dependencySlotCandidates($slot, $this->entityRepository->listEntities(), $id),
+            'error' => null,
+        ]);
+
+        return Response::html($html);
+    }
+
+    /**
+     * @param array<string,string> $params
+     */
+    public function upsertDependencySlot(Request $request, array $params): Response
+    {
+        if (!$this->validateCsrf($request)) {
+            return Response::html('CSRF トークンが一致しません。', 419);
+        }
+
+        $id = (string) ($params['id'] ?? '');
+        $slotKey = (string) ($params['slot'] ?? '');
+        $entity = $this->entityRepository->getEntity($id);
+        if ($entity === null) {
+            return Response::html('リソースが見つかりません。', 404);
+        }
+
+        $slot = $this->dependencySlotForEntity($entity, $slotKey);
+        if ($slot === null) {
+            return Response::html('依存関係スロットが見つかりません。', 404);
+        }
+
+        try {
+            $rawTargets = $request->post('targets', []);
+            $targets = is_array($rawTargets) ? $rawTargets : [$rawTargets];
+            if (!(bool) ($slot['multiple'] ?? true)) {
+                $targets = [trim((string) ($targets[0] ?? ''))];
+            }
+
+            $change = $this->changeService->createChange('human-ui', 'human');
+            $this->changeService->addOperations((string) $change['id'], [
+                'type' => 'set_dependency_slot',
+                'resourceId' => $id,
+                'slot' => $slotKey,
+                'targets' => $targets,
+            ]);
+            $this->changeService->validateChange((string) $change['id']);
+
+            return Response::redirect('/changes/' . rawurlencode((string) $change['id']));
+        } catch (\Throwable $exception) {
+            $html = $this->renderer->render('entities/dependency-slot-form', [
+                'title' => '依存関係を設定',
+                'currentPath' => '/resources',
+                'entity' => $entity,
+                'slot' => $slot,
+                'selectedTargets' => is_array($request->post('targets', [])) ? $request->post('targets', []) : [],
+                'candidates' => $this->dependencySlotCandidates($slot, $this->entityRepository->listEntities(), $id),
+                'error' => $exception->getMessage(),
+            ]);
+
+            return Response::html($html, 422);
+        }
+    }
+
+    /**
+     * @param array<string,string> $params
+     */
     public function entityDetail(Request $request, array $params): Response
     {
         $id = $params['id'] ?? '';
@@ -740,6 +830,46 @@ final class WebController
         return Response::html($html);
     }
 
+    public function settingsPage(Request $request): Response
+    {
+        $html = $this->renderer->render('settings/form', [
+            'title' => '設定',
+            'currentPath' => '/settings',
+            'settings' => $this->settingsRepository->loadSettings(),
+            'error' => null,
+        ]);
+
+        return Response::html($html);
+    }
+
+    public function upsertSettings(Request $request): Response
+    {
+        if (!$this->validateCsrf($request)) {
+            return Response::html('CSRF トークンが一致しません。', 419);
+        }
+
+        try {
+            $settings = $this->buildSettingsFromRequest($request);
+            $change = $this->changeService->createChange('human-ui', 'human');
+            $this->changeService->addOperations((string) $change['id'], [
+                'type' => 'upsert_settings',
+                'settings' => $settings,
+            ]);
+            $this->changeService->validateChange((string) $change['id']);
+
+            return Response::redirect('/changes/' . rawurlencode((string) $change['id']));
+        } catch (\Throwable $exception) {
+            $html = $this->renderer->render('settings/form', [
+                'title' => '設定',
+                'currentPath' => '/settings',
+                'settings' => $this->settingsRepository->loadSettings(),
+                'error' => $exception->getMessage(),
+            ]);
+
+            return Response::html($html, 422);
+        }
+    }
+
     /** @return array<int,string> */
     private function listRelationTypes(): array
     {
@@ -787,15 +917,63 @@ final class WebController
 
         $labels = $this->decodeJsonObject(trim((string) $request->post('labels', '{}')), 'labels');
         $spec = $advanced ? $this->decodeJsonObject(trim((string) $request->post('spec', '{}')), 'spec') : $this->buildSpecFromSchema($request);
+        $dependencies = $this->decodeJsonObject(trim((string) $request->post('dependencies', '{}')), 'dependencies');
         $settings = $this->settingsRepository->loadSettings();
         $reservedPrefixes = is_array($settings['reserved_prefixes'] ?? null) ? $settings['reserved_prefixes'] : ['cataloga:'];
         $tags = $this->buildTagsFromRequest($request, $spec, $reservedPrefixes);
 
         return [
             'apiVersion' => 'cataloga.io/v2',
-            'kind' => 'Entity',
+            'kind' => 'Resource',
             'metadata' => ['id' => $id, 'type' => $type, 'name' => $name, 'labels' => $labels, 'tags' => $tags],
             'spec' => $spec,
+            'dependencies' => $dependencies,
+        ];
+    }
+
+    /**
+     * @return array<string,mixed>
+     */
+    private function buildSettingsFromRequest(Request $request): array
+    {
+        $keys = is_array($request->post('tag_key', null)) ? $request->post('tag_key', []) : [];
+        $labels = is_array($request->post('tag_label', null)) ? $request->post('tag_label', []) : [];
+        $values = is_array($request->post('tag_values', null)) ? $request->post('tag_values', []) : [];
+        $required = is_array($request->post('tag_required', null)) ? $request->post('tag_required', []) : [];
+        $freeValue = is_array($request->post('tag_free_value', null)) ? $request->post('tag_free_value', []) : [];
+        $allowEmpty = is_array($request->post('tag_allow_empty', null)) ? $request->post('tag_allow_empty', []) : [];
+
+        $tagKeys = [];
+        $count = count($keys);
+        for ($i = 0; $i < $count; $i++) {
+            $key = trim((string) ($keys[$i] ?? ''));
+            if ($key === '') {
+                continue;
+            }
+            if (!preg_match('/^[a-zA-Z0-9_.:-]+$/', $key)) {
+                throw new \RuntimeException('Tag key contains unsupported characters: ' . $key);
+            }
+            $valueList = array_values(array_filter(array_map(
+                static fn (string $value): string => trim($value),
+                explode(',', (string) ($values[$i] ?? ''))
+            ), static fn (string $value): bool => $value !== ''));
+
+            $tagKeys[$key] = [
+                'label' => trim((string) ($labels[$i] ?? $key)),
+                'required' => in_array((string) $i, array_map('strval', $required), true),
+                'values' => $valueList,
+                'free_value' => in_array((string) $i, array_map('strval', $freeValue), true),
+                'allow_empty' => in_array((string) $i, array_map('strval', $allowEmpty), true),
+            ];
+        }
+
+        $reservedPrefixesRaw = trim((string) $request->post('reserved_prefixes', 'cataloga:'));
+        $reservedPrefixes = array_values(array_filter(array_map('trim', explode(',', $reservedPrefixesRaw)), static fn (string $prefix): bool => $prefix !== ''));
+
+        return [
+            'version' => 1,
+            'tag_keys' => $tagKeys,
+            'reserved_prefixes' => $reservedPrefixes,
         ];
     }
 
@@ -1317,6 +1495,49 @@ final class WebController
     }
 
     /**
+     * @param array<string,mixed> $entity
+     * @return array<string,mixed>|null
+     */
+    private function dependencySlotForEntity(array $entity, string $slotKey): ?array
+    {
+        $record = is_array($entity['record'] ?? null) ? $entity['record'] : [];
+        $metadata = is_array($record['metadata'] ?? null) ? $record['metadata'] : [];
+        $resourceType = (string) ($metadata['type'] ?? '');
+        $schema = $this->activeEntitySchemasById()[$resourceType] ?? null;
+        $slots = is_array($schema['dependencySlots'] ?? null) ? $schema['dependencySlots'] : [];
+        foreach ($slots as $slot) {
+            if ((string) ($slot['key'] ?? '') === $slotKey) {
+                return $slot;
+            }
+        }
+
+        return null;
+    }
+
+    /**
+     * @param array<string,mixed> $slot
+     * @param array<int,array<string,mixed>> $entities
+     * @return array<int,array<string,mixed>>
+     */
+    private function dependencySlotCandidates(array $slot, array $entities, string $selfId): array
+    {
+        $targetTypes = is_array($slot['target_types'] ?? null) ? $slot['target_types'] : [];
+        $candidates = [];
+        foreach ($entities as $entity) {
+            if ((string) ($entity['id'] ?? '') === $selfId) {
+                continue;
+            }
+            $type = (string) ($entity['type'] ?? '');
+            if ($targetTypes !== [] && !in_array($type, $targetTypes, true)) {
+                continue;
+            }
+            $candidates[] = $entity;
+        }
+
+        return $candidates;
+    }
+
+    /**
      * @param array<int,array<string,mixed>> $dependsOn
      * @param array<int,array<string,mixed>> $usedBy
      * @param array<int,array<string,mixed>> $slots
@@ -1341,7 +1562,8 @@ final class WebController
             $items = [];
             $pool = $direction === 'incoming' ? $usedBy : $dependsOn;
             foreach ($pool as $relation) {
-                if ((string) ($relation['type'] ?? '') !== $relationType) {
+                $currentRelationType = (string) ($relation['type'] ?? '');
+                if ($currentRelationType !== $relationType && $currentRelationType !== $slotKey) {
                     continue;
                 }
                 $relationId = (string) ($relation['id'] ?? '');

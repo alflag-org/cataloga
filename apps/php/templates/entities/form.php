@@ -183,6 +183,7 @@ foreach ($normalizedTags as $key => $value) {
     <form method="post" action="<?= h($formAction) ?>" class="form-stack">
       <input type="hidden" name="csrf_token" value="<?= h(csrf_token()) ?>">
       <input type="hidden" name="type" value="<?= h($type) ?>">
+      <input type="hidden" name="dependencies" value="<?= h(format_json(is_array($record['dependencies'] ?? null) ? $record['dependencies'] : [])) ?>">
 
       <section class="panel soft">
         <div class="title-row">
@@ -201,7 +202,11 @@ foreach ($normalizedTags as $key => $value) {
           <input type="text" required id="name" name="name" value="<?= h($name) ?>" placeholder="cataloga">
         </div>
 
-        <h3>管理情報</h3>
+        <div class="title-row mt-3">
+          <div class="title-stack">
+            <h3>管理情報</h3>
+          </div>
+        </div>
         <?php foreach ($basicTagKeys as $tagKey): ?>
           <?php
           $tagConfig = is_array($tagKeys[$tagKey] ?? null) ? $tagKeys[$tagKey] : [];
@@ -226,8 +231,12 @@ foreach ($normalizedTags as $key => $value) {
           </div>
         <?php endforeach; ?>
 
-        <h3>タグ</h3>
-        <p class="meta">追加の key-value metadata です。予約済みプレフィックス: <?= h(implode(', ', array_map('strval', $reservedPrefixes))) ?></p>
+        <div class="title-row mt-3">
+          <div class="title-stack">
+            <h3>タグ</h3>
+            <p class="meta">追加の key-value metadata です。</p>
+          </div>
+        </div>
 
         <?php
         $additionalEntries = array_values(array_map(
@@ -241,11 +250,11 @@ foreach ($normalizedTags as $key => $value) {
             <div class="tag-row" data-tag-row>
               <div class="field">
                 <label>キー</label>
-                <input type="text" name="tag_key[]" value="<?= h((string) $entry['key']) ?>" placeholder="managed-by">
+                <input type="text" name="tag_key[]" value="<?= h((string) $entry['key']) ?>">
               </div>
               <div class="field">
                 <label>値</label>
-                <input type="text" name="tag_value[]" value="<?= h((string) $entry['value']) ?>" placeholder="ansible">
+                <input type="text" name="tag_value[]" value="<?= h((string) $entry['value']) ?>">
               </div>
               <button type="button" class="secondary-button" data-remove-tag>削除</button>
             </div>
@@ -255,8 +264,8 @@ foreach ($normalizedTags as $key => $value) {
           <button type="button" class="secondary-button" data-add-tag>+ タグを追加</button>
         </div>
 
-        <details>
-          <summary>詳細設定</summary>
+        <details class="mt-3">
+          <summary><strong>詳細設定</strong></summary>
           <div class="field mt-2">
             <label for="id">リソースID</label>
             <input type="text" id="id" name="id" value="<?= h($id) ?>" placeholder="<?= h((string) $type) ?>.name">
@@ -337,8 +346,8 @@ foreach ($normalizedTags as $key => $value) {
         </div>
       </section>
 
-      <details>
-        <summary>詳細設定</summary>
+      <details class="mt-3">
+        <summary><strong>詳細設定</strong></summary>
         <div class="field mt-2">
           <label><input type="checkbox" name="advancedMode" value="1"> spec JSON を直接編集</label>
         </div>
@@ -364,11 +373,11 @@ foreach ($normalizedTags as $key => $value) {
         row.innerHTML = `
           <div class="field">
             <label>キー</label>
-            <input type="text" name="tag_key[]" placeholder="managed-by">
+            <input type="text" name="tag_key[]">
           </div>
           <div class="field">
             <label>値</label>
-            <input type="text" name="tag_value[]" placeholder="ansible">
+            <input type="text" name="tag_value[]">
           </div>
           <button type="button" class="secondary-button" data-remove-tag>削除</button>
         `;

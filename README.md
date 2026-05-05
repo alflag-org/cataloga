@@ -56,6 +56,8 @@ apps/
     src/
     templates/
 registry/
+  resources/
+  settings.yaml
 domain-packs/
 docs/
 ```

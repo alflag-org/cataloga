@@ -13,7 +13,7 @@ Cataloga is a Git/file-backed registry for Resources and Dependencies.
 
 1. Registry data
 - Canonical files under `registry/`
-- Core persisted objects are resources and dependencies
+- Core persisted objects are resources, their metadata/spec, and dependency slot maps
 
 2. Registry core
 - Resource model (`Entity` internally)
@@ -50,13 +50,14 @@ Type packs only extend schemas/metadata. Core does not hard-code domain-specific
 
 ```text
 registry/
-  entities/
-  relations/
+  resources/
+  relations/        # advanced, legacy, imported
   schemas/
+  settings.yaml
   type-packs.lock.yaml
 ```
 
 ## Internal naming note
 
-Current codebase retains some internal names such as `Entity`, `Relation`, and `DomainPackRepository`.
+Current codebase retains some internal names such as `EntityRepository`, `RelationRepository`, and `DomainPackRepository`.
 User-facing UI and primary docs use the product terms: Resource, Dependency, Type pack, and Draft change.

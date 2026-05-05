@@ -14,7 +14,7 @@ use Cataloga\Validation\RegistryValidator;
 
 final class ChangeService
 {
-    private const ALLOWED_OPERATIONS = ['upsert_entity', 'delete_entity', 'upsert_relation', 'delete_relation'];
+    private const ALLOWED_OPERATIONS = ['upsert_entity', 'delete_entity', 'upsert_relation', 'delete_relation', 'set_dependency_slot', 'upsert_settings'];
     private const CLOSED_STATUSES = ['applied', 'committed', 'failed', 'discarded', 'aborted'];
 
     public function __construct(
@@ -249,6 +249,21 @@ final class ChangeService
     {
         $items = [];
 
+        if (is_array($projection['projectedSettings'] ?? null)) {
+            $path = 'settings.yaml';
+            $after = $this->recordSerializer->encode($projection['projectedSettings'], $path);
+            $before = $this->readRegistryFileIfExists($path);
+            if ($before !== $after) {
+                $items[] = [
+                    'status' => $before === null ? 'added' : 'modified',
+                    'path' => $path,
+                    'recordId' => 'settings',
+                    'before' => $before,
+                    'after' => $after,
+                ];
+            }
+        }
+
         foreach ($projection['projectedById'] as $id => $entity) {
             $path = $entity['sourcePath'];
             $after = $this->recordSerializer->encode($entity['record'], $path);
@@ -281,6 +296,9 @@ final class ChangeService
 
 
         foreach ($projection['projectedRelationsById'] as $id => $relation) {
+            if (($relation['derived'] ?? false) === true) {
+                continue;
+            }
             $path = $relation['sourcePath'];
             $after = $this->recordSerializer->encode($relation['record'], $path);
             $before = null;
@@ -303,7 +321,7 @@ final class ChangeService
             $items[] = [
                 'status' => 'deleted',
                 'path' => $path,
-                'before' => $this->readFileIfExists($path, str_starts_with($path, 'entities/')),
+                'before' => $this->readFileIfExists($path, str_starts_with($path, 'entities/') || str_starts_with($path, 'resources/')),
                 'after' => null,
             ];
         }
@@ -329,7 +347,13 @@ final class ChangeService
             $this->entityRepository->writeEntity($entity['record'], $entity['sourcePath']);
         }
         foreach ($projection['projectedRelationsById'] as $relation) {
+            if (($relation['derived'] ?? false) === true) {
+                continue;
+            }
             $this->relationRepository->writeRelation($relation['record'], $relation['sourcePath']);
+        }
+        if (is_array($projection['projectedSettings'] ?? null)) {
+            $this->writeRegistryFile('settings.yaml', $this->recordSerializer->encode($projection['projectedSettings'], 'settings.yaml'));
         }
     }
 
@@ -358,6 +382,7 @@ final class ChangeService
         }
         $deleteEntityPaths = [];
         $deleteRelationPaths = [];
+        $projectedSettings = null;
 
         foreach ($session['operations'] ?? [] as $operation) {
             $type = (string) ($operation['type'] ?? '');
@@ -380,7 +405,7 @@ final class ChangeService
                 if ($sourcePath === '' && isset($baselineById[$id])) {
                     $sourcePath = (string) $baselineById[$id]['sourcePath'];
                 }
-                if ($sourcePath === '') {
+                if ($sourcePath === '' || str_starts_with($sourcePath, 'entities/')) {
                     $sourcePath = $this->defaultEntityPathForId($id);
                 }
 
@@ -482,11 +507,94 @@ final class ChangeService
                 continue;
             }
 
+            if ($type === 'set_dependency_slot') {
+                $resourceId = (string) ($operation['resourceId'] ?? '');
+                $slotKey = (string) ($operation['slot'] ?? '');
+                $targets = is_array($operation['targets'] ?? null) ? $operation['targets'] : [];
+                if ($resourceId === '' || $slotKey === '') {
+                    $errors[] = 'set_dependency_slot requires resourceId and slot.';
+                    continue;
+                }
+                if (!isset($projectedById[$resourceId])) {
+                    $errors[] = 'set_dependency_slot references missing resource: ' . $resourceId;
+                    continue;
+                }
+
+                $record = is_array($projectedById[$resourceId]['record'] ?? null) ? $projectedById[$resourceId]['record'] : [];
+                $dependencies = is_array($record['dependencies'] ?? null) ? $record['dependencies'] : [];
+                $normalizedTargets = [];
+                foreach ($targets as $target) {
+                    if (!is_scalar($target) && $target !== null) {
+                        continue;
+                    }
+                    $targetId = trim((string) ($target ?? ''));
+                    if ($targetId === '') {
+                        continue;
+                    }
+                    $normalizedTargets[] = $targetId;
+                }
+                $normalizedTargets = array_values(array_unique($normalizedTargets));
+                if ($normalizedTargets === []) {
+                    unset($dependencies[$slotKey]);
+                } else {
+                    $dependencies[$slotKey] = $normalizedTargets;
+                }
+                ksort($dependencies);
+                $record['dependencies'] = $dependencies;
+                $projectedById[$resourceId]['record'] = $record;
+                continue;
+            }
+
+            if ($type === 'upsert_settings') {
+                $settings = is_array($operation['settings'] ?? null) ? $operation['settings'] : null;
+                if ($settings === null) {
+                    $errors[] = 'upsert_settings requires settings object.';
+                    continue;
+                }
+                $projectedSettings = $this->normalizeSettingsRecord($settings);
+                continue;
+            }
+
             $errors[] = 'Unsupported operation in change session: ' . $type;
         }
 
+        foreach ($projectedById as $entityId => $entity) {
+            $sourcePath = (string) ($entity['sourcePath'] ?? '');
+            if (!str_starts_with($sourcePath, 'entities/')) {
+                continue;
+            }
+            $newPath = $this->defaultEntityPathForId((string) $entityId);
+            $deleteEntityPaths[] = $sourcePath;
+            $projectedById[$entityId]['sourcePath'] = $newPath;
+            $finalIdPaths[$entityId] = [$newPath];
+        }
+
+        $projectedRelationsById = array_filter(
+            $projectedRelationsById,
+            static fn (array $relation): bool => ($relation['derived'] ?? false) !== true
+        );
+        $finalRelationPaths = array_filter(
+            $finalRelationPaths,
+            static fn (array $paths): bool => !isset($paths[0]) || !str_starts_with((string) $paths[0], 'resources/')
+        );
+        foreach ($this->derivedRelationsFromProjectedEntities($projectedById) as $derivedRelation) {
+            $derivedId = (string) ($derivedRelation['record']['metadata']['id'] ?? '');
+            if ($derivedId === '') {
+                continue;
+            }
+            if (isset($projectedRelationsById[$derivedId])) {
+                $derivedId .= '-resource';
+                $derivedRelation['record']['metadata']['id'] = $derivedId;
+            }
+            $projectedRelationsById[$derivedId] = $derivedRelation;
+            $finalRelationPaths[$derivedId] = [(string) ($derivedRelation['sourcePath'] ?? '')];
+        }
+
         $deleteEntityPaths = array_values(array_unique($deleteEntityPaths));
-        $deleteRelationPaths = array_values(array_unique($deleteRelationPaths));
+        $deleteRelationPaths = array_values(array_unique(array_filter(
+            $deleteRelationPaths,
+            static fn (string $path): bool => str_starts_with($path, 'relations/')
+        )));
 
         return [
             'baselineById' => $baselineById,
@@ -498,6 +606,7 @@ final class ChangeService
             'errors' => $errors,
             'deleteEntityPaths' => $deleteEntityPaths,
             'deleteRelationPaths' => $deleteRelationPaths,
+            'projectedSettings' => $projectedSettings,
         ];
     }
 
@@ -514,6 +623,84 @@ final class ChangeService
         return $content === false ? null : $content;
     }
 
+    private function readRegistryFileIfExists(string $relativePath): ?string
+    {
+        $absolute = $this->registryAbsolutePath($relativePath);
+        if (!is_file($absolute)) {
+            return null;
+        }
+        $content = file_get_contents($absolute);
+
+        return $content === false ? null : $content;
+    }
+
+    private function writeRegistryFile(string $relativePath, string $content): void
+    {
+        $absolute = $this->registryAbsolutePath($relativePath);
+        $directory = dirname($absolute);
+        if (!is_dir($directory) && !mkdir($directory, 0775, true) && !is_dir($directory)) {
+            throw new \RuntimeException('Failed to create directory: ' . $directory);
+        }
+        if (file_put_contents($absolute, $content) === false) {
+            throw new \RuntimeException('Failed to write registry file: ' . $relativePath);
+        }
+    }
+
+    private function registryAbsolutePath(string $relativePath): string
+    {
+        $probe = $this->entityRepository->absolutePathForEntity('resources/__probe__.yaml');
+        $registryRoot = dirname(dirname($probe));
+
+        return $registryRoot . '/' . ltrim($relativePath, '/');
+    }
+
+    /**
+     * @param array<string,mixed> $settings
+     * @return array<string,mixed>
+     */
+    private function normalizeSettingsRecord(array $settings): array
+    {
+        $tagKeys = [];
+        foreach (($settings['tag_keys'] ?? []) as $key => $row) {
+            $tagKey = trim((string) $key);
+            if ($tagKey === '' || !is_array($row)) {
+                continue;
+            }
+            $entry = [
+                'label' => trim((string) ($row['label'] ?? $tagKey)),
+            ];
+            if ((bool) ($row['required'] ?? false)) {
+                $entry['required'] = true;
+            }
+            $values = is_array($row['values'] ?? null)
+                ? array_values(array_unique(array_filter(array_map('strval', $row['values']), static fn (string $v): bool => trim($v) !== '')))
+                : [];
+            if ($values !== []) {
+                $entry['values'] = $values;
+            }
+            if ((bool) ($row['free_value'] ?? false) || $values === []) {
+                $entry['free_value'] = true;
+            }
+            if ((bool) ($row['allow_empty'] ?? false)) {
+                $entry['allow_empty'] = true;
+            }
+            $tagKeys[$tagKey] = $entry;
+        }
+        ksort($tagKeys);
+
+        $reservedPrefixes = is_array($settings['reserved_prefixes'] ?? null) ? $settings['reserved_prefixes'] : ['cataloga:'];
+        $reservedPrefixes = array_values(array_unique(array_filter(array_map(
+            static fn (mixed $prefix): string => str_ends_with(trim((string) $prefix), ':') ? trim((string) $prefix) : trim((string) $prefix) . ':',
+            $reservedPrefixes
+        ), static fn (string $prefix): bool => $prefix !== ':')));
+
+        return [
+            'version' => (int) ($settings['version'] ?? 1),
+            'tag_keys' => $tagKeys,
+            'reserved_prefixes' => $reservedPrefixes !== [] ? $reservedPrefixes : ['cataloga:'],
+        ];
+    }
+
     private function defaultEntityPathForId(string $id): string
     {
         $slug = strtolower($id);
@@ -524,7 +711,15 @@ final class ChangeService
             $slug = 'entity';
         }
 
-        return 'entities/entity-' . $slug . '.yaml';
+        $type = 'resource';
+        if (str_contains($id, '.')) {
+            $typePart = strstr($id, '.', true);
+            if (is_string($typePart) && $typePart !== '') {
+                $type = $typePart;
+            }
+        }
+
+        return 'resources/' . $type . '/' . $slug . '.yaml';
     }
 
 
@@ -539,6 +734,62 @@ final class ChangeService
         }
 
         return 'relations/relation-' . $slug . '.yaml';
+    }
+
+    /**
+     * @param array<string,array<string,mixed>> $entitiesById
+     * @return array<int,array{record:array<string,mixed>,sourcePath:string,derived:bool}>
+     */
+    private function derivedRelationsFromProjectedEntities(array $entitiesById): array
+    {
+        $relations = [];
+        foreach ($entitiesById as $entity) {
+            $record = is_array($entity['record'] ?? null) ? $entity['record'] : [];
+            $metadata = is_array($record['metadata'] ?? null) ? $record['metadata'] : [];
+            $from = (string) ($metadata['id'] ?? '');
+            if ($from === '') {
+                continue;
+            }
+            $dependencies = is_array($record['dependencies'] ?? null) ? $record['dependencies'] : [];
+            foreach ($dependencies as $slot => $targets) {
+                $slotKey = trim((string) $slot);
+                if ($slotKey === '') {
+                    continue;
+                }
+                $targetList = is_array($targets) ? $targets : [$targets];
+                foreach ($targetList as $target) {
+                    if (!is_scalar($target) && $target !== null) {
+                        continue;
+                    }
+                    $to = trim((string) ($target ?? ''));
+                    if ($to === '') {
+                        continue;
+                    }
+                    $id = $this->slugForId($from . '-' . $slotKey . '-' . $to);
+                    $relations[] = [
+                        'record' => [
+                            'apiVersion' => 'cataloga.io/v2',
+                            'kind' => 'Relation',
+                            'metadata' => ['id' => $id, 'type' => $slotKey, 'name' => $from . ' ' . $slotKey . ' ' . $to],
+                            'spec' => ['from' => $from, 'to' => $to, 'attributes' => ['slot' => $slotKey, 'derived_from' => 'resource.dependencies']],
+                        ],
+                        'sourcePath' => (string) ($entity['sourcePath'] ?? ''),
+                        'derived' => true,
+                    ];
+                }
+            }
+        }
+
+        return $relations;
+    }
+
+    private function slugForId(string $value): string
+    {
+        $slug = strtolower($value);
+        $slug = preg_replace('/[^a-z0-9]+/', '-', $slug) ?? '';
+        $slug = trim($slug, '-');
+
+        return $slug !== '' ? $slug : bin2hex(random_bytes(4));
     }
 
     /**

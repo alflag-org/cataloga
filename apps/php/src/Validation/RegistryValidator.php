@@ -11,6 +11,7 @@ use Cataloga\Registry\SchemaRepository;
 final class RegistryValidator
 {
     private const RECOGNIZED_KINDS = [
+        'Resource',
         'Entity',
         'Relation',
         'Schema',
@@ -106,8 +107,8 @@ final class RegistryValidator
             $metadata = is_array($record['metadata'] ?? null) ? $record['metadata'] : [];
             $spec = is_array($record['spec'] ?? null) ? $record['spec'] : [];
 
-            if ((string) ($record['kind'] ?? '') !== 'Entity') {
-                $errors[] = ['code' => 'entity_kind_invalid', 'message' => sprintf('%s must have kind Entity.', $path)];
+            if (!in_array((string) ($record['kind'] ?? ''), ['Resource', 'Entity'], true)) {
+                $errors[] = ['code' => 'entity_kind_invalid', 'message' => sprintf('%s must have kind Resource.', $path)];
             }
             if ((string) ($metadata['id'] ?? '') === '') {
                 $errors[] = ['code' => 'entity_id_required', 'message' => sprintf('%s requires metadata.id.', $path)];
@@ -118,8 +119,11 @@ final class RegistryValidator
             if ((string) ($metadata['name'] ?? '') === '') {
                 $errors[] = ['code' => 'entity_name_required', 'message' => sprintf('%s requires metadata.name.', $path)];
             }
-            if (!str_starts_with($path, 'entities/')) {
-                $errors[] = ['code' => 'entity_path_invalid', 'message' => sprintf('Entity path must be under registry/entities: %s', $path)];
+            if (!str_starts_with($path, 'resources/') && !str_starts_with($path, 'entities/')) {
+                $errors[] = ['code' => 'entity_path_invalid', 'message' => sprintf('Resource path must be under registry/resources: %s', $path)];
+            }
+            if (str_starts_with($path, 'entities/')) {
+                $warnings[] = ['code' => 'legacy_entity_path', 'message' => sprintf('%s uses legacy registry/entities path. Save the resource to migrate it under registry/resources.', $path)];
             }
 
             $type = (string) ($metadata['type'] ?? '');
@@ -230,7 +234,8 @@ final class RegistryValidator
             if ($to !== '' && !in_array($to, $entityIds, true)) {
                 $errors[] = ['code' => 'relation_target_missing', 'message' => sprintf('%s references missing target entity "%s".', $path, $to)];
             }
-            if (!str_starts_with($path, 'relations/')) {
+            $derivedFromResource = str_starts_with($path, 'resources/');
+            if (!str_starts_with($path, 'relations/') && !$derivedFromResource) {
                 $errors[] = ['code' => 'relation_path_invalid', 'message' => sprintf('Relation path must be under registry/relations: %s', $path)];
             }
 
@@ -253,7 +258,7 @@ final class RegistryValidator
                 if ((string) ($slot['direction'] ?? 'outgoing') !== 'outgoing') {
                     continue;
                 }
-                if ((string) ($slot['relation_type'] ?? '') !== $relationType) {
+                if ((string) ($slot['relation_type'] ?? '') !== $relationType && (string) ($slot['key'] ?? '') !== $relationType) {
                     continue;
                 }
 
@@ -276,7 +281,7 @@ final class RegistryValidator
                 if ((string) ($slot['direction'] ?? 'outgoing') !== 'incoming') {
                     continue;
                 }
-                if ((string) ($slot['relation_type'] ?? '') !== $relationType) {
+                if ((string) ($slot['relation_type'] ?? '') !== $relationType && (string) ($slot['key'] ?? '') !== $relationType) {
                     continue;
                 }
 
