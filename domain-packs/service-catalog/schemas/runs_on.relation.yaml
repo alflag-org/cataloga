@@ -6,5 +6,9 @@ metadata:
 spec:
   kind: relation
   description: Service runs on host-like resource.
+  source_types:
+    - service
+  target_types:
+    - host
   required: []
   properties: {}

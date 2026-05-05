@@ -12,8 +12,19 @@ It helps teams record infrastructure and service resources, connect them with de
 
 - `Resource`: a registered catalog item (service, host, VM, VLAN, DNS record, database, repository, cloud account, etc.)
 - `Dependency`: a directed relationship between resources (`runs_on`, `uses`, `belongs_to`, `resolves_to`, etc.)
+- `Tag`: AWS-style key-value metadata under `metadata.tags` (for environment/owner/site/zone/lifecycle and operational notes)
 - `Type pack`: installable extension that provides types, schema metadata, and validation rules
 - `Draft change`: staged edits reviewed and validated before save
+
+### Metadata rules
+
+- Tags are key-value only for new writes (`metadata.tags` is a map, not a string list).
+- `environment`, `owner`, `site`, `zone`, `visibility`, `lifecycle` and similar cross-cutting metadata are tags.
+- Memo-like information uses tags such as `note`, `todo`, `risk` (no first-class `spec.memo`).
+- Reserved tag prefixes: `cataloga:`, `aws:`.
+- Do not store secrets/sensitive data in tags.
+
+Workspace tag vocabulary is configured in `registry/settings.yaml`.
 
 ## Quick start
 
@@ -65,6 +76,9 @@ Read:
 - `GET /api/dependencies`
 - `GET /api/graph?resource={id}`
 - `GET /api/types`
+- `GET /api/settings`
+- `GET /api/tag-keys`
+- `GET /api/resources/{id}/dependency-slots`
 - `GET /api/type-packs`
 - `GET /api/type-packs/installed`
 - `GET /api/type-packs/available`

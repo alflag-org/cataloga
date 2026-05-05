@@ -8,6 +8,7 @@ use Cataloga\Git\GitService;
 use Cataloga\Mutation\ChangeService;
 use Cataloga\Registry\DomainPackRepository;
 use Cataloga\Registry\EntityRepository;
+use Cataloga\Registry\RegistrySettingsRepository;
 use Cataloga\Registry\RelationRepository;
 use Cataloga\Registry\SchemaRepository;
 use Cataloga\View\TemplateRenderer;
@@ -20,6 +21,7 @@ final class WebController
         private readonly RelationRepository $relationRepository,
         private readonly DomainPackRepository $domainPackRepository,
         private readonly SchemaRepository $schemaRepository,
+        private readonly RegistrySettingsRepository $settingsRepository,
         private readonly ChangeService $changeService,
         private readonly GitService $gitService,
     ) {
@@ -98,15 +100,23 @@ final class WebController
     {
         $query = trim((string) $request->query('q', ''));
         $type = trim((string) $request->query('type', ''));
+        $environmentFilter = trim((string) $request->query('environment', ''));
+        $ownerFilter = trim((string) $request->query('owner', ''));
+        $siteFilter = trim((string) $request->query('site', ''));
+        $zoneFilter = trim((string) $request->query('zone', ''));
+        $lifecycleFilter = trim((string) $request->query('lifecycle', ''));
 
         $entities = $this->entityRepository->listEntities();
         $filtered = [];
         $types = [];
+        $settings = $this->settingsRepository->loadSettings();
+        $tagKeys = is_array($settings['tag_keys'] ?? null) ? $settings['tag_keys'] : [];
 
         foreach ($entities as $entity) {
             $record = is_array($entity['record'] ?? null) ? $entity['record'] : [];
             $metadata = is_array($record['metadata'] ?? null) ? $record['metadata'] : [];
             $spec = is_array($record['spec'] ?? null) ? $record['spec'] : [];
+            $normalizedTags = $this->normalizedTagsForRecord($record);
 
             $resourceType = (string) ($entity['type'] ?? '');
             if ($resourceType !== '') {
@@ -120,13 +130,31 @@ final class WebController
             if ($query !== '' && !str_contains($haystack, strtolower($query))) {
                 continue;
             }
+            if ($environmentFilter !== '' && (string) ($normalizedTags['environment'] ?? '') !== $environmentFilter) {
+                continue;
+            }
+            if ($ownerFilter !== '' && (string) ($normalizedTags['owner'] ?? '') !== $ownerFilter) {
+                continue;
+            }
+            if ($siteFilter !== '' && (string) ($normalizedTags['site'] ?? '') !== $siteFilter) {
+                continue;
+            }
+            if ($zoneFilter !== '' && (string) ($normalizedTags['zone'] ?? '') !== $zoneFilter) {
+                continue;
+            }
+            if ($lifecycleFilter !== '' && (string) ($normalizedTags['lifecycle'] ?? '') !== $lifecycleFilter) {
+                continue;
+            }
 
             $filtered[] = [
                 'id' => (string) ($entity['id'] ?? ''),
                 'name' => (string) ($entity['name'] ?? ''),
                 'type' => $resourceType,
-                'environment' => (string) ($spec['environment'] ?? ''),
-                'owner' => (string) ($spec['owner'] ?? ''),
+                'environment' => (string) ($normalizedTags['environment'] ?? ''),
+                'owner' => (string) ($normalizedTags['owner'] ?? ''),
+                'site' => (string) ($normalizedTags['site'] ?? ''),
+                'zone' => (string) ($normalizedTags['zone'] ?? ''),
+                'lifecycle' => (string) ($normalizedTags['lifecycle'] ?? ''),
                 'status' => $this->resourceStatusLabel($entity),
                 'updated' => '—',
                 'sourcePath' => (string) ($entity['sourcePath'] ?? ''),
@@ -139,8 +167,23 @@ final class WebController
             'title' => 'リソース',
             'currentPath' => '/resources',
             'entities' => $filtered,
-            'filters' => ['q' => $query, 'type' => $type],
+            'filters' => [
+                'q' => $query,
+                'type' => $type,
+                'environment' => $environmentFilter,
+                'owner' => $ownerFilter,
+                'site' => $siteFilter,
+                'zone' => $zoneFilter,
+                'lifecycle' => $lifecycleFilter,
+            ],
             'types' => array_keys($types),
+            'tagFilterOptions' => [
+                'environment' => is_array($tagKeys['environment']['values'] ?? null) ? $tagKeys['environment']['values'] : [],
+                'owner' => is_array($tagKeys['owner']['values'] ?? null) ? $tagKeys['owner']['values'] : [],
+                'site' => is_array($tagKeys['site']['values'] ?? null) ? $tagKeys['site']['values'] : [],
+                'zone' => is_array($tagKeys['zone']['values'] ?? null) ? $tagKeys['zone']['values'] : [],
+                'lifecycle' => is_array($tagKeys['lifecycle']['values'] ?? null) ? $tagKeys['lifecycle']['values'] : [],
+            ],
         ]);
 
         return Response::html($html);
@@ -298,14 +341,36 @@ final class WebController
 
     public function newRelationForm(Request $request): Response
     {
+        $entities = $this->entityRepository->listEntities();
+        $selectedSource = trim((string) $request->query('source', ''));
+        $selectedType = trim((string) $request->query('type', ''));
+        $selectedTarget = trim((string) $request->query('target', ''));
+
+        $relationTypes = $this->listRelationTypesForSource($selectedSource, $entities);
+        if ($selectedType !== '' && !in_array($selectedType, $relationTypes, true)) {
+            $selectedType = '';
+        }
+
+        $targetCandidates = $this->filterTargetCandidatesForRelation($selectedSource, $selectedType, $entities);
+        if ($selectedTarget !== '' && !in_array($selectedTarget, array_map(static fn (array $e): string => (string) $e['id'], $targetCandidates), true)) {
+            $selectedTarget = '';
+        }
+
         $html = $this->renderer->render('relations/form', [
-            'title' => '依存関係を作成',
+            'title' => '高度な依存関係を作成',
             'currentPath' => '/dependencies',
             'mode' => 'create',
             'relation' => null,
             'error' => null,
-            'entities' => $this->entityRepository->listEntities(),
-            'relationTypes' => $this->listRelationTypes(),
+            'entities' => $entities,
+            'targetEntities' => $targetCandidates,
+            'relationTypes' => $relationTypes,
+            'selectedSource' => $selectedSource,
+            'selectedRelationType' => $selectedType,
+            'selectedTarget' => $selectedTarget,
+            'relationSchemas' => $this->relationSchemaMap(),
+            'sourceEntity' => $this->findEntityById($selectedSource, $entities),
+            'targetEntity' => $this->findEntityById($selectedTarget, $entities),
         ]);
 
         return Response::html($html);
@@ -322,14 +387,29 @@ final class WebController
             return Response::html('依存関係が見つかりません。', 404);
         }
 
+        $entities = $this->entityRepository->listEntities();
+        $record = is_array($relation['record'] ?? null) ? $relation['record'] : [];
+        $spec = is_array($record['spec'] ?? null) ? $record['spec'] : [];
+        $metadata = is_array($record['metadata'] ?? null) ? $record['metadata'] : [];
+        $selectedSource = (string) ($spec['from'] ?? '');
+        $selectedType = (string) ($metadata['type'] ?? '');
+        $selectedTarget = (string) ($spec['to'] ?? '');
+
         $html = $this->renderer->render('relations/form', [
-            'title' => '依存関係を編集: ' . $id,
+            'title' => '高度な依存関係を編集: ' . $id,
             'currentPath' => '/dependencies',
             'mode' => 'edit',
             'relation' => $relation,
             'error' => null,
-            'entities' => $this->entityRepository->listEntities(),
-            'relationTypes' => $this->listRelationTypes(),
+            'entities' => $entities,
+            'targetEntities' => $this->filterTargetCandidatesForRelation($selectedSource, $selectedType, $entities),
+            'relationTypes' => $this->listRelationTypesForSource($selectedSource, $entities),
+            'selectedSource' => $selectedSource,
+            'selectedRelationType' => $selectedType,
+            'selectedTarget' => $selectedTarget,
+            'relationSchemas' => $this->relationSchemaMap(),
+            'sourceEntity' => $this->findEntityById($selectedSource, $entities),
+            'targetEntity' => $this->findEntityById($selectedTarget, $entities),
         ]);
 
         return Response::html($html);
@@ -363,14 +443,25 @@ final class WebController
         } catch (\Throwable $exception) {
             $existingId = $params['id'] ?? null;
             $relation = $existingId !== null ? $this->relationRepository->getRelation($existingId) : null;
+            $entities = $this->entityRepository->listEntities();
+            $selectedSource = trim((string) $request->post('from', ''));
+            $selectedType = trim((string) $request->post('type', ''));
+            $selectedTarget = trim((string) $request->post('to', ''));
             $html = $this->renderer->render('relations/form', [
                 'title' => '依存関係フォーム',
                 'currentPath' => '/dependencies',
                 'mode' => $existingId !== null ? 'edit' : 'create',
                 'relation' => $relation,
                 'error' => $exception->getMessage(),
-                'entities' => $this->entityRepository->listEntities(),
-                'relationTypes' => $this->listRelationTypes(),
+                'entities' => $entities,
+                'targetEntities' => $this->filterTargetCandidatesForRelation($selectedSource, $selectedType, $entities),
+                'relationTypes' => $this->listRelationTypesForSource($selectedSource, $entities),
+                'selectedSource' => $selectedSource,
+                'selectedRelationType' => $selectedType,
+                'selectedTarget' => $selectedTarget,
+                'relationSchemas' => $this->relationSchemaMap(),
+                'sourceEntity' => $this->findEntityById($selectedSource, $entities),
+                'targetEntity' => $this->findEntityById($selectedTarget, $entities),
             ]);
 
             return Response::html($html, 422);
@@ -402,12 +493,24 @@ final class WebController
             }
         }
 
+        $record = is_array($entity['record'] ?? null) ? $entity['record'] : [];
+        $metadata = is_array($record['metadata'] ?? null) ? $record['metadata'] : [];
+        $resourceType = (string) ($metadata['type'] ?? '');
+        $schemasById = $this->activeEntitySchemasById();
+        $schema = $schemasById[$resourceType] ?? null;
+        $dependencySlots = is_array($schema['dependencySlots'] ?? null) ? $schema['dependencySlots'] : [];
+        $slotGroups = $this->groupDependenciesBySlots($id, $dependsOn, $usedBy, $dependencySlots);
+        $normalizedTags = $this->normalizedTagsForRecord($record);
+        $tagGroups = $this->groupTagsForDetail($normalizedTags);
+
         $html = $this->renderer->render('entities/detail', [
             'title' => 'リソース: ' . $id,
             'currentPath' => '/resources',
             'entity' => $entity,
             'dependsOn' => $dependsOn,
             'usedBy' => $usedBy,
+            'tagGroups' => $tagGroups,
+            'dependencySlotGroups' => $slotGroups,
         ]);
 
         return Response::html($html);
@@ -416,6 +519,8 @@ final class WebController
     public function newEntityForm(Request $request): Response
     {
         $selectedType = (string) $request->query('schema', '');
+        $settings = $this->settingsRepository->loadSettings();
+        $entities = $this->entityRepository->listEntities();
 
         $html = $this->renderer->render('entities/form', [
             'title' => 'リソースを作成',
@@ -425,10 +530,12 @@ final class WebController
             'error' => null,
             'schemas' => $this->activeSchemas(),
             'selectedSchemaId' => $selectedType,
-            'entities' => $this->entityRepository->listEntities(),
+            'entities' => $entities,
             'relationTypes' => $this->listRelationTypes(),
             'fieldErrors' => [],
             'yamlPreview' => null,
+            'settings' => $settings,
+            'existingRelations' => $this->relationRepository->listRelations(),
         ]);
 
         return Response::html($html);
@@ -444,6 +551,8 @@ final class WebController
         if ($entity === null) {
             return Response::html('リソースが見つかりません。', 404);
         }
+        $settings = $this->settingsRepository->loadSettings();
+        $entities = $this->entityRepository->listEntities();
 
         $html = $this->renderer->render('entities/form', [
             'title' => 'リソースを編集: ' . $id,
@@ -453,10 +562,12 @@ final class WebController
             'error' => null,
             'schemas' => $this->activeSchemas(),
             'selectedSchemaId' => (string) $request->query('schema', ''),
-            'entities' => $this->entityRepository->listEntities(),
+            'entities' => $entities,
             'relationTypes' => $this->listRelationTypes(),
             'fieldErrors' => [],
             'yamlPreview' => null,
+            'settings' => $settings,
+            'existingRelations' => $this->relationRepository->listRelations(),
         ]);
 
         return Response::html($html);
@@ -497,6 +608,7 @@ final class WebController
         } catch (\Throwable $exception) {
             $existingId = $params['id'] ?? null;
             $entity = $existingId !== null ? $this->entityRepository->getEntity($existingId) : null;
+            $entities = $this->entityRepository->listEntities();
             $html = $this->renderer->render('entities/form', [
                 'title' => 'リソースフォーム',
                 'currentPath' => '/resources',
@@ -505,10 +617,12 @@ final class WebController
                 'error' => $exception->getMessage(),
                 'schemas' => $this->activeSchemas(),
                 'selectedSchemaId' => (string) $request->post('type', ''),
-                'entities' => $this->entityRepository->listEntities(),
+                'entities' => $entities,
                 'relationTypes' => $this->listRelationTypes(),
                 'fieldErrors' => [],
                 'yamlPreview' => null,
+                'settings' => $this->settingsRepository->loadSettings(),
+                'existingRelations' => $this->relationRepository->listRelations(),
             ]);
 
             return Response::html($html, 422);
@@ -672,9 +786,10 @@ final class WebController
         }
 
         $labels = $this->decodeJsonObject(trim((string) $request->post('labels', '{}')), 'labels');
-        $tagsRaw = trim((string) $request->post('tags', ''));
-        $tags = $tagsRaw !== '' ? array_values(array_filter(array_map('trim', explode(',', $tagsRaw)), static fn (string $t): bool => $t !== '')) : [];
         $spec = $advanced ? $this->decodeJsonObject(trim((string) $request->post('spec', '{}')), 'spec') : $this->buildSpecFromSchema($request);
+        $settings = $this->settingsRepository->loadSettings();
+        $reservedPrefixes = is_array($settings['reserved_prefixes'] ?? null) ? $settings['reserved_prefixes'] : ['cataloga:', 'aws:'];
+        $tags = $this->buildTagsFromRequest($request, $spec, $reservedPrefixes);
 
         return [
             'apiVersion' => 'cataloga.io/v2',
@@ -716,6 +831,9 @@ final class WebController
         $spec = [];
         foreach ($raw as $k => $v) {
             $key = (string) $k;
+            if (in_array($key, ['environment', 'owner', 'site', 'zone', 'visibility', 'lifecycle', 'criticality', 'managed-by', 'cost-center', 'data-classification', 'backup-policy', 'patch-policy'], true)) {
+                continue;
+            }
             if (is_array($v)) {
                 $spec[$key] = array_values(array_filter(array_map('trim', $v), static fn (string $x): bool => $x !== ''));
                 continue;
@@ -764,39 +882,82 @@ final class WebController
             return [];
         }
 
-        $types = $request->post('dependency_type', []);
-        $targets = $request->post('dependency_target', []);
-        if (!is_array($types) || !is_array($targets)) {
-            return [];
-        }
+        $resourceType = (string) ($entityRecord['metadata']['type'] ?? '');
 
         $operations = [];
-        $count = min(count($types), count($targets));
-        for ($i = 0; $i < $count; $i++) {
-            $type = trim((string) ($types[$i] ?? ''));
-            $target = trim((string) ($targets[$i] ?? ''));
-            if ($type === '' || $target === '') {
-                continue;
-            }
+        $schema = $this->activeEntitySchemasById()[$resourceType] ?? null;
+        $slots = is_array($schema['dependencySlots'] ?? null) ? $schema['dependencySlots'] : [];
+        if ($slots !== []) {
+            foreach ($slots as $slot) {
+                $slotKey = (string) ($slot['key'] ?? '');
+                $relationType = (string) ($slot['relation_type'] ?? '');
+                $direction = (string) ($slot['direction'] ?? 'outgoing');
+                if ($slotKey === '' || $relationType === '') {
+                    continue;
+                }
 
-            $relationId = $this->slugify($resourceId . '-' . $type . '-' . $target);
-            $operations[] = [
-                'type' => 'upsert_relation',
-                'relation' => [
-                    'apiVersion' => 'cataloga.io/v2',
-                    'kind' => 'Relation',
-                    'metadata' => [
-                        'id' => $relationId,
-                        'type' => $type,
-                        'name' => $resourceId . ' ' . $type . ' ' . $target,
+                $raw = $request->post('dependency_slot_target_' . $slotKey, []);
+                $targets = is_array($raw) ? $raw : [$raw];
+                foreach ($targets as $targetRaw) {
+                    $target = trim((string) $targetRaw);
+                    if ($target === '') {
+                        continue;
+                    }
+
+                    $from = $direction === 'incoming' ? $target : $resourceId;
+                    $to = $direction === 'incoming' ? $resourceId : $target;
+                    $relationId = $this->slugify($from . '-' . $relationType . '-' . $to);
+                    $operations[] = [
+                        'type' => 'upsert_relation',
+                        'relation' => [
+                            'apiVersion' => 'cataloga.io/v2',
+                            'kind' => 'Relation',
+                            'metadata' => [
+                                'id' => $relationId,
+                                'type' => $relationType,
+                                'name' => $from . ' ' . $relationType . ' ' . $to,
+                            ],
+                            'spec' => [
+                                'from' => $from,
+                                'to' => $to,
+                                'attributes' => ['slot' => $slotKey],
+                            ],
+                        ],
+                    ];
+                }
+            }
+        }
+
+        $types = $request->post('dependency_type', []);
+        $targets = $request->post('dependency_target', []);
+        if (is_array($types) && is_array($targets)) {
+            $count = min(count($types), count($targets));
+            for ($i = 0; $i < $count; $i++) {
+                $type = trim((string) ($types[$i] ?? ''));
+                $target = trim((string) ($targets[$i] ?? ''));
+                if ($type === '' || $target === '') {
+                    continue;
+                }
+
+                $relationId = $this->slugify($resourceId . '-' . $type . '-' . $target);
+                $operations[] = [
+                    'type' => 'upsert_relation',
+                    'relation' => [
+                        'apiVersion' => 'cataloga.io/v2',
+                        'kind' => 'Relation',
+                        'metadata' => [
+                            'id' => $relationId,
+                            'type' => $type,
+                            'name' => $resourceId . ' ' . $type . ' ' . $target,
+                        ],
+                        'spec' => [
+                            'from' => $resourceId,
+                            'to' => $target,
+                            'attributes' => [],
+                        ],
                     ],
-                    'spec' => [
-                        'from' => $resourceId,
-                        'to' => $target,
-                        'attributes' => [],
-                    ],
-                ],
-            ];
+                ];
+            }
         }
 
         return $operations;
@@ -837,6 +998,384 @@ final class WebController
         }
 
         return 'Valid';
+    }
+
+    /**
+     * @param array<string,mixed> $record
+     * @return array<string,string>
+     */
+    private function normalizedTagsForRecord(array $record): array
+    {
+        $metadata = is_array($record['metadata'] ?? null) ? $record['metadata'] : [];
+        $spec = is_array($record['spec'] ?? null) ? $record['spec'] : [];
+        $rawTags = $metadata['tags'] ?? [];
+
+        $tags = [];
+        if (is_array($rawTags)) {
+            foreach ($rawTags as $key => $value) {
+                if (is_int($key)) {
+                    $legacy = trim((string) $value);
+                    if ($legacy === '') {
+                        continue;
+                    }
+                    if (str_contains($legacy, ':')) {
+                        [$k, $v] = explode(':', $legacy, 2);
+                        $legacyKey = trim($k);
+                        if ($legacyKey === '') {
+                            continue;
+                        }
+                        $tags[$legacyKey] = trim($v);
+                        continue;
+                    }
+                    $tags[$legacy] = '';
+                    continue;
+                }
+
+                $tagKey = trim((string) $key);
+                if ($tagKey === '') {
+                    continue;
+                }
+                $tags[$tagKey] = is_scalar($value) ? trim((string) $value) : '';
+            }
+        }
+
+        foreach (['environment', 'owner', 'site', 'zone', 'visibility', 'lifecycle', 'criticality', 'managed-by', 'cost-center', 'data-classification', 'backup-policy', 'patch-policy'] as $key) {
+            if (($tags[$key] ?? '') !== '') {
+                continue;
+            }
+            $legacyValue = trim((string) ($spec[$key] ?? ''));
+            if ($legacyValue !== '') {
+                $tags[$key] = $legacyValue;
+            }
+        }
+
+        return $tags;
+    }
+
+    /**
+     * @param array<string,string> $tags
+     * @return array<string,array<string,string>>
+     */
+    private function groupTagsForDetail(array $tags): array
+    {
+        $basicKeys = ['environment', 'owner', 'site', 'zone', 'lifecycle'];
+        $noteKeys = ['note'];
+        $todoKeys = ['todo'];
+        $riskKeys = ['risk'];
+
+        $basic = [];
+        $notes = [];
+        $todos = [];
+        $risks = [];
+        $others = [];
+        foreach ($tags as $key => $value) {
+            if (in_array($key, $basicKeys, true)) {
+                $basic[$key] = $value;
+                continue;
+            }
+            if (in_array($key, $noteKeys, true)) {
+                $notes[$key] = $value;
+                continue;
+            }
+            if (in_array($key, $todoKeys, true)) {
+                $todos[$key] = $value;
+                continue;
+            }
+            if (in_array($key, $riskKeys, true)) {
+                $risks[$key] = $value;
+                continue;
+            }
+            $others[$key] = $value;
+        }
+
+        return [
+            'basic' => $basic,
+            'note' => $notes,
+            'todo' => $todos,
+            'risk' => $risks,
+            'other' => $others,
+        ];
+    }
+
+    /**
+     * @return array<string,mixed>
+     */
+    private function buildTagsFromRequest(Request $request, array &$spec, array $reservedPrefixes): array
+    {
+        $tags = [];
+
+        $basicTagKeys = is_array($request->post('basic_tag_key', null)) ? $request->post('basic_tag_key', []) : [];
+        $basicTagValues = is_array($request->post('basic_tag_value', null)) ? $request->post('basic_tag_value', []) : [];
+        $count = min(count($basicTagKeys), count($basicTagValues));
+        for ($i = 0; $i < $count; $i++) {
+            $key = trim((string) ($basicTagKeys[$i] ?? ''));
+            if ($key === '') {
+                continue;
+            }
+            if ($this->isReservedTagKey($key, $reservedPrefixes)) {
+                continue;
+            }
+            $tags[$key] = trim((string) ($basicTagValues[$i] ?? ''));
+        }
+
+        $additionalKeys = is_array($request->post('tag_key', null)) ? $request->post('tag_key', []) : [];
+        $additionalValues = is_array($request->post('tag_value', null)) ? $request->post('tag_value', []) : [];
+        $additionalCount = min(count($additionalKeys), count($additionalValues));
+        for ($i = 0; $i < $additionalCount; $i++) {
+            $key = trim((string) ($additionalKeys[$i] ?? ''));
+            if ($key === '') {
+                continue;
+            }
+            if ($this->isReservedTagKey($key, $reservedPrefixes)) {
+                continue;
+            }
+            $tags[$key] = trim((string) ($additionalValues[$i] ?? ''));
+        }
+
+        if ($tags === []) {
+            $legacyTagsRaw = trim((string) $request->post('tags', ''));
+            if ($legacyTagsRaw !== '') {
+                foreach (array_filter(array_map('trim', explode(',', $legacyTagsRaw)), static fn (string $v): bool => $v !== '') as $legacy) {
+                    if (str_contains($legacy, ':')) {
+                        [$legacyKey, $legacyValue] = explode(':', $legacy, 2);
+                        $key = trim($legacyKey);
+                        if ($key === '' || $this->isReservedTagKey($key, $reservedPrefixes)) {
+                            continue;
+                        }
+                        $tags[$key] = trim($legacyValue);
+                        continue;
+                    }
+                    if ($this->isReservedTagKey($legacy, $reservedPrefixes)) {
+                        continue;
+                    }
+                    $tags[$legacy] = '';
+                }
+            }
+        }
+
+        foreach (['environment', 'owner', 'site', 'zone', 'visibility', 'lifecycle', 'criticality', 'managed-by', 'cost-center', 'data-classification', 'backup-policy', 'patch-policy'] as $legacyKey) {
+            $legacyValue = trim((string) ($spec[$legacyKey] ?? ''));
+            if ($legacyValue !== '' && !isset($tags[$legacyKey])) {
+                $tags[$legacyKey] = $legacyValue;
+            }
+            unset($spec[$legacyKey]);
+        }
+
+        ksort($tags);
+
+        return $tags;
+    }
+
+    private function isReservedTagKey(string $key, array $reservedPrefixes): bool
+    {
+        foreach ($reservedPrefixes as $prefix) {
+            if (!is_string($prefix) || $prefix === '') {
+                continue;
+            }
+            if (str_starts_with($key, $prefix)) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    /**
+     * @return array<string,array<string,mixed>>
+     */
+    private function activeEntitySchemasById(): array
+    {
+        $items = [];
+        foreach ($this->activeSchemas() as $schema) {
+            if (($schema['kind'] ?? 'entity') !== 'entity') {
+                continue;
+            }
+            $id = (string) ($schema['id'] ?? '');
+            if ($id === '') {
+                continue;
+            }
+            $items[$id] = $schema;
+        }
+
+        return $items;
+    }
+
+    /**
+     * @return array<string,array<string,mixed>>
+     */
+    private function relationSchemaMap(): array
+    {
+        $items = [];
+        foreach ($this->activeSchemas() as $schema) {
+            if (($schema['kind'] ?? 'entity') !== 'relation') {
+                continue;
+            }
+            $id = (string) ($schema['id'] ?? '');
+            if ($id === '') {
+                continue;
+            }
+            $items[$id] = $schema;
+        }
+
+        return $items;
+    }
+
+    private function findEntityById(string $id, array $entities): ?array
+    {
+        if ($id === '') {
+            return null;
+        }
+        foreach ($entities as $entity) {
+            if ((string) ($entity['id'] ?? '') === $id) {
+                return $entity;
+            }
+        }
+
+        return null;
+    }
+
+    /**
+     * @param array<int,array<string,mixed>> $entities
+     * @return array<int,string>
+     */
+    private function listRelationTypesForSource(string $sourceId, array $entities): array
+    {
+        $all = $this->listRelationTypes();
+        if ($sourceId === '') {
+            return $all;
+        }
+
+        $source = $this->findEntityById($sourceId, $entities);
+        if ($source === null) {
+            return $all;
+        }
+
+        $sourceType = (string) ($source['type'] ?? '');
+        if ($sourceType === '') {
+            return $all;
+        }
+
+        $allowed = [];
+        foreach ($this->relationSchemaMap() as $relationType => $schema) {
+            $sourceTypes = is_array($schema['sourceTypes'] ?? null) ? $schema['sourceTypes'] : [];
+            if ($sourceTypes !== [] && !in_array($sourceType, $sourceTypes, true)) {
+                continue;
+            }
+            $allowed[] = $relationType;
+        }
+
+        if ($allowed === []) {
+            return $all;
+        }
+        sort($allowed);
+
+        return $allowed;
+    }
+
+    /**
+     * @param array<int,array<string,mixed>> $entities
+     * @return array<int,array<string,mixed>>
+     */
+    private function filterTargetCandidatesForRelation(string $sourceId, string $relationType, array $entities): array
+    {
+        if ($relationType === '') {
+            return $entities;
+        }
+
+        $schema = $this->relationSchemaMap()[$relationType] ?? null;
+        if ($schema === null) {
+            return $entities;
+        }
+
+        if ($sourceId !== '') {
+            $source = $this->findEntityById($sourceId, $entities);
+            if ($source === null) {
+                return $entities;
+            }
+
+            $sourceType = (string) ($source['type'] ?? '');
+            $sourceTypes = is_array($schema['sourceTypes'] ?? null) ? $schema['sourceTypes'] : [];
+            if ($sourceTypes !== [] && !in_array($sourceType, $sourceTypes, true)) {
+                return [];
+            }
+        }
+
+        $targetTypes = is_array($schema['targetTypes'] ?? null) ? $schema['targetTypes'] : [];
+        if ($targetTypes === []) {
+            return $entities;
+        }
+
+        $filtered = [];
+        foreach ($entities as $candidate) {
+            $candidateType = (string) ($candidate['type'] ?? '');
+            if (in_array($candidateType, $targetTypes, true)) {
+                $filtered[] = $candidate;
+            }
+        }
+
+        return $filtered;
+    }
+
+    /**
+     * @param array<int,array<string,mixed>> $dependsOn
+     * @param array<int,array<string,mixed>> $usedBy
+     * @param array<int,array<string,mixed>> $slots
+     * @return array<string,mixed>
+     */
+    private function groupDependenciesBySlots(string $resourceId, array $dependsOn, array $usedBy, array $slots): array
+    {
+        if ($slots === []) {
+            return ['slots' => [], 'other' => array_merge($dependsOn, $usedBy)];
+        }
+
+        $grouped = [];
+        $assigned = [];
+        foreach ($slots as $slot) {
+            $slotKey = (string) ($slot['key'] ?? '');
+            $relationType = (string) ($slot['relation_type'] ?? '');
+            $direction = (string) ($slot['direction'] ?? 'outgoing');
+            if ($slotKey === '' || $relationType === '') {
+                continue;
+            }
+
+            $items = [];
+            $pool = $direction === 'incoming' ? $usedBy : $dependsOn;
+            foreach ($pool as $relation) {
+                if ((string) ($relation['type'] ?? '') !== $relationType) {
+                    continue;
+                }
+                $relationId = (string) ($relation['id'] ?? '');
+                if ($relationId !== '') {
+                    $assigned[$relationId] = true;
+                }
+                $peerId = $direction === 'incoming' ? (string) ($relation['from'] ?? '') : (string) ($relation['to'] ?? '');
+                $items[] = [
+                    'relation' => $relation,
+                    'peer_id' => $peerId,
+                ];
+            }
+
+            $grouped[] = [
+                'key' => $slotKey,
+                'label' => (string) ($slot['label'] ?? $slotKey),
+                'description' => (string) ($slot['description'] ?? ''),
+                'direction' => $direction,
+                'multiple' => (bool) ($slot['multiple'] ?? true),
+                'required' => (bool) ($slot['required'] ?? false),
+                'items' => $items,
+            ];
+        }
+
+        $others = [];
+        foreach (array_merge($dependsOn, $usedBy) as $relation) {
+            $relationId = (string) ($relation['id'] ?? '');
+            if ($relationId !== '' && isset($assigned[$relationId])) {
+                continue;
+            }
+            $others[] = $relation;
+        }
+
+        return ['slots' => $grouped, 'other' => $others];
     }
 
     /**

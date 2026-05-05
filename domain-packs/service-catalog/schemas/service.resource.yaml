@@ -7,16 +7,34 @@ spec:
   kind: entity
   description: Application, API, daemon, or worker.
   required:
+    - runtime
+  required_tags:
     - environment
     - owner
-    - runtime
+  recommended_tags:
+    - lifecycle
+    - visibility
+    - criticality
+  dependency_slots:
+    - key: runs_on
+      relation_type: runs_on
+      label: 実行先
+      description: このリソースが動作するホスト、VM、LXC を選択します。
+      direction: outgoing
+      target_types:
+        - host
+      multiple: true
+      required: false
+    - key: uses_database
+      relation_type: uses
+      label: 利用先
+      description: このリソースが利用するデータベースを選択します。
+      direction: outgoing
+      target_types:
+        - database
+      multiple: true
+      required: false
   properties:
-    environment:
-      type: string
-      enum: [prod, staging, dev, test]
-    owner:
-      type: string
-      enum: [infra-team, platform-team, app-team, network-team]
     runtime:
       type: string
       enum: [PHP, Python, Go, Rust, Java, JavaScript, Other]

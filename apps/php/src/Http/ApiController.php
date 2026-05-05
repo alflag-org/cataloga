@@ -7,6 +7,7 @@ namespace Cataloga\Http;
 use Cataloga\Mutation\ChangeService;
 use Cataloga\Registry\DomainPackRepository;
 use Cataloga\Registry\EntityRepository;
+use Cataloga\Registry\RegistrySettingsRepository;
 use Cataloga\Registry\RelationRepository;
 use Cataloga\Registry\SchemaRepository;
 
@@ -17,6 +18,7 @@ final class ApiController
         private readonly RelationRepository $relationRepository,
         private readonly DomainPackRepository $domainPackRepository,
         private readonly SchemaRepository $schemaRepository,
+        private readonly RegistrySettingsRepository $settingsRepository,
         private readonly ChangeService $changeService,
     ) {
     }
@@ -104,6 +106,23 @@ final class ApiController
         $items = $this->schemaRepository->listSchemas();
 
         return Response::json(['items' => $items, 'counts' => ['items' => count($items)]]);
+    }
+
+    public function settings(Request $request): Response
+    {
+        return Response::json($this->settingsRepository->loadSettings());
+    }
+
+    public function tagKeys(Request $request): Response
+    {
+        $settings = $this->settingsRepository->loadSettings();
+        $tagKeys = is_array($settings['tag_keys'] ?? null) ? $settings['tag_keys'] : [];
+        $reservedPrefixes = is_array($settings['reserved_prefixes'] ?? null) ? $settings['reserved_prefixes'] : [];
+
+        return Response::json([
+            'items' => $tagKeys,
+            'reserved_prefixes' => $reservedPrefixes,
+        ]);
     }
 
     public function types(Request $request): Response
@@ -247,6 +266,46 @@ final class ApiController
         }
 
         return Response::json(['query' => $query, 'items' => $items, 'counts' => ['items' => count($items)]]);
+    }
+
+    /**
+     * @param array<string,string> $params
+     */
+    public function resourceDependencySlots(Request $request, array $params): Response
+    {
+        $id = $params['id'] ?? '';
+        $entity = $this->entityRepository->getEntity($id);
+        if ($entity === null) {
+            return Response::json(['error' => 'Resource not found'], 404);
+        }
+
+        $record = is_array($entity['record'] ?? null) ? $entity['record'] : [];
+        $metadata = is_array($record['metadata'] ?? null) ? $record['metadata'] : [];
+        $resourceType = (string) ($metadata['type'] ?? '');
+        if ($resourceType === '') {
+            return Response::json(['id' => $id, 'type' => '', 'slots' => []]);
+        }
+
+        $schemas = $this->activeSchemas();
+        $resourceSchema = null;
+        foreach ($schemas as $schema) {
+            if (($schema['kind'] ?? 'entity') !== 'entity') {
+                continue;
+            }
+            if ((string) ($schema['id'] ?? '') !== $resourceType) {
+                continue;
+            }
+            $resourceSchema = $schema;
+            break;
+        }
+
+        $slots = is_array($resourceSchema['dependencySlots'] ?? null) ? $resourceSchema['dependencySlots'] : [];
+
+        return Response::json([
+            'id' => $id,
+            'type' => $resourceType,
+            'slots' => $slots,
+        ]);
     }
 
     /**

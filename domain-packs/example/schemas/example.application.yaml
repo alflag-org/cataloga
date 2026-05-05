@@ -7,15 +7,21 @@ spec:
   kind: entity
   description: Application/service entity for demo schema-driven forms.
   required:
+    - runbook
+  required_tags:
     - owner
     - lifecycle
+  recommended_tags:
+    - environment
+  dependency_slots:
+    - key: depends_on
+      relation_type: relation.depends_on
+      label: 接続先
+      description: このアプリケーションが依存する対象を選択します。
+      direction: outgoing
+      multiple: true
+      required: false
   properties:
-    owner:
-      type: string
-      description: Team owner
-    lifecycle:
-      type: string
-      enum: [experimental, active, deprecated]
     isCritical:
       type: boolean
     runbook:
@@ -23,9 +29,5 @@ spec:
     dependsOn:
       type: string
       format: entity_ref
-    tags:
-      type: array
-      items:
-        type: string
     settings:
       type: json

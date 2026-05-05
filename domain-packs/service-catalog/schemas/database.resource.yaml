@@ -7,16 +7,14 @@ spec:
   kind: entity
   description: Database instance or logical database.
   required:
+    - engine
+  required_tags:
     - environment
     - owner
-    - engine
+  recommended_tags:
+    - lifecycle
+    - visibility
   properties:
-    environment:
-      type: string
-      enum: [prod, staging, dev]
-    owner:
-      type: string
-      enum: [infra-team, platform-team, data-team]
     engine:
       type: string
       enum: [PostgreSQL, MySQL, MariaDB, Redis, Other]

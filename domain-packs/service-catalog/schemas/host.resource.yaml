@@ -7,26 +7,20 @@ spec:
   kind: entity
   description: VM, LXC, or physical host.
   required:
-    - environment
-    - owner
     - hostKind
     - ipAddress
+  required_tags:
+    - environment
+    - owner
+    - site
+    - zone
+  recommended_tags:
+    - lifecycle
+    - criticality
   properties:
-    environment:
-      type: string
-      enum: [prod, staging, dev, home]
-    owner:
-      type: string
-      enum: [infra-team, platform-team, network-team]
     hostKind:
       type: string
       enum: [vm, lxc, physical]
-    site:
-      type: string
-      enum: [kng01, edge-a, home-lab]
-    networkZone:
-      type: string
-      enum: [dmz, internal, clients]
     operatingSystem:
       type: string
       enum: [Debian 12, Ubuntu 24.04, Rocky 9, Other]

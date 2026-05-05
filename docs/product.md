@@ -10,8 +10,23 @@ It records operational resources (services, hosts, networks, DNS, databases, rep
 
 - Resource
 - Dependency
+- Tag metadata
 - Type pack
 - Draft change
+
+## Tag metadata model
+
+- Resource metadata uses AWS-style key-value tags (`metadata.tags`).
+- Common operational metadata (`environment`, `owner`, `site`, `zone`, `lifecycle`, etc.) are tags, not fixed `spec` fields.
+- Memo-like content is represented with tags (for example `note`, `todo`, `risk`), not a first-class memo field.
+- Reserved prefixes (`cataloga:`, `aws:`) are not user-authored in normal workflows.
+- Workspace-level vocabulary and defaults are configured in `registry/settings.yaml`.
+
+## Dependency UX model
+
+- Underlying records remain `Relation`, but normal UI editing is slot-based per resource type.
+- Dependency slots are declared by type pack schema metadata and drive guided selection in resource forms.
+- Generic dependency create/edit screen remains available as an advanced path.
 
 ## Interfaces
 

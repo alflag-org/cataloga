@@ -7,6 +7,9 @@
 - `GET /api/dependencies`
 - `GET /api/graph?resource={id}`
 - `GET /api/types`
+- `GET /api/settings`
+- `GET /api/tag-keys`
+- `GET /api/resources/{id}/dependency-slots`
 - `GET /api/type-packs`
 - `GET /api/type-packs/installed`
 - `GET /api/type-packs/available`
@@ -16,6 +19,13 @@ Compatibility aliases are kept for existing clients:
 - `/api/entities` (alias of resources)
 - `/api/relations` (alias of dependencies)
 - `/api/domain-packs` (alias of type packs)
+- `/api/entities/{id}/dependency-slots` (alias of `/api/resources/{id}/dependency-slots`)
+
+## Metadata notes
+
+- Resource tags are key-value under `metadata.tags`.
+- New writes should not use list-style tags.
+- Reserved tag prefixes (`cataloga:`, `aws:`) are treated as system-reserved.
 
 ## Write workflow endpoints
 

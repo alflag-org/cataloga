@@ -7,6 +7,27 @@ Type packs are installable extensions that add:
 - Field metadata for forms
 - Validation metadata
 
+## Schema metadata extensions
+
+Entity schema metadata can define:
+
+- `required_tags`: tags that must exist and be non-empty (unless `allow_empty` is explicitly enabled in settings)
+- `recommended_tags`: tags that should exist (warning if missing)
+- `dependency_slots`: slot-based dependency UX metadata
+
+`dependency_slots` supports:
+
+- `key`
+- `relation_type`
+- `label`
+- `description`
+- `direction` (`outgoing` / `incoming`)
+- `target_types` / `source_types`
+- `multiple`
+- `required`
+
+Relation schemas may also define `source_types` and `target_types` to support advanced dependency form filtering and compatibility checks.
+
 ## Layout
 
 ```text

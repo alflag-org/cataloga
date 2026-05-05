@@ -6,5 +6,9 @@ metadata:
 spec:
   kind: relation
   description: Source resource uses target resource.
+  source_types:
+    - service
+  target_types:
+    - database
   required: []
   properties: {}

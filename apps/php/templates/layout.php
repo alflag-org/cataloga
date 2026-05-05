@@ -403,7 +403,7 @@
 
     .filters {
       display: grid;
-      grid-template-columns: minmax(240px, 1fr) repeat(3, minmax(120px, 190px));
+      grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
       gap: 0.6rem;
       align-items: end;
     }

@@ -56,12 +56,26 @@
         <?php foreach ($recentResources as $resource): ?>
           <?php
           $record = is_array($resource['record'] ?? null) ? $resource['record'] : [];
+          $metadata = is_array($record['metadata'] ?? null) ? $record['metadata'] : [];
           $spec = is_array($record['spec'] ?? null) ? $record['spec'] : [];
+          $tags = is_array($metadata['tags'] ?? null) ? $metadata['tags'] : [];
+          $environment = '';
+          if (is_array($tags)) {
+              foreach ($tags as $tagKey => $tagValue) {
+                  if ((string) $tagKey === 'environment') {
+                      $environment = is_scalar($tagValue) ? (string) $tagValue : '';
+                      break;
+                  }
+              }
+          }
+          if ($environment === '') {
+              $environment = (string) ($spec['environment'] ?? '—');
+          }
           ?>
           <tr>
             <td><a class="text-link" href="/resources/<?= rawurlencode((string) $resource['id']) ?>"><?= h((string) ($resource['name'] !== '' ? $resource['name'] : $resource['id'])) ?></a></td>
             <td><span class="pill"><?= h((string) $resource['type']) ?></span></td>
-            <td><?= h((string) ($spec['environment'] ?? '—')) ?></td>
+            <td><?= h($environment !== '' ? $environment : '—') ?></td>
             <td><span class="pill ok">正常</span></td>
           </tr>
         <?php endforeach; ?>

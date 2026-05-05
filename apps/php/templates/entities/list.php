@@ -2,6 +2,12 @@
 $filters = is_array($filters ?? null) ? $filters : ['q' => '', 'type' => ''];
 $q = (string) ($filters['q'] ?? '');
 $typeFilter = (string) ($filters['type'] ?? '');
+$environmentFilter = (string) ($filters['environment'] ?? '');
+$ownerFilter = (string) ($filters['owner'] ?? '');
+$siteFilter = (string) ($filters['site'] ?? '');
+$zoneFilter = (string) ($filters['zone'] ?? '');
+$lifecycleFilter = (string) ($filters['lifecycle'] ?? '');
+$tagFilterOptions = is_array($tagFilterOptions ?? null) ? $tagFilterOptions : [];
 ?>
 <div class="panel">
   <div class="title-row">
@@ -25,6 +31,51 @@ $typeFilter = (string) ($filters['type'] ?? '');
         <option value="">すべて</option>
         <?php foreach (($types ?? []) as $type): ?>
           <option value="<?= h((string) $type) ?>" <?= (string) $type === $typeFilter ? 'selected' : '' ?>><?= h((string) $type) ?></option>
+        <?php endforeach; ?>
+      </select>
+    </div>
+    <div class="field">
+      <label for="environment">環境</label>
+      <select id="environment" name="environment">
+        <option value="">すべて</option>
+        <?php foreach ((array) ($tagFilterOptions['environment'] ?? []) as $item): ?>
+          <option value="<?= h((string) $item) ?>" <?= (string) $item === $environmentFilter ? 'selected' : '' ?>><?= h((string) $item) ?></option>
+        <?php endforeach; ?>
+      </select>
+    </div>
+    <div class="field">
+      <label for="owner">オーナー</label>
+      <select id="owner" name="owner">
+        <option value="">すべて</option>
+        <?php foreach ((array) ($tagFilterOptions['owner'] ?? []) as $item): ?>
+          <option value="<?= h((string) $item) ?>" <?= (string) $item === $ownerFilter ? 'selected' : '' ?>><?= h((string) $item) ?></option>
+        <?php endforeach; ?>
+      </select>
+    </div>
+    <div class="field">
+      <label for="site">サイト</label>
+      <select id="site" name="site">
+        <option value="">すべて</option>
+        <?php foreach ((array) ($tagFilterOptions['site'] ?? []) as $item): ?>
+          <option value="<?= h((string) $item) ?>" <?= (string) $item === $siteFilter ? 'selected' : '' ?>><?= h((string) $item) ?></option>
+        <?php endforeach; ?>
+      </select>
+    </div>
+    <div class="field">
+      <label for="zone">ゾーン</label>
+      <select id="zone" name="zone">
+        <option value="">すべて</option>
+        <?php foreach ((array) ($tagFilterOptions['zone'] ?? []) as $item): ?>
+          <option value="<?= h((string) $item) ?>" <?= (string) $item === $zoneFilter ? 'selected' : '' ?>><?= h((string) $item) ?></option>
+        <?php endforeach; ?>
+      </select>
+    </div>
+    <div class="field">
+      <label for="lifecycle">ライフサイクル</label>
+      <select id="lifecycle" name="lifecycle">
+        <option value="">すべて</option>
+        <?php foreach ((array) ($tagFilterOptions['lifecycle'] ?? []) as $item): ?>
+          <option value="<?= h((string) $item) ?>" <?= (string) $item === $lifecycleFilter ? 'selected' : '' ?>><?= h((string) $item) ?></option>
         <?php endforeach; ?>
       </select>
     </div>

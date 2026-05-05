@@ -16,6 +16,7 @@ use Cataloga\Registry\EntityRepository;
 use Cataloga\Registry\PathGuard;
 use Cataloga\Registry\RecordParser;
 use Cataloga\Registry\RecordSerializer;
+use Cataloga\Registry\RegistrySettingsRepository;
 use Cataloga\Registry\RelationRepository;
 use Cataloga\Registry\SchemaRepository;
 use Cataloga\Validation\RegistryValidator;
@@ -56,8 +57,9 @@ $entityRepository = new EntityRepository($registryRoot, $recordParser, $recordSe
 $relationRepository = new RelationRepository($registryRoot, $recordParser, $recordSerializer, $pathGuard);
 $domainPackRepository = new DomainPackRepository($projectRoot, $recordParser);
 $schemaRepository = new SchemaRepository($projectRoot, $registryRoot, $recordParser);
+$settingsRepository = new RegistrySettingsRepository($registryRoot, $recordParser);
 $changeRepository = new ChangeSessionRepository($runtimeRoot);
-$validator = new RegistryValidator();
+$validator = new RegistryValidator($schemaRepository, $domainPackRepository, $settingsRepository);
 $gitService = new GitService($projectRoot);
 $auditLogger = new AuditLogger($runtimeRoot);
 $changeService = new ChangeService(
@@ -72,8 +74,8 @@ $changeService = new ChangeService(
 );
 $renderer = new TemplateRenderer(dirname(__DIR__) . '/templates');
 
-$web = new WebController($renderer, $entityRepository, $relationRepository, $domainPackRepository, $schemaRepository, $changeService, $gitService);
-$api = new ApiController($entityRepository, $relationRepository, $domainPackRepository, $schemaRepository, $changeService);
+$web = new WebController($renderer, $entityRepository, $relationRepository, $domainPackRepository, $schemaRepository, $settingsRepository, $changeService, $gitService);
+$api = new ApiController($entityRepository, $relationRepository, $domainPackRepository, $schemaRepository, $settingsRepository, $changeService);
 
 $router = new Router();
 $router->add('GET', '/', [$web, 'dashboard']);
@@ -133,7 +135,11 @@ $router->add('GET', '/api/entities/{id}/neighbors', [$api, 'entityNeighbors']);
 
 $router->add('GET', '/api/types', [$api, 'types']);
 $router->add('GET', '/api/schemas', [$api, 'schemas']);
+$router->add('GET', '/api/settings', [$api, 'settings']);
+$router->add('GET', '/api/tag-keys', [$api, 'tagKeys']);
 $router->add('GET', '/api/search', [$api, 'search']);
+$router->add('GET', '/api/resources/{id}/dependency-slots', [$api, 'resourceDependencySlots']);
+$router->add('GET', '/api/entities/{id}/dependency-slots', [$api, 'resourceDependencySlots']);
 
 $router->add('GET', '/api/type-packs', [$api, 'typePacks']);
 $router->add('GET', '/api/domain-packs', [$api, 'domainPacks']);
