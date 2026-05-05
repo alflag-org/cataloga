@@ -1,0 +1,14 @@
+.cataloga/
+.codex/
+.agents/
+
+.github/
+docker-compose.yml
+docker/
+docs/
+examples/
+tests/
+
+*.md
+.prettierrc.json
+mise.toml

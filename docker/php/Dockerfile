@@ -1,23 +1,34 @@
-FROM php:8.3-cli
-
-RUN apt-get update \
-    && apt-get install -y --no-install-recommends git unzip \
-    && rm -rf /var/lib/apt/lists/*
-
-COPY --from=composer:2 /usr/bin/composer /usr/bin/composer
+FROM composer:2 AS deps
 
 WORKDIR /app/apps/php
+COPY apps/php/composer.json apps/php/composer.lock ./
+RUN composer install \
+    --no-dev \
+    --prefer-dist \
+    --no-interaction \
+    --no-progress \
+    --optimize-autoloader \
+    --classmap-authoritative
 
-COPY apps/php/composer.json /app/apps/php/composer.json
-RUN composer install --no-interaction --prefer-dist --no-progress
+FROM php:8.3-cli AS runtime
 
-COPY . /app
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends git \
+    && rm -rf /var/lib/apt/lists/*
 
-RUN composer install --no-interaction --prefer-dist --no-progress
+WORKDIR /app
+
+COPY .git /app/.git
+COPY cataloga.yaml /app/cataloga.yaml
+COPY domain-packs /app/domain-packs
+COPY registry /app/registry
+COPY apps/php /app/apps/php
+COPY --from=deps /app/apps/php/vendor /app/apps/php/vendor
 
 ENV CATALOGA_REGISTRY_PATH=/app/registry
 ENV CATALOGA_RUNTIME_PATH=/app/.cataloga
 
 EXPOSE 8080
 
+WORKDIR /app/apps/php
 CMD ["php", "-S", "0.0.0.0:8080", "-t", "public"]
