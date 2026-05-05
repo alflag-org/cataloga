@@ -6,6 +6,7 @@ namespace Cataloga\Http;
 
 use Cataloga\Git\GitService;
 use Cataloga\Mutation\ChangeService;
+use Cataloga\Registry\DomainPackRepository;
 use Cataloga\Registry\EntityRepository;
 use Cataloga\Registry\RelationRepository;
 use Cataloga\View\TemplateRenderer;
@@ -16,6 +17,7 @@ final class WebController
         private readonly TemplateRenderer $renderer,
         private readonly EntityRepository $entityRepository,
         private readonly RelationRepository $relationRepository,
+        private readonly DomainPackRepository $domainPackRepository,
         private readonly ChangeService $changeService,
         private readonly GitService $gitService,
     ) {
@@ -69,6 +71,53 @@ final class WebController
         ]);
 
         return Response::html($html);
+    }
+
+    public function domainPackList(Request $request): Response
+    {
+        $html = $this->renderer->render('domain-packs/list', [
+            'title' => 'Domain Packs',
+            'currentPath' => '/domain-packs',
+            'packs' => $this->domainPackRepository->listDomainPacks(),
+        ]);
+        return Response::html($html);
+    }
+
+    public function newRelationForm(Request $request): Response
+    {
+        $html = $this->renderer->render('relations/form', ['title' => 'Create Relation', 'currentPath' => '/relations', 'mode' => 'create', 'relation' => null, 'error' => null]);
+        return Response::html($html);
+    }
+
+    public function editRelationForm(Request $request, array $params): Response
+    {
+        $id = $params['id'] ?? '';
+        $relation = $this->relationRepository->getRelation($id);
+        if ($relation === null) { return Response::html('Relation not found', 404); }
+        $html = $this->renderer->render('relations/form', ['title' => 'Edit Relation ' . $id, 'currentPath' => '/relations', 'mode' => 'edit', 'relation' => $relation, 'error' => null]);
+        return Response::html($html);
+    }
+
+    public function upsertRelation(Request $request, array $params = []): Response
+    {
+        if (!$this->validateCsrf($request)) { return Response::html('CSRF token mismatch.', 419); }
+        try {
+            $record = $this->buildRelationRecord($request);
+            $sourcePath = trim((string) $request->post('sourcePath', ''));
+            $actor = trim((string) $request->post('actor', 'human-ui'));
+            $actorType = trim((string) $request->post('actorType', 'human'));
+            $change = $this->changeService->createChange($actor !== '' ? $actor : 'human-ui', $actorType);
+            $operation = ['type' => 'upsert_relation', 'relation' => $record];
+            if ($sourcePath !== '') { $operation['sourcePath'] = $sourcePath; }
+            $this->changeService->addOperations((string) $change['id'], $operation);
+            $this->changeService->validateChange((string) $change['id']);
+            return Response::redirect('/changes/' . rawurlencode((string) $change['id']));
+        } catch (\Throwable $exception) {
+            $existingId = $params['id'] ?? null;
+            $relation = $existingId !== null ? $this->relationRepository->getRelation($existingId) : null;
+            $html = $this->renderer->render('relations/form', ['title' => 'Relation Form', 'currentPath' => '/relations', 'mode' => $existingId !== null ? 'edit' : 'create', 'relation' => $relation, 'error' => $exception->getMessage()]);
+            return Response::html($html, 422);
+        }
     }
 
     /**
@@ -319,6 +368,19 @@ final class WebController
                 'tags' => $tags,
             ],
             'spec' => $spec,
+        ];
+    }
+
+    /**
+     * @return array<string,mixed>
+     */
+    private function buildRelationRecord(Request $request): array
+    {
+        return [
+            'apiVersion' => 'cataloga.io/v2',
+            'kind' => 'Relation',
+            'metadata' => ['id' => trim((string) $request->post('id', '')), 'type' => trim((string) $request->post('type', '')), 'name' => trim((string) $request->post('name', ''))],
+            'spec' => ['from' => trim((string) $request->post('from', '')), 'to' => trim((string) $request->post('to', '')), 'attributes' => $this->decodeJsonObject(trim((string) $request->post('attributes', '{}')), 'attributes')],
         ];
     }
 

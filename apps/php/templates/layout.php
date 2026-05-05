@@ -47,6 +47,7 @@
       <a href="/" class="<?= ($currentPath ?? '') === '/' ? 'active' : '' ?>">Dashboard</a>
       <a href="/entities" class="<?= str_starts_with((string) ($currentPath ?? ''), '/entities') ? 'active' : '' ?>">Entities</a>
       <a href="/relations" class="<?= str_starts_with((string) ($currentPath ?? ''), '/relations') ? 'active' : '' ?>">Relations</a>
+      <a href="/domain-packs" class="<?= str_starts_with((string) ($currentPath ?? ''), '/domain-packs') ? 'active' : '' ?>">Domain Packs</a>
       <a href="/changes" class="<?= str_starts_with((string) ($currentPath ?? ''), '/changes') ? 'active' : '' ?>">Changes</a>
       <a href="/validation" class="<?= ($currentPath ?? '') === '/validation' ? 'active' : '' ?>">Validation</a>
       <a href="/git/diff" class="<?= ($currentPath ?? '') === '/git/diff' ? 'active' : '' ?>">Git Diff</a>

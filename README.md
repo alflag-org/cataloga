@@ -71,6 +71,10 @@ docker-compose.yml
 - `/entities/{id}` entity detail
 - `/entities/new` create form
 - `/entities/{id}/edit` edit form
+- `/relations` relation list
+- `/relations/new` create relation form
+- `/relations/{id}/edit` edit relation form
+- `/domain-packs` domain pack list
 - `/changes` change-session list
 - `/changes/{id}` change-session page (validation/diff/commit/abort)
 - `/validation` registry validation
@@ -83,6 +87,7 @@ docker-compose.yml
 - `GET /api/entities`
 - `GET /api/entities/{id}`
 - `GET /api/relations` (relation records with stable `id/type/path` metadata)
+- `GET /api/domain-packs` (loaded `domain-packs/*/pack.yaml` metadata)
 - `GET /api/schemas` (schema records with stable `id/type/path` metadata)
 - `GET /api/entities/{id}/neighbors` (entity graph neighbors + relation edges + counts/errors)
 - `GET /api/search?q=` (registry-wide search with stable metadata and counts)
@@ -128,10 +133,11 @@ Explore endpoints are read-only and reuse existing repositories/services so muta
 
 ## Next steps
 
-1. Add authentication and RBAC for UI/API/MCP tool boundaries.
-2. Expand relation validation rules and semantic policy checks.
-3. Add semantic diff rendering and review workflows.
-4. Implement MCP server using the existing mutation engine (`apps/mcp/README.md`).
+1. Add authentication and RBAC for UI/API boundaries.
+2. Expand domain pack runtime (schema loading and validation).
+3. Expand relation validation rules and semantic policy checks.
+4. Add semantic diff rendering and review workflows.
+5. Implement MCP server using the existing mutation engine (`apps/mcp/README.md`).
 
 
 ## CI (v2 mainline)

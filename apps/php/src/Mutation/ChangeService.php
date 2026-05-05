@@ -581,7 +581,10 @@ final class ChangeService
             }
             if (($operation['type'] ?? null) === 'upsert_relation') {
                 $relation = is_array($operation['relation'] ?? null) ? $operation['relation'] : $operation;
-                if (is_string($relation['id'] ?? null)) {
+                $metadata = is_array($relation['metadata'] ?? null) ? $relation['metadata'] : [];
+                if (is_string($metadata['id'] ?? null)) {
+                    $targetIds[] = (string) $metadata['id'];
+                } elseif (is_string($relation['id'] ?? null)) {
                     $targetIds[] = (string) $relation['id'];
                 }
             }
