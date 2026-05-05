@@ -1,8 +1,0 @@
-id: relation-prefix-allocates-host
-type: allocates
-source:
-  type: prefix
-  id: prefix-192-168-10-0-24
-target:
-  type: allocation
-  id: allocation-nas

@@ -1,52 +1,46 @@
-# Cataloga Development Instructions
+# Cataloga Agent Instructions
 
-Cataloga is an AI-native, Git/file-backed, domain-agnostic registry platform.
+## Product
+Cataloga is a Rust-first, schema-driven infrastructure catalog.
 
-## Product Direction
+- Runtime modes:
+  - Local standalone: Rust binary + SQLite
+  - Cloudflare managed: Rust Worker + D1 + R2
+- Canonical runtime storage is database-backed (SQLite/D1).
+- YAML is for import/export and snapshots.
 
-- Cataloga is a registry platform, not a network-specific product.
-- Network inventory is a domain pack/example, not the core identity.
-- Managed hosting is out of scope unless explicitly requested.
-- Backward compatibility with older abstractions is not required.
-- Prefer simple, local-first, self-hostable architecture.
+## Terminology
+Use only these user-facing terms:
 
-## Runtime and Tooling Rules
+- Resource
+- Resource Type
+- Field
+- View
+- Relation
+- Draft
+- Validate
+- Save
+- Discard
+- Import
+- Export
+- Snapshot
 
-- PHP is the only implementation runtime.
-- Do not create or restore Node.js / TypeScript app code unless explicitly requested.
-- Do not add npm workspace tooling.
-- Docker Compose and Composer are the expected development/runtime tools.
+Do not use old user-facing `Entity` terminology.
 
-## Architecture Rules
+## Architecture rules
+- `cataloga-core` contains portable domain logic and validation.
+- `cataloga-store` defines store traits.
+- `cataloga-store-sqlite` provides local store implementation.
+- `cataloga-store-d1` provides Worker/D1 implementation.
+- `cataloga-api` is shared application logic.
+- `cataloga-server` and `cataloga-worker` are runtime adapters only.
 
-- Git/file-backed registry data is the source of truth.
-- Runtime databases may only be used for cache, index, lock, audit, or derived state.
-- Core must define generic registry mechanics:
-  - Entity
-  - Relation
-  - Schema
-  - View
-  - Policy
-  - Evidence
-  - ChangeSession
-  - ValidationRule
-- Domain semantics belong in packs.
-- Human UI, CLI, API, and MCP tools must share the same mutation engine.
-- Do not create direct write paths that bypass change sessions.
-- All writes must continue to go through PHP change sessions.
-- Future MCP must call the same PHP mutation/change-session path.
+## Runtime/tooling rules
+- Local development uses `mise`.
+- Keep tasks aligned with `mise.toml` only.
+- Do not add or restore PHP runtime code.
+- Do not reintroduce Git/file-backed canonical storage assumptions.
 
-## AI-Native Rules
-
-- MCP is a first-class interface.
-- AI agents must be able to explore, validate, edit, diff, and commit registry data.
-- AI mutations must be auditable and reviewable.
-- Prefer semantic mutation tools over raw file writes.
-- All write operations must support validation and diff preview.
-
-## Coding Rules
-
-- Avoid network-specific assumptions in core packages.
-- Avoid managed-hosting/operator/tenant abstractions unless explicitly requested.
+## Safety
 - Preserve unrelated worktree changes.
-- Do not use destructive git commands without explicit approval.
+- Avoid destructive git commands unless explicitly requested.

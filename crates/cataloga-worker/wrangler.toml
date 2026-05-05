@@ -1,0 +1,16 @@
+name = "cataloga-worker"
+main = "build/worker/shim.mjs"
+compatibility_date = "2026-05-06"
+
+[assets]
+directory = "../../apps/web/dist"
+binding = "ASSETS"
+
+[[d1_databases]]
+binding = "CATALOGA_DB"
+database_name = "cataloga"
+database_id = "replace-me"
+
+[[r2_buckets]]
+binding = "CATALOGA_SNAPSHOTS"
+bucket_name = "cataloga-snapshots"

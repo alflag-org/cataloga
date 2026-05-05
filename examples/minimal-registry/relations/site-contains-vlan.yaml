@@ -1,8 +1,0 @@
-id: relation-site-contains-vlan
-type: contains
-source:
-  type: site
-  id: site-home-lab
-target:
-  type: vlan
-  id: vlan-10

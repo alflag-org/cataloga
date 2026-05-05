@@ -1,0 +1,7 @@
+id: devices
+title: Devices
+resource_type: device
+columns:
+  - metadata.name
+  - spec.role
+  - spec.mgmt_ip

@@ -1,7 +1,0 @@
-kind: relation
-id: relation-app-portal-owned-by-team-platform
-relationType: owned-by
-source:
-  entityId: entity-app-portal
-target:
-  entityId: entity-team-platform

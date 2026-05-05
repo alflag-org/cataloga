@@ -1,4 +1,0 @@
-kind: view
-id: view-applications
-title: Applications
-query: kind == "entity" && schemaId == "schema-application"

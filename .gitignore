@@ -1,18 +1,28 @@
-# Dependency artifacts
-apps/php/vendor/
+# Rust
+/target/
+**/*.rs.bk
+*.pdb
+rustc-ice-*.txt
 
-# Runtime/derived state (non-canonical)
+# Local app state
 .cataloga/
+*.db
+*.db-shm
+*.db-wal
 
-# Composer and PHP runtime artifacts
-composer.phar
-*.cache
-.phpunit.result.cache
+# Web
+apps/web/node_modules/
+apps/web/dist/
+apps/web/.vite/
+apps/web/tsconfig.tsbuildinfo
 
-# Logs
-*.log
-logs/
+# Wrangler
+.wrangler/
 
-# Docker/runtime artifacts
-*.pid
-*.sock
+# Tooling temp
+.playwright-cli/
+output/playwright/
+
+# Codex
+.codex
+.agents

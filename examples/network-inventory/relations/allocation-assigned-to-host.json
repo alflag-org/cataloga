@@ -1,6 +1,0 @@
-{
-  "id": "relation-allocation-assigned-to-host",
-  "type": "assigned_to",
-  "source": { "type": "allocation", "id": "allocation-router-a" },
-  "target": { "type": "host", "id": "host-router-a" }
-}

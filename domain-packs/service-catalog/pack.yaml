@@ -1,9 +1,0 @@
-id: service-catalog
-version: 0.1.0
-title: service-catalog domain pack
-description: Example service-catalog extension for Cataloga v2.
-entrypoints:
-  schemas: schemas
-  policies: policies
-  views: views
-  rules: rules

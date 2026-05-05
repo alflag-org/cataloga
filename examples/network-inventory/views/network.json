@@ -1,6 +1,0 @@
-{
-  "id": "view-network",
-  "title": "Network Overview",
-  "entityTypes": ["site", "segment", "vlan", "prefix", "host", "service"],
-  "query": "siteId=site-edge-a"
-}

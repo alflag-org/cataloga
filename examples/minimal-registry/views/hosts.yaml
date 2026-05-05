@@ -1,7 +1,0 @@
-id: view-hosts
-title: Hosts
-entityTypes:
-  - host
-  - allocation
-  - dns_record
-query: type=host

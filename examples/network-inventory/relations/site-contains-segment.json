@@ -1,6 +1,0 @@
-{
-  "id": "relation-site-contains-segment",
-  "type": "contains",
-  "source": { "type": "site", "id": "site-edge-a" },
-  "target": { "type": "segment", "id": "segment-access-a" }
-}

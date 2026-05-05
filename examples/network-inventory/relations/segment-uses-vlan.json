@@ -1,6 +1,0 @@
-{
-  "id": "relation-segment-uses-vlan",
-  "type": "uses",
-  "source": { "type": "segment", "id": "segment-access-a" },
-  "target": { "type": "vlan", "id": "vlan-200" }
-}

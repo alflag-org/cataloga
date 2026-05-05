@@ -1,6 +1,0 @@
-{
-  "id": "relation-vlan-provides-prefix",
-  "type": "provides",
-  "source": { "type": "vlan", "id": "vlan-200" },
-  "target": { "type": "prefix", "id": "prefix-10-20-0-0-24" }
-}

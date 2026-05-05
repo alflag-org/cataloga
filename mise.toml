@@ -1,62 +1,36 @@
-[env]
-CATALOGA_BASE_URL = "http://127.0.0.1:8080"
-MISE_DATA_DIR = "{{cwd}}/.cataloga/mise-data"
-MISE_CACHE_DIR = "{{cwd}}/.cataloga/mise-cache"
-
-[tasks.tools]
-description = "Install pinned mise tools for local development"
-run = "mise install"
-
-[tasks.php-check]
-description = "Verify local PHP is available via mise"
-depends = ["tools"]
-run = [
-  "php -v",
-]
-
-[tasks.php-lint]
-description = "Run syntax checks for all PHP files"
-depends = ["php-check"]
-run = "find apps/php -name '*.php' -print0 | xargs -0 -n1 php -l"
-
-[tasks.setup]
-description = "Prepare local runtime paths and validate Docker Compose config"
-depends = ["php-check"]
-run = [
-  "command -v docker >/dev/null || (echo 'docker is required but not installed.' >&2; exit 1)",
-  "docker compose version >/dev/null",
-  "mkdir -p .cataloga",
-  "docker compose config >/dev/null",
-]
-
-[tasks.up]
-description = "Build and start the Cataloga PHP app"
-depends = ["setup"]
-run = "docker compose up --build -d"
-
-[tasks.down]
-description = "Stop and remove local containers"
-run = "docker compose down --remove-orphans"
-
-[tasks.status]
-description = "Show local container status"
-run = "docker compose ps"
-
-[tasks.logs]
-description = "Tail Cataloga service logs"
-run = "docker compose logs --tail=200 cataloga"
-
-[tasks.health]
-description = "Check API responsiveness on the local endpoint"
-run = "curl -fsS \"$CATALOGA_BASE_URL/api/entities\" >/dev/null"
-
-[tasks.verify]
-description = "End-to-end local verification (build/start/check/status)"
-depends = ["up"]
-run = [
-  "curl -fsS \"$CATALOGA_BASE_URL/api/entities\" >/dev/null",
-  "docker compose ps",
-]
-
 [tools]
-"ubi:adwinying/php" = "8.5"
+rust = "stable"
+node = "24"
+pnpm = "10"
+"npm:wrangler" = "4"
+"npm:prettier" = "3"
+
+[tasks.fmt]
+run = ["cargo fmt --all"]
+
+[tasks.lint]
+run = ["cargo clippy --all-targets --all-features -- -D warnings", "mise exec -- pnpm -C apps/web typecheck"]
+
+[tasks.test]
+run = ["cargo test --all", "mise exec -- pnpm -C apps/web test"]
+
+[tasks.build]
+run = ["cargo build --workspace", "mise exec -- pnpm -C apps/web build"]
+
+[tasks.dev]
+run = "mise exec -- pnpm -C apps/web dev"
+
+[tasks.serve]
+run = "cargo run -p cataloga-cli -- serve --db sqlite://./cataloga.db --listen 127.0.0.1:8080 --catalog default"
+
+[tasks.worker-dev]
+run = "cd crates/cataloga-worker && wrangler dev"
+
+[tasks.worker-deploy]
+run = "cd crates/cataloga-worker && wrangler deploy"
+
+[tasks.db-migrate]
+run = "cargo run -p cataloga-cli -- migrate --db sqlite://./cataloga.db"
+
+[tasks.seed]
+run = "cargo run -p cataloga-cli -- seed --db sqlite://./cataloga.db --catalog default"

@@ -1,7 +1,0 @@
-kind: entity
-id: entity-team-platform
-schemaId: schema-application
-title: Platform Team
-tags: []
-attributes:
-  name: platform-team

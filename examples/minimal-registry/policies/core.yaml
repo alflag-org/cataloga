@@ -1,6 +1,0 @@
-id: policy-core
-title: Core Example Policy
-rules:
-  - code: require-tag
-    targetType: site
-    value: production

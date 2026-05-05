@@ -1,0 +1,13 @@
+id: device
+title: Device
+fields:
+  - name: role
+    type: enum
+    enum_values: [router, switch, server]
+  - name: mgmt_ip
+    type: ip
+required_fields: [role, mgmt_ip]
+list_columns:
+  - metadata.name
+  - spec.role
+  - spec.mgmt_ip

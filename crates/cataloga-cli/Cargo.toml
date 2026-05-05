@@ -1,0 +1,17 @@
+[package]
+name = "cataloga-cli"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+
+[dependencies]
+anyhow.workspace = true
+clap.workspace = true
+cataloga-api = { path = "../cataloga-api" }
+cataloga-server = { path = "../cataloga-server" }
+cataloga-store-sqlite = { path = "../cataloga-store-sqlite" }
+tokio.workspace = true
+
+[[bin]]
+name = "cataloga"
+path = "src/main.rs"

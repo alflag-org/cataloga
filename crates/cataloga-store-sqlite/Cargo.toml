@@ -1,0 +1,17 @@
+[package]
+name = "cataloga-store-sqlite"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+
+[dependencies]
+anyhow.workspace = true
+async-trait.workspace = true
+cataloga-core = { path = "../cataloga-core" }
+cataloga-store = { path = "../cataloga-store" }
+serde_json.workspace = true
+sqlx.workspace = true
+
+[dev-dependencies]
+tokio.workspace = true
+

@@ -1,8 +1,0 @@
-id: relation-allocation-assigned-to-host
-type: assigned_to
-source:
-  type: allocation
-  id: allocation-nas
-target:
-  type: host
-  id: host-nas

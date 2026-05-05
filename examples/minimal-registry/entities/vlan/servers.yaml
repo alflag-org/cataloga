@@ -1,9 +1,0 @@
-id: vlan-10
-type: vlan
-title: Server VLAN
-tags:
-  - l2
-attributes:
-  name: servers
-  siteId: site-home-lab
-  vlanId: 10

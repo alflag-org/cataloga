@@ -1,8 +1,0 @@
-id: relation-host-runs-service
-type: runs
-source:
-  type: host
-  id: host-nas
-target:
-  type: service
-  id: service-files

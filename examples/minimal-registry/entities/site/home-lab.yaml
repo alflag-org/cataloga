@@ -1,9 +1,0 @@
-id: site-home-lab
-type: site
-title: Home Lab
-tags:
-  - production
-attributes:
-  name: home-lab
-  code: lab
-  region: local

@@ -1,8 +1,0 @@
-kind: evidence
-id: evidence-cmdb-portal
-source: cmdb
-observedAt: 2026-05-01T00:00:00Z
-confidence: 0.9
-uri: file://evidence/cmdb/customer-portal.json
-attributes:
-  recordVersion: "2026-05"

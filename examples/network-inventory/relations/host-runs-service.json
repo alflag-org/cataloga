@@ -1,6 +1,0 @@
-{
-  "id": "relation-host-runs-service",
-  "type": "runs",
-  "source": { "type": "host", "id": "host-router-a" },
-  "target": { "type": "service", "id": "service-bgp" }
-}
