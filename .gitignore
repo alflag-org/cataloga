@@ -1,6 +1,5 @@
 # Dependency artifacts
 apps/php/vendor/
-node_modules/
 
 # Runtime/derived state (non-canonical)
 .cataloga/

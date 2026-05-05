@@ -1,64 +1,45 @@
-# CLI examples
+# CLI/API examples (v2)
 
-Build first:
+Start local app first:
 
 ```bash
 mise install
-mise run bootstrap
-mise run build
+mise run verify
 ```
 
-If Composer is available locally, install PHP dependencies as well:
+## List entities
 
 ```bash
-mise run bootstrap-php
+curl -sS http://127.0.0.1:8080/api/entities
 ```
 
-Use the CLI via workspace bin:
+## Get one entity
 
 ```bash
-npm exec --workspace @cataloga/cli cataloga -- --help
+curl -sS http://127.0.0.1:8080/api/entities/entity-example-entity
 ```
 
-Examples below assume `cataloga.yaml` at repository root.
-
-## Registry validation and static bundles
+## Create change session
 
 ```bash
-npm exec --workspace @cataloga/cli cataloga -- validate --registry packages/sample-data/registry
-npm exec --workspace @cataloga/cli cataloga -- inspect --registry packages/sample-data/registry --query "type=host"
-npm exec --workspace @cataloga/cli cataloga -- export --registry packages/sample-data/registry --out .artifacts/bundle.json
+curl -sS -X POST http://127.0.0.1:8080/api/changes
 ```
 
-## Source management
+## Validate change session
 
 ```bash
-npm exec --workspace @cataloga/cli cataloga -- source list --config cataloga.yaml
-npm exec --workspace @cataloga/cli cataloga -- source add --config cataloga.yaml --id manual-extra --type manual --scope manual-extra --sourceConfig '{"records":[{"id":"svc-extra","type":"service","name":"svc-extra"}]}'
+CHANGE_ID="<change-id>"
+curl -sS -X POST "http://127.0.0.1:8080/api/changes/${CHANGE_ID}/validate"
 ```
 
-## Ingest
+## Preview diff
 
 ```bash
-npm exec --workspace @cataloga/cli cataloga -- ingest run --config cataloga.yaml
-npm exec --workspace @cataloga/cli cataloga -- ingest run --config cataloga.yaml --source aws-prod
+curl -sS "http://127.0.0.1:8080/api/changes/${CHANGE_ID}/diff"
 ```
 
-## Snapshots
+## Stop local app
 
 ```bash
-npm exec --workspace @cataloga/cli cataloga -- snapshot list --config cataloga.yaml
-```
-
-## Topology
-
-```bash
-npm exec --workspace @cataloga/cli cataloga -- topology build --config cataloga.yaml
-npm exec --workspace @cataloga/cli cataloga -- topology export --config cataloga.yaml --id snp_effective_global_20260329211658135_site-overview_json --out ./dist/topology.json
-```
-
-## Drift
-
-```bash
-npm exec --workspace @cataloga/cli cataloga -- drift compute --config cataloga.yaml
+mise run down
 ```

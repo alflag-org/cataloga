@@ -14,10 +14,34 @@ Cataloga v2 is now **PHP-only**.
 - Node.js/TypeScript v1 implementation has been removed from this repository.
 - Managed hosting and Cloudflare Worker demo have been removed from this repository.
 
-## Quick start (Docker Compose)
+## Quick start (mise + Docker Compose)
+
+Prepare and start:
 
 ```bash
-docker compose up --build
+mise install
+mise run verify
+```
+
+This runs:
+
+- runtime directory setup (`.cataloga/`)
+- local toolchain verification (`php`)
+- `docker compose` config validation
+- build/start (`docker compose up --build -d`)
+- API health check (`/api/entities`)
+- container status check
+
+PHP syntax check:
+
+```bash
+mise run php-lint
+```
+
+Stop:
+
+```bash
+mise run down
 ```
 
 Open:

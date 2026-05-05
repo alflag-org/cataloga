@@ -4,19 +4,33 @@ Cataloga v2 primary runtime is the PHP self-hosted app with a file-backed regist
 
 ## Requirements
 
+- mise
 - Docker with Compose
 - Git (optional but recommended for diff/commit workflows)
 
 ## Quick start
 
 ```bash
-docker compose up --build
+mise install
+mise run verify
+```
+
+Check local PHP lint:
+
+```bash
+mise run php-lint
 ```
 
 Open:
 
 ```text
 http://localhost:8080
+```
+
+Stop:
+
+```bash
+mise run down
 ```
 
 ## Runtime paths
