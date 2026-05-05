@@ -14,9 +14,6 @@ final class RelationRepository
     ) {
     }
 
-    /**
-     * @return array<string,mixed>
-     */
     public function loadRelationIndex(): array
     {
         $byId = [];
@@ -25,54 +22,49 @@ final class RelationRepository
 
         foreach ($this->relationFiles() as $absolutePath) {
             $relativePath = $this->toRelativePath($absolutePath);
-
             try {
-                $record = $this->recordParser->parseFile($absolutePath);
+                $raw = $this->recordParser->parseFile($absolutePath);
+                $record = $this->canonicalize($raw);
             } catch (\Throwable $exception) {
                 $parseErrors[] = ['path' => $relativePath, 'message' => $exception->getMessage()];
                 continue;
             }
 
-            $id = is_string($record['id'] ?? null) ? (string) $record['id'] : '';
+            $id = (string) (($record['metadata']['id'] ?? ''));
             if ($id === '') {
-                $parseErrors[] = ['path' => $relativePath, 'message' => 'relation id is required.'];
+                $parseErrors[] = ['path' => $relativePath, 'message' => 'relation metadata.id is required.'];
                 continue;
             }
 
             $idPaths[$id] ??= [];
             $idPaths[$id][] = $relativePath;
-
-            $byId[$id] = [
-                'record' => $record,
-                'sourcePath' => $relativePath,
-            ];
+            $byId[$id] = ['record' => $record, 'sourcePath' => $relativePath];
         }
 
         return ['byId' => $byId, 'idPaths' => $idPaths, 'parseErrors' => $parseErrors];
     }
 
-    /** @return array<int,array<string,mixed>> */
     public function listRelations(): array
     {
         $index = $this->loadRelationIndex();
         $relations = [];
-        foreach ($index['byId'] as $id => $payload) {
+        foreach ($index['byId'] as $payload) {
             $record = is_array($payload['record'] ?? null) ? $payload['record'] : [];
+            $metadata = is_array($record['metadata'] ?? null) ? $record['metadata'] : [];
+            $spec = is_array($record['spec'] ?? null) ? $record['spec'] : [];
             $relations[] = [
-                'id' => $id,
-                'source' => (string) ($record['source'] ?? ''),
-                'target' => (string) ($record['target'] ?? ''),
-                'type' => (string) ($record['type'] ?? ''),
+                'id' => (string) ($metadata['id'] ?? ''),
+                'type' => (string) ($metadata['type'] ?? ''),
+                'from' => (string) ($spec['from'] ?? ''),
+                'to' => (string) ($spec['to'] ?? ''),
                 'sourcePath' => (string) ($payload['sourcePath'] ?? ''),
                 'record' => $record,
             ];
         }
-
-        usort($relations, static fn (array $a, array $b): int => strcmp((string) $a['id'], (string) $b['id']));
+        usort($relations, static fn(array $a, array $b): int => strcmp((string) $a['id'], (string) $b['id']));
         return $relations;
     }
 
-    /** @return array<string,mixed>|null */
     public function getRelation(string $id): ?array
     {
         $index = $this->loadRelationIndex();
@@ -82,19 +74,19 @@ final class RelationRepository
     public function writeRelation(array $record, string $sourcePath): void
     {
         $normalized = $this->pathGuard->normalizeWithinRegistry($sourcePath, 'relations');
+        $canonical = $this->canonicalize($record);
         $absolutePath = $this->absolutePath($normalized);
         $directory = dirname($absolutePath);
         if (!is_dir($directory) && !mkdir($directory, 0775, true) && !is_dir($directory)) {
             throw new \RuntimeException('Failed to create directory: ' . $directory);
         }
 
-        $content = $this->recordSerializer->encode($record, $normalized);
+        $content = $this->recordSerializer->encode($canonical, $normalized);
         if (file_put_contents($absolutePath, $content) === false) {
             throw new \RuntimeException('Failed to write relation file: ' . $normalized);
         }
     }
 
-    /** @param array<int,string> $paths */
     public function deleteRelationPaths(array $paths): void
     {
         foreach ($paths as $path) {
@@ -112,6 +104,27 @@ final class RelationRepository
         return $this->absolutePath($normalized);
     }
 
+    private function canonicalize(array $record): array
+    {
+        $metadata = is_array($record['metadata'] ?? null) ? $record['metadata'] : [];
+        $spec = is_array($record['spec'] ?? null) ? $record['spec'] : [];
+
+        $id = (string) ($metadata['id'] ?? ($record['id'] ?? ''));
+        $type = (string) ($metadata['type'] ?? ($record['type'] ?? ''));
+        $name = (string) ($metadata['name'] ?? $id);
+
+        $from = (string) ($spec['from'] ?? ($record['source'] ?? ''));
+        $to = (string) ($spec['to'] ?? ($record['target'] ?? ''));
+        $attributes = is_array($spec['attributes'] ?? null) ? $spec['attributes'] : [];
+
+        return [
+            'apiVersion' => 'cataloga.io/v2',
+            'kind' => 'Relation',
+            'metadata' => ['id' => $id, 'type' => $type, 'name' => $name],
+            'spec' => ['from' => $from, 'to' => $to, 'attributes' => $attributes],
+        ];
+    }
+
     private function absolutePath(string $relativePath): string
     {
         return rtrim($this->registryRoot, '/') . '/' . ltrim($relativePath, '/');
@@ -123,14 +136,12 @@ final class RelationRepository
         return str_starts_with($absolutePath, $root) ? substr($absolutePath, strlen($root)) : $absolutePath;
     }
 
-    /** @return array<int,string> */
     private function relationFiles(): array
     {
         $directory = $this->registryRoot . '/relations';
         if (!is_dir($directory)) {
             return [];
         }
-
         $files = [];
         $iterator = new \RecursiveIteratorIterator(new \RecursiveDirectoryIterator($directory, \FilesystemIterator::SKIP_DOTS));
         foreach ($iterator as $fileInfo) {
@@ -143,7 +154,6 @@ final class RelationRepository
             }
             $files[] = $fileInfo->getPathname();
         }
-
         sort($files);
         return $files;
     }

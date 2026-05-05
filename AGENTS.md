@@ -37,8 +37,8 @@ Cataloga is an AI-native, Git/file-backed, domain-agnostic registry platform.
 
 ## Coding Rules
 
-- Prefer TypeScript for core, CLI, MCP, schema, validation, and mutation logic.
-- Use PHP or Perl only for clearly bounded auxiliary tasks.
+- PHP is the primary v2 runtime for current implementation.
+- TypeScript legacy code is not the preferred path for current implementation unless reducing v2 confusion.
 - Avoid network-specific assumptions in core packages.
 - Avoid managed-hosting/operator/tenant abstractions unless explicitly requested.
 - Preserve unrelated worktree changes.

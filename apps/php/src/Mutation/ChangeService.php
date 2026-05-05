@@ -102,6 +102,8 @@ final class ChangeService
         $validation = $this->validator->validateProjectedState(
             $projection['projectedById'],
             $projection['finalIdPaths'],
+            $projection['projectedRelationsById'],
+            $projection['finalRelationPaths'],
             $registryScan,
             $projection['errors']
         );
@@ -128,6 +130,8 @@ final class ChangeService
         return $this->validator->validateProjectedState(
             $projection['projectedById'],
             $projection['finalIdPaths'],
+            $projection['projectedRelationsById'],
+            $projection['finalRelationPaths'],
             $registryScan,
             $projection['errors']
         );
@@ -413,28 +417,11 @@ final class ChangeService
 
 
             if ($type === 'upsert_relation') {
-                $relation = is_array($operation['relation'] ?? null) ? $operation['relation'] : [
-                    'id' => $operation['id'] ?? null,
-                    'source' => $operation['source'] ?? null,
-                    'target' => $operation['target'] ?? null,
-                    'type' => $operation['relationType'] ?? ($operation['typeName'] ?? null),
-                ];
-
-                $id = is_string($relation['id'] ?? null) ? (string) $relation['id'] : '';
+                $relation = is_array($operation['relation'] ?? null) ? $operation['relation'] : [];
+                $metadata = is_array($relation['metadata'] ?? null) ? $relation['metadata'] : [];
+                $id = is_string($metadata['id'] ?? null) ? (string) $metadata['id'] : '';
                 if ($id === '') {
-                    $errors[] = 'upsert_relation requires relation.id.';
-                    continue;
-                }
-                if (!is_string($relation['source'] ?? null) || trim((string) $relation['source']) === '') {
-                    $errors[] = 'upsert_relation requires relation.source.';
-                    continue;
-                }
-                if (!is_string($relation['target'] ?? null) || trim((string) $relation['target']) === '') {
-                    $errors[] = 'upsert_relation requires relation.target.';
-                    continue;
-                }
-                if (!is_string($relation['type'] ?? null) || trim((string) $relation['type']) === '') {
-                    $errors[] = 'upsert_relation requires relation.type.';
+                    $errors[] = 'upsert_relation requires relation.metadata.id.';
                     continue;
                 }
 
@@ -498,6 +485,7 @@ final class ChangeService
             'projectedById' => $projectedById,
             'finalIdPaths' => $finalIdPaths,
             'projectedRelationsById' => $projectedRelationsById,
+            'finalRelationPaths' => $finalRelationPaths,
             'errors' => $errors,
             'deleteEntityPaths' => $deleteEntityPaths,
             'deleteRelationPaths' => $deleteRelationPaths,

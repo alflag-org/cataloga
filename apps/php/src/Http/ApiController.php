@@ -45,10 +45,6 @@ final class ApiController
         return Response::json($entity);
     }
 
-    public function relations(Request $request): Response
-    {
-        return $this->listRecordsByType('relation');
-    }
 
     public function schemas(Request $request): Response
     {
@@ -66,97 +62,49 @@ final class ApiController
             return Response::json(['error' => 'Entity not found', 'id' => $id], 404);
         }
 
-        $scan = $this->entityRepository->scanRegistryRecords();
+        $relations = $this->relationRepository->listRelations();
         $neighbors = [];
         $relatedRelations = [];
 
-        foreach ($scan['records'] as $item) {
-            $record = $item['record'];
-            $metadata = is_array($record['metadata'] ?? null) ? $record['metadata'] : [];
-            if ((string) ($metadata['type'] ?? '') !== 'relation') {
-                continue;
-            }
-
-            $from = (string) ($record['from'] ?? '');
-            $to = (string) ($record['to'] ?? '');
+        foreach ($relations as $relation) {
+            $from = (string) ($relation['from'] ?? '');
+            $to = (string) ($relation['to'] ?? '');
             if ($from !== $id && $to !== $id) {
                 continue;
             }
-
             $neighborId = $from === $id ? $to : $from;
             if ($neighborId !== '') {
                 $neighborEntity = $this->entityRepository->getEntity($neighborId);
                 $neighborMetadata = is_array($neighborEntity['record']['metadata'] ?? null) ? $neighborEntity['record']['metadata'] : [];
-                $neighbors[] = [
-                    'id' => $neighborId,
-                    'type' => (string) ($neighborMetadata['type'] ?? ''),
-                    'path' => $neighborEntity['sourcePath'] ?? null,
-                    'exists' => $neighborEntity !== null,
-                ];
+                $neighbors[] = ['id' => $neighborId,'type' => (string) ($neighborMetadata['type'] ?? ''),'path' => $neighborEntity['sourcePath'] ?? null,'exists' => $neighborEntity !== null];
             }
-
-            $relatedRelations[] = [
-                'id' => (string) ($metadata['id'] ?? ''),
-                'type' => 'relation',
-                'path' => $item['path'],
-                'from' => $from,
-                'to' => $to,
-            ];
+            $relatedRelations[] = ['id' => (string) ($relation['id'] ?? ''),'type' => (string) ($relation['type'] ?? ''),'path' => (string) ($relation['sourcePath'] ?? ''),'from' => $from,'to' => $to];
         }
 
         usort($neighbors, static fn (array $a, array $b): int => strcmp((string) $a['id'], (string) $b['id']));
-
-        return Response::json([
-            'id' => $id,
-            'type' => (string) (($entity['record']['metadata']['type'] ?? '')),
-            'path' => $entity['sourcePath'] ?? null,
-            'neighbors' => $neighbors,
-            'relations' => $relatedRelations,
-            'counts' => [
-                'neighbors' => count($neighbors),
-                'relations' => count($relatedRelations),
-                'errors' => count($scan['parseErrors']),
-            ],
-            'errors' => $scan['parseErrors'],
-        ]);
+        return Response::json(['id' => $id,'type' => (string) (($entity['record']['metadata']['type'] ?? '')),'path' => $entity['sourcePath'] ?? null,'neighbors' => $neighbors,'relations' => $relatedRelations,'counts' => ['neighbors' => count($neighbors),'relations' => count($relatedRelations)]]);
     }
 
     public function search(Request $request): Response
     {
         $query = trim((string) $request->query('q', ''));
         $needle = strtolower($query);
-        $scan = $this->entityRepository->scanRegistryRecords();
         $items = [];
 
-        foreach ($scan['records'] as $item) {
-            $record = $item['record'];
+        foreach ($this->entityRepository->listEntities() as $entity) {
+            $record = is_array($entity['record'] ?? null) ? $entity['record'] : [];
             $metadata = is_array($record['metadata'] ?? null) ? $record['metadata'] : [];
-            $id = (string) ($metadata['id'] ?? '');
-            $type = (string) ($metadata['type'] ?? '');
-            $name = (string) ($metadata['name'] ?? '');
-
-            $haystack = strtolower($id . ' ' . $type . ' ' . $name . ' ' . $item['path'] . ' ' . json_encode($record));
-            if ($needle !== '' && !str_contains($haystack, $needle)) {
-                continue;
-            }
-
-            $items[] = [
-                'id' => $id,
-                'type' => $type,
-                'path' => $item['path'],
-                'name' => $name,
-            ];
+            $haystack = strtolower(json_encode($entity) ?: '');
+            if ($needle !== '' && !str_contains($haystack, $needle)) { continue; }
+            $items[] = ['kind' => 'Entity','id' => (string)($metadata['id'] ?? ''),'type' => (string)($metadata['type'] ?? ''),'name' => (string)($metadata['name'] ?? ''),'path' => (string)($entity['sourcePath'] ?? '')];
+        }
+        foreach ($this->relationRepository->listRelations() as $relation) {
+            $haystack = strtolower(json_encode($relation) ?: '');
+            if ($needle !== '' && !str_contains($haystack, $needle)) { continue; }
+            $items[] = ['kind' => 'Relation','id' => (string)($relation['id'] ?? ''),'type' => (string)($relation['type'] ?? ''),'name' => (string)(($relation['record']['metadata']['name'] ?? '')),'path' => (string)($relation['sourcePath'] ?? ''),'from' => (string)($relation['from'] ?? ''),'to' => (string)($relation['to'] ?? '')];
         }
 
-        return Response::json([
-            'query' => $query,
-            'items' => $items,
-            'counts' => [
-                'items' => count($items),
-                'errors' => count($scan['parseErrors']),
-            ],
-            'errors' => $scan['parseErrors'],
-        ]);
+        return Response::json(['query' => $query, 'items' => $items, 'counts' => ['items' => count($items)]]);
     }
 
     /**

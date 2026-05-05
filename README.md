@@ -9,7 +9,7 @@ Cataloga v2 uses audited change sessions so humans and AI agents can explore, va
 - Self-hosted PHP web app (`apps/php`) as the primary runtime.
 - Docker Compose execution for local/self-hosted operation.
 - Canonical file-backed registry under `registry/` (`yaml`/`json`).
-- Change-session based mutations (`upsert_entity`, `delete_entity`).
+- Change-session based mutations (`upsert_entity`, `delete_entity`, `upsert_relation`, `delete_relation`).
 - Validation before commit.
 - Git diff and Git commit integration via allowlisted commands.
 - Minimal JSON API for agent workflows (future MCP-ready).
@@ -104,7 +104,7 @@ Explore endpoints are read-only and reuse existing repositories/services so muta
 ## Change session flow
 
 1. Start change session (`POST /api/changes` or UI form).
-2. Add mutation operations (`upsert_entity` / `delete_entity`).
+2. Add mutation operations (`upsert_entity` / `delete_entity` / `upsert_relation` / `delete_relation`).
 3. Validate pending state.
 4. Review diff.
 5. Commit to registry files.
@@ -123,14 +123,13 @@ Explore endpoints are read-only and reuse existing repositories/services so muta
 
 - Authentication/RBAC is not implemented yet.
 - CSRF protection is UI-only; API auth is not implemented.
-- Relation mutation operations are not implemented yet (entity mutations only).
 - Diff preview is file-content based and minimal.
 - Existing TypeScript v1/vlegacy modules remain in-repo for migration safety but are not the primary v2 runtime.
 
 ## Next steps
 
 1. Add authentication and RBAC for UI/API/MCP tool boundaries.
-2. Implement relation mutation operations and richer validation rules.
+2. Expand relation validation rules and semantic policy checks.
 3. Add semantic diff rendering and review workflows.
 4. Implement MCP server using the existing mutation engine (`apps/mcp/README.md`).
 
@@ -148,3 +147,34 @@ It verifies:
 - `docker compose build` at repo root
 
 Legacy demo deployment workflow remains for demo deployment purposes and is not part of v2 mainline quality checks.
+
+
+## Canonical Relation record (v2)
+
+```yaml
+apiVersion: cataloga.io/v2
+kind: Relation
+metadata:
+  id: relation-id
+  type: relation-type
+  name: human-readable-name
+spec:
+  from: entity-id-a
+  to: entity-id-b
+  attributes: {}
+```
+
+### Relation mutation operation payload
+
+```json
+{
+  "type": "upsert_relation",
+  "sourcePath": "relations/relation-id.yaml",
+  "relation": {
+    "apiVersion": "cataloga.io/v2",
+    "kind": "Relation",
+    "metadata": {"id": "relation-id", "type": "depends_on", "name": "app depends on db"},
+    "spec": {"from": "entity-app", "to": "entity-db", "attributes": {}}
+  }
+}
+```
