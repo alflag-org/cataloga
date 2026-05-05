@@ -1,8 +1,0 @@
-id: relation-allocation-bastion-01-assigned-to-host-bastion-01
-type: assigned_to
-source:
-  type: allocation
-  id: allocation-bastion-01
-target:
-  type: host
-  id: host-bastion-01

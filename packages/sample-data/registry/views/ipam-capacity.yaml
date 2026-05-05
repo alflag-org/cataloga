@@ -1,7 +1,0 @@
-id: view-ipam-capacity
-title: IPAM Capacity
-summary: Review prefixes and allocations across production and staging.
-entityTypes:
-  - prefix
-  - allocation
-query: type=prefix

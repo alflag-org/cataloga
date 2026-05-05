@@ -1,8 +1,0 @@
-id: relation-host-api-01-runs-service-api-internal
-type: runs
-source:
-  type: host
-  id: host-api-01
-target:
-  type: service
-  id: service-api-internal

@@ -1,8 +1,0 @@
-id: relation-host-web-01-runs-service-web-health
-type: runs
-source:
-  type: host
-  id: host-web-01
-target:
-  type: service
-  id: service-web-health

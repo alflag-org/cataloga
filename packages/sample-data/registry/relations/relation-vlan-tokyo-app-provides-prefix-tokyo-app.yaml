@@ -1,8 +1,0 @@
-id: relation-vlan-tokyo-app-provides-prefix-tokyo-app
-type: provides
-source:
-  type: vlan
-  id: vlan-tokyo-app
-target:
-  type: prefix
-  id: prefix-tokyo-app

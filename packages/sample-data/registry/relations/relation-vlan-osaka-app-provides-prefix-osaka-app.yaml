@@ -1,8 +1,0 @@
-id: relation-vlan-osaka-app-provides-prefix-osaka-app
-type: provides
-source:
-  type: vlan
-  id: vlan-osaka-app
-target:
-  type: prefix
-  id: prefix-osaka-app

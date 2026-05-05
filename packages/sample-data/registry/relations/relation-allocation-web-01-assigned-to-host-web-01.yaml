@@ -1,8 +1,0 @@
-id: relation-allocation-web-01-assigned-to-host-web-01
-type: assigned_to
-source:
-  type: allocation
-  id: allocation-web-01
-target:
-  type: host
-  id: host-web-01

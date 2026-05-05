@@ -1,8 +1,0 @@
-id: relation-segment-tokyo-edge-uses-vlan-tokyo-edge
-type: uses
-source:
-  type: segment
-  id: segment-tokyo-edge
-target:
-  type: vlan
-  id: vlan-tokyo-edge

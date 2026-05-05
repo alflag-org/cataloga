@@ -1,8 +1,0 @@
-id: relation-dns-web-public-located-at-site-tokyo-prod
-type: located_at
-source:
-  type: dns_record
-  id: dns-web-public
-target:
-  type: site
-  id: site-tokyo-prod

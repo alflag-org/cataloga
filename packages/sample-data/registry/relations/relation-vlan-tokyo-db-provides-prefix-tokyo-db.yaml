@@ -1,8 +1,0 @@
-id: relation-vlan-tokyo-db-provides-prefix-tokyo-db
-type: provides
-source:
-  type: vlan
-  id: vlan-tokyo-db
-target:
-  type: prefix
-  id: prefix-tokyo-db
