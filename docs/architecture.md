@@ -1,8 +1,8 @@
-# Cataloga v2 Architecture
+# Cataloga Architecture
 
 ## Strategic definition
 
-Cataloga v2 is an AI-native, Git/file-backed, domain-agnostic registry platform.
+Cataloga is an AI-native, Git/file-backed, domain-agnostic registry platform.
 
 Core behavior is domain-neutral. Domain semantics belong in packs.
 
@@ -14,7 +14,7 @@ Core behavior is domain-neutral. Domain semantics belong in packs.
 - Separate core mechanics from domain packs.
 - Support enterprise self-hosting controls (RBAC, policy, audit, governance).
 
-## Non-goals (v2)
+## Non-goals
 
 - Managed hosting control plane.
 - Multi-tenant SaaS operator abstractions.
@@ -113,18 +113,18 @@ Permissioning:
 
 ## Enterprise-capable self-hosting
 
-v2 self-hosting scope includes:
+Self-hosting scope includes:
 
 - RBAC and policy ownership boundaries.
 - Auditable change history.
 - Git workflow integration (branch/PR/approval policy hooks).
 - MCP tool permissioning and governance controls.
 
-Managed hosting and operator automation are explicitly out of scope for v2.
+Managed hosting and operator automation are explicitly out of scope.
 
 ## Initial package boundaries
 
-- `packages/registry`: v2 primitives and mutation models.
+- `packages/registry`: core primitives and mutation models.
 - `packages/mcp`: MCP contract placeholders for registry exploration/mutation.
 - `domain-packs/*`: pack manifests/schemas/policies/views.
-- Existing v1 packages remain temporarily and are progressively migrated or retired.
+- Legacy packages may remain temporarily and are progressively migrated or retired.

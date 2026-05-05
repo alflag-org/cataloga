@@ -1,6 +1,6 @@
-# Self-host guide (Cataloga v2)
+# Self-host guide (Cataloga)
 
-Cataloga v2 primary runtime is the PHP self-hosted app with a file-backed registry and audited change sessions.
+Cataloga primary runtime is the PHP self-hosted app with a file-backed registry and audited change sessions.
 
 ## Requirements
 
@@ -67,4 +67,4 @@ All writes must use change sessions:
 
 ## Notes
 
-- Managed hosting/operator control plane is out of scope for v2.
+- Managed hosting/operator control plane is out of scope.

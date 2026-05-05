@@ -7,12 +7,12 @@ Cataloga is an AI-native, Git/file-backed, domain-agnostic registry platform.
 - Cataloga is a registry platform, not a network-specific product.
 - Network inventory is a domain pack/example, not the core identity.
 - Managed hosting is out of scope unless explicitly requested.
-- Backward compatibility with pre-v2 abstractions is not required.
+- Backward compatibility with older abstractions is not required.
 - Prefer simple, local-first, self-hostable architecture.
 
-## Runtime and Tooling Rules (v2)
+## Runtime and Tooling Rules
 
-- PHP is the only implementation runtime for v2.
+- PHP is the only implementation runtime.
 - Do not create or restore Node.js / TypeScript app code unless explicitly requested.
 - Do not add npm workspace tooling.
 - Docker Compose and Composer are the expected development/runtime tools.

@@ -2,16 +2,16 @@
 
 Cataloga is an AI-native, Git/file-backed, domain-agnostic registry platform.
 
-## Cataloga v2 status
+## Cataloga status
 
-Cataloga v2 is now **PHP-only**.
+Cataloga is now **PHP-only**.
 
 - Primary and only implementation runtime: PHP (`apps/php`).
 - Primary local/self-hosted execution path: Docker Compose.
 - Canonical registry data source: Git/file-backed content under `registry/`.
-- Domain packs remain part of v2 under `domain-packs/`.
+- Domain packs remain under `domain-packs/`.
 - All writes must go through change sessions (no direct write paths).
-- Node.js/TypeScript v1 implementation has been removed from this repository.
+- Legacy Node.js/TypeScript implementation has been removed from this repository.
 - Managed hosting and Cloudflare Worker demo have been removed from this repository.
 
 ## Quick start (mise + Docker Compose)
@@ -50,7 +50,7 @@ Open:
 http://localhost:8080
 ```
 
-## Repository layout (v2)
+## Repository layout
 
 ```text
 apps/
@@ -79,9 +79,9 @@ docker-compose.yml
 Current API endpoints are served by the PHP app and share the same mutation engine.
 Future MCP support must use or wrap the **same PHP mutation/change-session path** so write semantics remain auditable and consistent.
 
-## CI (v2 mainline)
+## CI
 
-Primary CI workflow: `.github/workflows/cataloga-v2-php.yml`.
+Primary CI workflow is the PHP workflow under `.github/workflows/`.
 
 It verifies:
 

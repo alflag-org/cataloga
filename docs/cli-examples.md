@@ -1,4 +1,4 @@
-# CLI/API examples (v2)
+# CLI/API examples
 
 Start local app first:
 
