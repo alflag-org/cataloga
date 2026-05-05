@@ -7,8 +7,7 @@ RUN composer install \
     --prefer-dist \
     --no-interaction \
     --no-progress \
-    --optimize-autoloader \
-    --classmap-authoritative
+    --optimize-autoloader
 
 FROM php:8.3-cli AS runtime
 
