@@ -46,6 +46,26 @@ pub async fn fetch(mut req: Request, env: Env, _ctx: Context) -> Result<Response
                 .map_err(|e| Error::RustError(e.to_string()))?;
             Response::empty()
         }
+        (Method::Get, ["api", "resource-types", type_id]) => {
+            let item = api
+                .get_resource_type(CATALOG_ID, type_id)
+                .await
+                .map_err(|e| Error::RustError(e.to_string()))?;
+            match item {
+                Some(item) => json_response(&item),
+                None => Response::error("resource type not found", 404),
+            }
+        }
+        (Method::Put, ["api", "resource-types", _type_id]) => {
+            let payload: ResourceType = req
+                .json()
+                .await
+                .map_err(|e| Error::RustError(e.to_string()))?;
+            api.create_or_update_resource_type(CATALOG_ID, payload)
+                .await
+                .map_err(|e| Error::RustError(e.to_string()))?;
+            Response::empty()
+        }
         (Method::Delete, ["api", "resource-types", type_id]) => {
             api.delete_resource_type(CATALOG_ID, type_id)
                 .await
@@ -61,6 +81,26 @@ pub async fn fetch(mut req: Request, env: Env, _ctx: Context) -> Result<Response
         }
         (Method::Post, ["api", "resources", _type_id])
         | (Method::Put, ["api", "resources", _type_id]) => {
+            let payload: Resource = req
+                .json()
+                .await
+                .map_err(|e| Error::RustError(e.to_string()))?;
+            api.create_or_update_resource(CATALOG_ID, payload)
+                .await
+                .map_err(|e| Error::RustError(e.to_string()))?;
+            Response::empty()
+        }
+        (Method::Get, ["api", "resources", type_id, resource_id]) => {
+            let item = api
+                .get_resource(CATALOG_ID, type_id, resource_id)
+                .await
+                .map_err(|e| Error::RustError(e.to_string()))?;
+            match item {
+                Some(item) => json_response(&item),
+                None => Response::error("resource not found", 404),
+            }
+        }
+        (Method::Put, ["api", "resources", _type_id, _resource_id]) => {
             let payload: Resource = req
                 .json()
                 .await

@@ -36,7 +36,8 @@ fn bind(
 }
 
 #[cfg(target_arch = "wasm32")]
-#[async_trait(?Send)]
+#[cfg_attr(target_arch = "wasm32", async_trait(?Send))]
+#[cfg_attr(not(target_arch = "wasm32"), async_trait)]
 impl CatalogStore for D1Store {
     async fn list_resource_types(&self, catalog_id: &str) -> anyhow::Result<Vec<ResourceType>> {
         let rows: Vec<serde_json::Value> = self

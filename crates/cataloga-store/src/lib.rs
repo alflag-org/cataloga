@@ -2,7 +2,8 @@ use async_trait::async_trait;
 use cataloga_core::{Resource, ResourceType};
 use std::sync::Arc;
 
-#[async_trait]
+#[cfg_attr(target_arch = "wasm32", async_trait(?Send))]
+#[cfg_attr(not(target_arch = "wasm32"), async_trait)]
 pub trait CatalogStore: Send + Sync {
     async fn list_resource_types(&self, catalog_id: &str) -> anyhow::Result<Vec<ResourceType>>;
     async fn get_resource_type(
@@ -33,7 +34,8 @@ pub trait CatalogStore: Send + Sync {
     ) -> anyhow::Result<()>;
 }
 
-#[async_trait]
+#[cfg_attr(target_arch = "wasm32", async_trait(?Send))]
+#[cfg_attr(not(target_arch = "wasm32"), async_trait)]
 impl<T> CatalogStore for Arc<T>
 where
     T: CatalogStore + Send + Sync + ?Sized,
