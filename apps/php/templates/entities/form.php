@@ -175,7 +175,7 @@ foreach ($_POST as $postKey => $postValue) {
     <div class="title-row">
       <div class="title-stack">
         <p class="eyebrow">リソース作成</p>
-        <h2>ステップ 1/5: タイプを選択</h2>
+        <h2>タイプを選択</h2>
         <p class="meta">インストール済みタイプパックからリソースタイプを選択します。</p>
       </div>
     </div>
@@ -227,7 +227,7 @@ foreach ($_POST as $postKey => $postValue) {
       <section class="panel soft">
         <div class="title-row">
           <div class="title-stack">
-            <h3>ステップ 2/5: 基本情報</h3>
+            <h3>基本情報</h3>
           </div>
         </div>
 
@@ -308,7 +308,7 @@ foreach ($_POST as $postKey => $postValue) {
       <section class="panel soft">
         <div class="title-row">
           <div class="title-stack">
-            <h3>ステップ 3/5: 設定</h3>
+            <h3>設定</h3>
             <p class="meta">選択したタイプパックのスキーマ定義に基づいて入力します。</p>
           </div>
         </div>
@@ -363,7 +363,7 @@ foreach ($_POST as $postKey => $postValue) {
       <section class="panel soft">
         <div class="title-row">
           <div class="title-stack">
-            <h3>ステップ 4/5: 依存関係</h3>
+            <h3>依存関係</h3>
             <p class="meta">通常はスロットごとに設定します。表現できない場合は高度な依存関係を使用してください。</p>
           </div>
         </div>
@@ -485,12 +485,12 @@ foreach ($_POST as $postKey => $postValue) {
       <section class="panel soft">
         <div class="title-row">
           <div class="title-stack">
-            <h3>ステップ 5/5: 確認</h3>
+            <h3>確認</h3>
             <p class="meta">ドラフト変更を作成し、検証結果と差分を確認してから保存できます。</p>
           </div>
         </div>
 
-        <div class="actions">
+        <div class="actions form-actions">
           <a class="secondary-button" href="/resources">キャンセル</a>
           <button type="submit" class="primary-button">変更を確認</button>
         </div>
