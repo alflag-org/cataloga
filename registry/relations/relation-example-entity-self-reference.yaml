@@ -1,0 +1,11 @@
+apiVersion: cataloga.io/v2
+kind: Relation
+metadata:
+  id: relation-example-entity-self-reference
+  type: references
+  name: Example Entity References Itself
+spec:
+  from: example-entity
+  to: example-entity
+  attributes:
+    note: bootstrap-canonical-relation

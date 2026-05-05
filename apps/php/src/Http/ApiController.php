@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Cataloga\Http;
 
 use Cataloga\Mutation\ChangeService;
+use Cataloga\Registry\DomainPackRepository;
 use Cataloga\Registry\EntityRepository;
 use Cataloga\Registry\RelationRepository;
 
@@ -13,6 +14,7 @@ final class ApiController
     public function __construct(
         private readonly EntityRepository $entityRepository,
         private readonly RelationRepository $relationRepository,
+        private readonly DomainPackRepository $domainPackRepository,
         private readonly ChangeService $changeService,
     ) {
     }
@@ -28,6 +30,13 @@ final class ApiController
     {
         return Response::json([
             'items' => $this->entityRepository->listEntities(),
+        ]);
+    }
+
+    public function domainPacks(Request $request): Response
+    {
+        return Response::json([
+            'items' => $this->domainPackRepository->listDomainPacks(),
         ]);
     }
 
