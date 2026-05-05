@@ -8,6 +8,7 @@ use Cataloga\Mutation\ChangeService;
 use Cataloga\Registry\DomainPackRepository;
 use Cataloga\Registry\EntityRepository;
 use Cataloga\Registry\RelationRepository;
+use Cataloga\Registry\SchemaRepository;
 
 final class ApiController
 {
@@ -15,6 +16,7 @@ final class ApiController
         private readonly EntityRepository $entityRepository,
         private readonly RelationRepository $relationRepository,
         private readonly DomainPackRepository $domainPackRepository,
+        private readonly SchemaRepository $schemaRepository,
         private readonly ChangeService $changeService,
     ) {
     }
@@ -57,7 +59,8 @@ final class ApiController
 
     public function schemas(Request $request): Response
     {
-        return $this->listRecordsByType('schema');
+        $items = $this->schemaRepository->listSchemas();
+        return Response::json(['items' => $items, 'counts' => ['items' => count($items)]]);
     }
 
     /**

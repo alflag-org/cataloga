@@ -9,6 +9,7 @@ use Cataloga\Mutation\ChangeService;
 use Cataloga\Registry\DomainPackRepository;
 use Cataloga\Registry\EntityRepository;
 use Cataloga\Registry\RelationRepository;
+use Cataloga\Registry\SchemaRepository;
 use Cataloga\View\TemplateRenderer;
 
 final class WebController
@@ -18,6 +19,7 @@ final class WebController
         private readonly EntityRepository $entityRepository,
         private readonly RelationRepository $relationRepository,
         private readonly DomainPackRepository $domainPackRepository,
+        private readonly SchemaRepository $schemaRepository,
         private readonly ChangeService $changeService,
         private readonly GitService $gitService,
     ) {
@@ -121,7 +123,7 @@ final class WebController
 
     public function newRelationForm(Request $request): Response
     {
-        $html = $this->renderer->render('relations/form', ['title' => 'Create Relation', 'currentPath' => '/relations', 'mode' => 'create', 'relation' => null, 'error' => null]);
+        $html = $this->renderer->render('relations/form', ['title' => 'Create Relation', 'currentPath' => '/relations', 'mode' => 'create', 'relation' => null, 'error' => null, 'entities' => $this->entityRepository->listEntities(), 'relationTypes' => $this->listRelationTypes()]);
         return Response::html($html);
     }
 
@@ -130,7 +132,7 @@ final class WebController
         $id = $params['id'] ?? '';
         $relation = $this->relationRepository->getRelation($id);
         if ($relation === null) { return Response::html('Relation not found', 404); }
-        $html = $this->renderer->render('relations/form', ['title' => 'Edit Relation ' . $id, 'currentPath' => '/relations', 'mode' => 'edit', 'relation' => $relation, 'error' => null]);
+        $html = $this->renderer->render('relations/form', ['title' => 'Edit Relation ' . $id, 'currentPath' => '/relations', 'mode' => 'edit', 'relation' => $relation, 'error' => null, 'entities' => $this->entityRepository->listEntities(), 'relationTypes' => $this->listRelationTypes()]);
         return Response::html($html);
     }
 
@@ -151,7 +153,7 @@ final class WebController
         } catch (\Throwable $exception) {
             $existingId = $params['id'] ?? null;
             $relation = $existingId !== null ? $this->relationRepository->getRelation($existingId) : null;
-            $html = $this->renderer->render('relations/form', ['title' => 'Relation Form', 'currentPath' => '/relations', 'mode' => $existingId !== null ? 'edit' : 'create', 'relation' => $relation, 'error' => $exception->getMessage()]);
+            $html = $this->renderer->render('relations/form', ['title' => 'Relation Form', 'currentPath' => '/relations', 'mode' => $existingId !== null ? 'edit' : 'create', 'relation' => $relation, 'error' => $exception->getMessage(), 'entities' => $this->entityRepository->listEntities(), 'relationTypes' => $this->listRelationTypes()]);
             return Response::html($html, 422);
         }
     }
@@ -184,6 +186,11 @@ final class WebController
             'mode' => 'create',
             'entity' => null,
             'error' => null,
+            'schemas' => $this->schemaRepository->listSchemas(),
+            'selectedSchemaId' => (string) $request->query('schema', ''),
+            'entities' => $this->entityRepository->listEntities(),
+            'fieldErrors' => [],
+            'yamlPreview' => null,
         ]);
 
         return Response::html($html);
@@ -206,6 +213,11 @@ final class WebController
             'mode' => 'edit',
             'entity' => $entity,
             'error' => null,
+            'schemas' => $this->schemaRepository->listSchemas(),
+            'selectedSchemaId' => (string) $request->query('schema', ''),
+            'entities' => $this->entityRepository->listEntities(),
+            'fieldErrors' => [],
+            'yamlPreview' => null,
         ]);
 
         return Response::html($html);
@@ -365,6 +377,20 @@ final class WebController
         return Response::html($html);
     }
 
+
+    /** @return array<int,string> */
+    private function listRelationTypes(): array
+    {
+        $types = [];
+        foreach ($this->schemaRepository->listSchemas() as $schema) {
+            if (($schema['kind'] ?? 'entity') !== 'relation') { continue; }
+            $types[] = (string) ($schema['id'] ?? '');
+        }
+        $types = array_values(array_unique(array_filter($types)));
+        sort($types);
+        return $types;
+    }
+
     private function validateCsrf(Request $request): bool
     {
         $token = (string) $request->post('csrf_token', '');
@@ -378,33 +404,18 @@ final class WebController
      */
     private function buildEntityRecord(Request $request): array
     {
+        $advanced = $request->post('advancedMode', '0') === '1';
         $id = trim((string) $request->post('id', ''));
         $type = trim((string) $request->post('type', ''));
         $name = trim((string) $request->post('name', ''));
-        $labelsJson = trim((string) $request->post('labels', '{}'));
+        if ($type === '') { throw new \RuntimeException('Schema type is required.'); }
+        if ($name === '') { throw new \RuntimeException('metadata.name is required.'); }
+        if ($id == '') { $id = $this->slugify($type . '-' . $name); }
+        $labels = $this->decodeJsonObject(trim((string) $request->post('labels', '{}')), 'labels');
         $tagsRaw = trim((string) $request->post('tags', ''));
-        $specJson = trim((string) $request->post('spec', '{}'));
-
-        $labels = $this->decodeJsonObject($labelsJson, 'labels');
-        $spec = $this->decodeJsonObject($specJson, 'spec');
-
-        $tags = [];
-        if ($tagsRaw !== '') {
-            $tags = array_values(array_filter(array_map('trim', explode(',', $tagsRaw)), static fn (string $tag): bool => $tag !== ''));
-        }
-
-        return [
-            'apiVersion' => 'cataloga.io/v2',
-            'kind' => 'Entity',
-            'metadata' => [
-                'id' => $id,
-                'type' => $type,
-                'name' => $name,
-                'labels' => $labels,
-                'tags' => $tags,
-            ],
-            'spec' => $spec,
-        ];
+        $tags = $tagsRaw !== '' ? array_values(array_filter(array_map('trim', explode(',', $tagsRaw)), static fn(string $t): bool => $t !== '')) : [];
+        $spec = $advanced ? $this->decodeJsonObject(trim((string) $request->post('spec', '{}')), 'spec') : $this->buildSpecFromSchema($request);
+        return ['apiVersion'=>'cataloga.io/v2','kind'=>'Entity','metadata'=>['id'=>$id,'type'=>$type,'name'=>$name,'labels'=>$labels,'tags'=>$tags],'spec'=>$spec];
     }
 
     /**
@@ -418,6 +429,32 @@ final class WebController
             'metadata' => ['id' => trim((string) $request->post('id', '')), 'type' => trim((string) $request->post('type', '')), 'name' => trim((string) $request->post('name', ''))],
             'spec' => ['from' => trim((string) $request->post('from', '')), 'to' => trim((string) $request->post('to', '')), 'attributes' => $this->decodeJsonObject(trim((string) $request->post('attributes', '{}')), 'attributes')],
         ];
+    }
+
+
+    /** @return array<string,mixed> */
+    private function buildSpecFromSchema(Request $request): array
+    {
+        $raw = $request->post('schema_fields', []);
+        if (!is_array($raw)) { return []; }
+        $spec=[];
+        foreach ($raw as $k=>$v) {
+            $key=(string)$k;
+            if (is_array($v)) { $spec[$key]=array_values(array_filter(array_map('trim',$v), static fn(string $x): bool => $x!=='')); continue; }
+            $val=trim((string)$v);
+            if ($val==='') { continue; }
+            if ($val==='true' || $val==='false') { $spec[$key]=$val==='true'; continue; }
+            if (($val[0]??'')==='{' || ($val[0]??'')==='[') { $decoded=json_decode($val,true); $spec[$key]=is_array($decoded)?$decoded:$val; continue; }
+            $spec[$key]=$val;
+        }
+        return $spec;
+    }
+
+    private function slugify(string $value): string
+    {
+        $value = strtolower(trim($value));
+        $value = preg_replace('/[^a-z0-9]+/', '-', $value) ?? '';
+        return trim($value, '-');
     }
 
     /**

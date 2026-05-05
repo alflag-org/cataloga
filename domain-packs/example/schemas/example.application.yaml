@@ -1,0 +1,31 @@
+apiVersion: cataloga.io/v2
+kind: Schema
+metadata:
+  id: example.application
+  name: Example Application
+spec:
+  kind: entity
+  description: Application/service entity for demo schema-driven forms.
+  required:
+    - owner
+    - lifecycle
+  properties:
+    owner:
+      type: string
+      description: Team owner
+    lifecycle:
+      type: string
+      enum: [experimental, active, deprecated]
+    isCritical:
+      type: boolean
+    runbook:
+      type: text
+    dependsOn:
+      type: string
+      format: entity_ref
+    tags:
+      type: array
+      items:
+        type: string
+    settings:
+      type: json

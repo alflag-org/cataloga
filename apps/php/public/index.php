@@ -15,6 +15,7 @@ use Cataloga\Registry\EntityRepository;
 use Cataloga\Registry\DomainPackRepository;
 use Cataloga\Registry\PathGuard;
 use Cataloga\Registry\RelationRepository;
+use Cataloga\Registry\SchemaRepository;
 use Cataloga\Registry\RecordParser;
 use Cataloga\Registry\RecordSerializer;
 use Cataloga\Validation\RegistryValidator;
@@ -54,6 +55,7 @@ $pathGuard = new PathGuard($registryRoot);
 $entityRepository = new EntityRepository($registryRoot, $recordParser, $recordSerializer, $pathGuard);
 $relationRepository = new RelationRepository($registryRoot, $recordParser, $recordSerializer, $pathGuard);
 $domainPackRepository = new DomainPackRepository($projectRoot, $recordParser);
+$schemaRepository = new SchemaRepository($projectRoot, $registryRoot, $recordParser);
 $changeRepository = new ChangeSessionRepository($runtimeRoot);
 $validator = new RegistryValidator();
 $gitService = new GitService($projectRoot);
@@ -70,8 +72,8 @@ $changeService = new ChangeService(
 );
 $renderer = new TemplateRenderer(dirname(__DIR__) . '/templates');
 
-$web = new WebController($renderer, $entityRepository, $relationRepository, $domainPackRepository, $changeService, $gitService);
-$api = new ApiController($entityRepository, $relationRepository, $domainPackRepository, $changeService);
+$web = new WebController($renderer, $entityRepository, $relationRepository, $domainPackRepository, $schemaRepository, $changeService, $gitService);
+$api = new ApiController($entityRepository, $relationRepository, $domainPackRepository, $schemaRepository, $changeService);
 
 $router = new Router();
 $router->add('GET', '/', [$web, 'dashboard']);
