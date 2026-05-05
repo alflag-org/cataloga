@@ -1,74 +1,68 @@
 <div class="panel soft">
   <div class="title-row">
     <div class="title-stack">
-      <p class="eyebrow">Workspace Status</p>
-      <h2>Registry Overview</h2>
-      <p class="meta">Graph-first navigation for entities, relations, and staged changes.</p>
+      <p class="eyebrow">ダッシュボード</p>
+      <h2>カタログ概要</h2>
+      <p class="meta">リソース、依存関係、ドラフト変更の現在状態を確認できます。</p>
     </div>
     <div class="actions">
-      <a class="primary-button" href="/graph">Open Graph</a>
-      <a class="secondary-button" href="/entities">Open Entities</a>
-      <a class="secondary-button" href="/changes">Open Changes</a>
+      <a class="primary-button" href="/resources/new">リソースを作成</a>
+      <a class="secondary-button" href="/dependencies/new">依存関係を作成</a>
+      <a class="secondary-button" href="/changes">変更を確認</a>
     </div>
   </div>
 
   <div class="metrics">
     <article class="metric-card">
-      <span>Entities</span>
-      <strong><?= h((string) $entityCount) ?></strong>
-      <p>Canonical records under <code>registry/entities</code>.</p>
+      <span>リソース</span>
+      <strong><?= h((string) $resourceCount) ?></strong>
+      <p>登録済みのカタログ項目です。</p>
     </article>
     <article class="metric-card">
-      <span>Relations</span>
-      <strong><?= h((string) $relationCount) ?></strong>
-      <p>Links under <code>registry/relations</code>.</p>
+      <span>依存関係</span>
+      <strong><?= h((string) $dependencyCount) ?></strong>
+      <p>リソース間の関係です。</p>
     </article>
     <article class="metric-card">
-      <span>Domain Packs</span>
-      <strong><?= h((string) $domainPackCount) ?></strong>
-      <p>Available pack definitions.</p>
+      <span>警告</span>
+      <strong><?= h((string) $warningCount) ?></strong>
+      <p>警告またはエラーを含む最近のドラフト数です。</p>
     </article>
     <article class="metric-card">
-      <span>Open Changes</span>
-      <strong><?= h((string) $openChangeCount) ?></strong>
-      <p>Change sessions not committed or aborted.</p>
+      <span>ドラフト変更</span>
+      <strong><?= h((string) $draftCount) ?></strong>
+      <p>まだ保存されていない変更です。</p>
     </article>
-  </div>
-
-  <div class="actions">
-    <a class="secondary-button" href="/graph">Inspect Topology</a>
-    <a class="secondary-button" href="/validation">Run Validation</a>
-    <a class="secondary-button" href="/git/diff">Inspect Git Diff</a>
-    <a class="secondary-button" href="/domain-packs">Browse Domain Packs</a>
   </div>
 </div>
 
 <div class="panel">
   <div class="title-row">
     <div class="title-stack">
-      <p class="eyebrow">Audit Trail</p>
-      <h2>Recent Change Sessions</h2>
+      <h3>最近のリソース</h3>
     </div>
+    <a class="secondary-button" href="/resources">リソース一覧</a>
   </div>
 
-  <?php if ($changes === []): ?>
-    <p class="empty-state">No change sessions yet.</p>
+  <?php if ($recentResources === []): ?>
+    <p class="empty-state">リソースがありません。最初のリソースを作成してください。</p>
   <?php else: ?>
     <div class="table-shell">
       <table>
         <thead>
-        <tr><th>ID</th><th>Status</th><th>Actor</th><th>Updated</th></tr>
+        <tr><th>名前</th><th>タイプ</th><th>環境</th><th>状態</th></tr>
         </thead>
         <tbody>
-        <?php foreach ($changes as $change): ?>
-          <?php $status = (string) ($change['status'] ?? 'open'); ?>
+        <?php foreach ($recentResources as $resource): ?>
+          <?php
+          $record = is_array($resource['record'] ?? null) ? $resource['record'] : [];
+          $spec = is_array($record['spec'] ?? null) ? $record['spec'] : [];
+          ?>
           <tr>
-            <td><a class="text-link" href="/changes/<?= rawurlencode((string) $change['id']) ?>"><?= h((string) $change['id']) ?></a></td>
-            <td>
-              <span class="pill <?= $status === 'committed' ? 'ok' : ($status === 'aborted' ? 'error' : 'warn') ?>"><?= h($status) ?></span>
-            </td>
-            <td><?= h((string) ($change['actor'] ?? 'unknown')) ?> (<?= h((string) ($change['actorType'] ?? 'unknown')) ?>)</td>
-            <td><?= h((string) ($change['updatedAt'] ?? '')) ?></td>
+            <td><a class="text-link" href="/resources/<?= rawurlencode((string) $resource['id']) ?>"><?= h((string) ($resource['name'] !== '' ? $resource['name'] : $resource['id'])) ?></a></td>
+            <td><span class="pill"><?= h((string) $resource['type']) ?></span></td>
+            <td><?= h((string) ($spec['environment'] ?? '—')) ?></td>
+            <td><span class="pill ok">正常</span></td>
           </tr>
         <?php endforeach; ?>
         </tbody>
@@ -80,13 +74,47 @@
 <div class="panel">
   <div class="title-row">
     <div class="title-stack">
-      <p class="eyebrow">Repository</p>
-      <h2>Git Status</h2>
+      <h3>最近の変更</h3>
     </div>
+    <a class="secondary-button" href="/changes">変更一覧</a>
   </div>
-  <?php if (($gitStatus['ok'] ?? false) === true): ?>
-    <pre><?= h((string) ($gitStatus['stdout'] ?? 'clean')) ?></pre>
+
+  <?php if ($recentChanges === []): ?>
+    <p class="empty-state">ドラフト変更はありません。</p>
   <?php else: ?>
-    <p class="error">Git unavailable: <?= h((string) ($gitStatus['stderr'] ?? 'unknown error')) ?></p>
+    <div class="table-shell">
+      <table>
+        <thead>
+        <tr><th>概要</th><th>状態</th><th>更新日時</th><th>操作</th></tr>
+        </thead>
+        <tbody>
+        <?php foreach ($recentChanges as $change): ?>
+          <?php
+          $status = (string) ($change['status'] ?? 'open');
+          $statusLabel = ui_change_status_label($status);
+          $statusClass = ui_change_status_class($status);
+          $operations = is_array($change['operations'] ?? null) ? $change['operations'] : [];
+          ?>
+          <tr>
+            <td><?= h((count($operations) > 0 ? (string) count($operations) . ' 件の操作' : 'ドラフト変更')) ?></td>
+            <td><span class="pill <?= h($statusClass) ?>"><?= h($statusLabel) ?></span></td>
+            <td><?= h((string) ($change['updatedAt'] ?? '')) ?></td>
+            <td><a class="text-link" href="/changes/<?= rawurlencode((string) $change['id']) ?>">確認</a></td>
+          </tr>
+        <?php endforeach; ?>
+        </tbody>
+      </table>
+    </div>
   <?php endif; ?>
+</div>
+
+<div class="panel">
+  <div class="title-row">
+    <div class="title-stack">
+      <h3>タイプパック</h3>
+      <p class="meta">有効なタイプパックが、利用可能なリソース種別と依存関係種別を決定します。</p>
+    </div>
+    <a class="secondary-button" href="/type-packs">タイプパック管理</a>
+  </div>
+  <p class="meta"><?= h((string) $typePackCount) ?> 件のタイプパックを検出しました。</p>
 </div>

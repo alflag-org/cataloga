@@ -39,32 +39,32 @@ $graphPayload = [
 <div class="panel soft">
   <div class="title-row">
     <div class="title-stack">
-      <p class="eyebrow">Graph Workspace</p>
-      <h2>Registry Topology</h2>
-      <p class="meta">Inspect entities and relations together without bouncing back to list pages.</p>
+      <p class="eyebrow">グラフ</p>
+      <h2>リソースグラフ</h2>
+      <p class="meta">リソースと依存関係を1画面で確認できます。</p>
     </div>
     <div class="actions">
-      <a class="secondary-button" href="/entities">Entities</a>
-      <a class="secondary-button" href="/relations">Relations</a>
-      <a class="secondary-button" href="/changes">Changes</a>
+      <a class="secondary-button" href="/resources">リソース</a>
+      <a class="secondary-button" href="/dependencies">依存関係</a>
+      <a class="secondary-button" href="/changes">変更</a>
     </div>
   </div>
 
   <div class="metrics">
     <article class="metric-card">
-      <span>Nodes</span>
+      <span>ノード</span>
       <strong><?= h((string) count($nodes)) ?></strong>
-      <p>Entity records on graph.</p>
+      <p>グラフ上のリソース数。</p>
     </article>
     <article class="metric-card">
-      <span>Edges</span>
+      <span>エッジ</span>
       <strong><?= h((string) count($edges)) ?></strong>
-      <p>Relations with valid from/to nodes.</p>
+      <p>有効な依存関係の数。</p>
     </article>
     <article class="metric-card">
-      <span>Entity Types</span>
+      <span>リソース種別</span>
       <strong><?= h((string) count($typeCounts)) ?></strong>
-      <p>Distinct node categories.</p>
+      <p>ノード種別の数。</p>
     </article>
   </div>
 </div>
@@ -72,35 +72,35 @@ $graphPayload = [
 <div class="graph-layout">
   <section class="panel graph-panel">
     <div class="graph-toolbar">
-      <label for="graph-search" class="graph-toolbar-label">Find node</label>
-      <input id="graph-search" type="text" placeholder="id, name, type" />
-      <button type="button" id="graph-fit" class="secondary-button">Fit</button>
-      <button type="button" id="graph-reset" class="secondary-button">Reset</button>
+      <label for="graph-search" class="graph-toolbar-label">ノード検索</label>
+      <input id="graph-search" type="search" placeholder="id, name, type" />
+      <button type="button" id="graph-fit" class="secondary-button">全体表示</button>
+      <button type="button" id="graph-reset" class="secondary-button">リセット</button>
     </div>
-    <p id="graph-status" class="meta">Loading graph...</p>
+    <p id="graph-status" class="meta">グラフを読み込み中...</p>
     <div id="graph-canvas-shell" class="graph-canvas-shell">
       <canvas id="graph-canvas" aria-label="Registry graph canvas"></canvas>
     </div>
-    <p class="meta">Drag nodes to reposition, drag background to pan, and use wheel to zoom.</p>
+    <p class="meta">ノードをドラッグして移動、背景ドラッグでパン、ホイールでズームできます。</p>
   </section>
 
   <aside class="panel graph-side">
     <div class="title-row">
       <div class="title-stack">
-        <p class="eyebrow">Inspector</p>
-        <h3>Selected Node</h3>
+        <p class="eyebrow">インスペクタ</p>
+        <h3>選択中のリソース</h3>
       </div>
     </div>
-    <div id="node-detail" class="graph-detail empty-state">Select a node to inspect details.</div>
+    <div id="node-detail" class="graph-detail empty-state">ノードを選択すると詳細を表示します。</div>
 
     <div class="title-row mt-3">
       <div class="title-stack">
-        <p class="eyebrow">Entity Types</p>
-        <h3>Distribution</h3>
+        <p class="eyebrow">リソース種別</p>
+        <h3>分布</h3>
       </div>
     </div>
     <?php if ($typeCounts === []): ?>
-      <p class="empty-state">No entities available.</p>
+      <p class="empty-state">表示できるリソースがありません。</p>
     <?php else: ?>
       <div class="graph-type-list">
         <?php foreach ($typeCounts as $type => $count): ?>
@@ -222,7 +222,7 @@ $graphPayload = [
   const updateDetail = () => {
     if (!selectedId || !nodeById.has(selectedId)) {
       detail.className = 'graph-detail empty-state';
-      detail.innerHTML = 'Select a node to inspect details.';
+      detail.innerHTML = 'ノードを選択すると詳細を表示します。';
       return;
     }
 
@@ -237,14 +237,14 @@ $graphPayload = [
     detail.innerHTML = `
       <div class="graph-detail-grid">
         <div><span class="eyebrow">ID</span><p class="mono">${node.id}</p></div>
-        <div><span class="eyebrow">Type</span><p>${node.type || 'unknown'}</p></div>
-        <div><span class="eyebrow">Name</span><p>${node.name || '(no name)'}</p></div>
-        <div><span class="eyebrow">Degree</span><p>${neighbors.length}</p></div>
-        <div><span class="eyebrow">Path</span><p class="mono">${node.sourcePath || '-'}</p></div>
+        <div><span class="eyebrow">タイプ</span><p>${node.type || 'unknown'}</p></div>
+        <div><span class="eyebrow">名前</span><p>${node.name || '(no name)'}</p></div>
+        <div><span class="eyebrow">接続数</span><p>${neighbors.length}</p></div>
+        <div><span class="eyebrow">パス</span><p class="mono">${node.sourcePath || '-'}</p></div>
       </div>
       <div class="mt-2">
-        <p class="eyebrow">Neighbors</p>
-        <div class="chip-row">${neighborButtons || '<span class="meta">No neighbors</span>'}</div>
+        <p class="eyebrow">隣接ノード</p>
+        <div class="chip-row">${neighborButtons || '<span class="meta">隣接ノードなし</span>'}</div>
       </div>
     `;
 
@@ -255,7 +255,7 @@ $graphPayload = [
           return;
         }
         selectedId = targetId;
-        status.textContent = `Selected ${targetId}`;
+        status.textContent = `選択: ${targetId}`;
         updateDetail();
       });
     });
@@ -435,7 +435,7 @@ $graphPayload = [
     const q = searchInput.value.trim().toLowerCase();
     if (q === '') {
       hoveredId = null;
-      status.textContent = `Nodes ${nodes.length}, edges ${edges.length}`;
+      status.textContent = `ノード ${nodes.length} 件 / エッジ ${edges.length} 件`;
       return;
     }
 
@@ -450,7 +450,7 @@ $graphPayload = [
       status.textContent = `Match: ${match.id}`;
     } else {
       hoveredId = null;
-      status.textContent = `No match for "${q}"`;
+      status.textContent = `\"${q}\" に一致するノードがありません`;
     }
   });
 
@@ -475,7 +475,7 @@ $graphPayload = [
     panX = -match.x * zoom;
     panY = -match.y * zoom;
     updateDetail();
-    status.textContent = `Selected ${match.id}`;
+    status.textContent = `選択: ${match.id}`;
   });
 
   fitButton.addEventListener('click', () => {
@@ -484,7 +484,7 @@ $graphPayload = [
 
   resetButton.addEventListener('click', () => {
     resetGraph();
-    status.textContent = `Nodes ${nodes.length}, edges ${edges.length}`;
+    status.textContent = `ノード ${nodes.length} 件 / エッジ ${edges.length} 件`;
   });
 
   canvas.addEventListener('pointerdown', (event) => {
@@ -497,7 +497,7 @@ $graphPayload = [
       draggingNodeId = hit.id;
       selectedId = hit.id;
       updateDetail();
-      status.textContent = `Selected ${hit.id}`;
+      status.textContent = `選択: ${hit.id}`;
       return;
     }
 
@@ -564,7 +564,7 @@ $graphPayload = [
   resize();
   fitGraph();
   updateDetail();
-  status.textContent = `Nodes ${nodes.length}, edges ${edges.length}`;
+  status.textContent = `ノード ${nodes.length} 件 / エッジ ${edges.length} 件`;
   animate();
 })();
 </script>

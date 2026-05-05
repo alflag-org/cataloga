@@ -1,0 +1,30 @@
+apiVersion: cataloga.io/v2
+kind: Schema
+metadata:
+  id: database
+  name: Database
+spec:
+  kind: entity
+  description: Database instance or logical database.
+  required:
+    - environment
+    - owner
+    - engine
+  properties:
+    environment:
+      type: string
+      enum: [prod, staging, dev]
+    owner:
+      type: string
+      enum: [infra-team, platform-team, data-team]
+    engine:
+      type: string
+      enum: [PostgreSQL, MySQL, MariaDB, Redis, Other]
+    version:
+      type: string
+    endpoint:
+      type: string
+    port:
+      type: number
+    description:
+      type: text

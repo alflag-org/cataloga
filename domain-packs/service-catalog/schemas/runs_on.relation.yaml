@@ -1,0 +1,10 @@
+apiVersion: cataloga.io/v2
+kind: Schema
+metadata:
+  id: runs_on
+  name: Runs on
+spec:
+  kind: relation
+  description: Service runs on host-like resource.
+  required: []
+  properties: {}

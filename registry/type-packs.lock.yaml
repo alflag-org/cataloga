@@ -1,0 +1,20 @@
+version: 1
+packs:
+  cloud:
+    installed: true
+    enabled: true
+  dns:
+    installed: true
+    enabled: true
+  example:
+    installed: false
+    enabled: false
+  inventory:
+    installed: false
+    enabled: false
+  network:
+    installed: false
+    enabled: false
+  service-catalog:
+    installed: true
+    enabled: true

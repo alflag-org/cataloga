@@ -1,30 +1,30 @@
 <div class="panel">
   <div class="title-row">
     <div class="title-stack">
-      <p class="eyebrow">Registry Health</p>
-      <h2>Registry Validation</h2>
+      <p class="eyebrow">検証</p>
+      <h2>リソースと依存関係のチェック</h2>
     </div>
     <div>
       <?php if (!empty($result['valid'])): ?>
-        <span class="pill ok">Valid</span>
+        <span class="pill ok">正常</span>
       <?php else: ?>
-        <span class="pill error">Invalid</span>
+        <span class="pill error">異常</span>
       <?php endif; ?>
     </div>
   </div>
 
-  <p class="meta">Ran at: <?= h((string) ($result['ranAt'] ?? '')) ?></p>
+  <p class="meta">実行時刻: <?= h((string) ($result['ranAt'] ?? '')) ?></p>
 
   <div class="split mt-3">
     <section class="panel soft">
       <div class="title-row">
         <div class="title-stack">
-          <p class="eyebrow">Errors</p>
-          <h3>Blocking Issues</h3>
+          <p class="eyebrow">エラー</p>
+          <h3>保存をブロックする問題</h3>
         </div>
       </div>
       <?php if (empty($result['errors'])): ?>
-        <p class="meta">No errors.</p>
+        <p class="meta">エラーはありません。</p>
       <?php else: ?>
         <ul class="clean">
           <?php foreach ($result['errors'] as $error): ?>
@@ -37,12 +37,12 @@
     <section class="panel soft">
       <div class="title-row">
         <div class="title-stack">
-          <p class="eyebrow">Warnings</p>
-          <h3>Advisory Findings</h3>
+          <p class="eyebrow">警告</p>
+          <h3>注意事項</h3>
         </div>
       </div>
       <?php if (empty($result['warnings'])): ?>
-        <p class="meta">No warnings.</p>
+        <p class="meta">警告はありません。</p>
       <?php else: ?>
         <ul class="clean">
           <?php foreach ($result['warnings'] as $warning): ?>

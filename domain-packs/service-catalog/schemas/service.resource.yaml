@@ -1,0 +1,34 @@
+apiVersion: cataloga.io/v2
+kind: Schema
+metadata:
+  id: service
+  name: Service
+spec:
+  kind: entity
+  description: Application, API, daemon, or worker.
+  required:
+    - environment
+    - owner
+    - runtime
+  properties:
+    environment:
+      type: string
+      enum: [prod, staging, dev, test]
+    owner:
+      type: string
+      enum: [infra-team, platform-team, app-team, network-team]
+    runtime:
+      type: string
+      enum: [PHP, Python, Go, Rust, Java, JavaScript, Other]
+    serviceKind:
+      type: string
+      enum: [web, api, worker, daemon]
+    exposure:
+      type: string
+      enum: [internal, reverse_proxy, public]
+    port:
+      type: number
+    healthcheck:
+      type: string
+    description:
+      type: text

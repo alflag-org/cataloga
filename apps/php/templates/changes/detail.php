@@ -3,65 +3,65 @@ $validation = is_array($change['validation'] ?? null) ? $change['validation'] : 
 $operations = is_array($change['operations'] ?? null) ? $change['operations'] : [];
 $diffItems = is_array($diff['items'] ?? null) ? $diff['items'] : [];
 $status = (string) ($change['status'] ?? 'open');
+$statusLabel = ui_change_status_label($status);
+$statusClass = ui_change_status_class($status);
 ?>
 <div class="panel soft">
   <div class="title-row">
     <div class="title-stack">
-      <p class="eyebrow">Change Session</p>
+      <p class="eyebrow">変更を確認</p>
       <h2><?= h((string) $change['id']) ?></h2>
-      <p class="meta">Actor: <?= h((string) ($change['actor'] ?? 'unknown')) ?> (<?= h((string) ($change['actorType'] ?? 'unknown')) ?>)</p>
-      <p class="meta">Created: <?= h((string) ($change['createdAt'] ?? '')) ?> | Updated: <?= h((string) ($change['updatedAt'] ?? '')) ?></p>
+      <p class="meta">作成: <?= h((string) ($change['createdAt'] ?? '')) ?> · 更新: <?= h((string) ($change['updatedAt'] ?? '')) ?></p>
     </div>
     <div class="actions">
-      <span class="pill <?= $status === 'committed' ? 'ok' : ($status === 'aborted' ? 'error' : 'warn') ?>"><?= h($status) ?></span>
-      <?php if (!empty($change['commitHash'])): ?>
-        <span class="pill ok">Commit: <?= h((string) $change['commitHash']) ?></span>
-      <?php endif; ?>
+      <span class="pill <?= h($statusClass) ?>"><?= h($statusLabel) ?></span>
     </div>
   </div>
-
-  <?php if (is_array($change['git'] ?? null) && !empty($change['git']['message'])): ?>
-    <p class="pill warn">Git warning: <?= h((string) $change['git']['message']) ?></p>
-  <?php endif; ?>
 </div>
 
 <div class="panel">
   <div class="title-row">
     <div class="title-stack">
-      <p class="eyebrow">Operation Stack</p>
-      <h2>Operations</h2>
+      <h3>概要</h3>
     </div>
   </div>
-  <pre><?= h(format_json($operations)) ?></pre>
+  <ul class="clean">
+    <?php if ($operations === []): ?>
+      <li>このドラフトに操作はありません。</li>
+    <?php else: ?>
+      <?php foreach ($operations as $operation): ?>
+        <li><?= h((string) ($operation['type'] ?? 'operation')) ?></li>
+      <?php endforeach; ?>
+    <?php endif; ?>
+  </ul>
 </div>
 
 <div class="panel">
   <div class="title-row">
     <div class="title-stack">
-      <p class="eyebrow">Validation</p>
-      <h2>Pre-commit Checks</h2>
-      <p class="meta">Ran at: <?= h((string) ($validation['ranAt'] ?? 'not yet')) ?></p>
+      <h3>検証</h3>
+      <p class="meta">実行時刻: <?= h((string) ($validation['ranAt'] ?? '未実行')) ?></p>
     </div>
     <div>
       <?php if (!empty($validation['valid'])): ?>
-        <span class="pill ok">Valid</span>
+        <span class="pill ok">正常</span>
       <?php else: ?>
-        <span class="pill error">Invalid</span>
+        <span class="pill error">検証エラー</span>
       <?php endif; ?>
     </div>
   </div>
 
   <?php if (!empty($validation['errors'])): ?>
-    <h3>Errors</h3>
+    <h3>エラー</h3>
     <ul class="clean">
       <?php foreach ($validation['errors'] as $error): ?>
-        <li class="error"><?= h((string) ($error['message'] ?? 'unknown error')) ?></li>
+        <li><?= h((string) ($error['message'] ?? 'unknown error')) ?></li>
       <?php endforeach; ?>
     </ul>
   <?php endif; ?>
 
   <?php if (!empty($validation['warnings'])): ?>
-    <h3 class="mt-3">Warnings</h3>
+    <h3 class="mt-3">警告</h3>
     <ul class="clean">
       <?php foreach ($validation['warnings'] as $warning): ?>
         <li><?= h((string) ($warning['message'] ?? 'warning')) ?></li>
@@ -69,78 +69,62 @@ $status = (string) ($change['status'] ?? 'open');
     </ul>
   <?php endif; ?>
 
-  <div class="actions">
+  <div class="actions mt-2">
     <form method="post" action="/changes/<?= rawurlencode((string) $change['id']) ?>/validate">
       <input type="hidden" name="csrf_token" value="<?= h(csrf_token()) ?>">
-      <button type="submit" class="secondary-button">Run Validation</button>
+      <button type="submit" class="secondary-button">再検証</button>
     </form>
   </div>
 </div>
 
 <div class="panel">
-  <div class="title-row">
-    <div class="title-stack">
-      <p class="eyebrow">Preview</p>
-      <h2>Diff Preview</h2>
-    </div>
-  </div>
-
-  <?php if ($diffItems === []): ?>
-    <p class="empty-state">No pending file changes.</p>
-  <?php else: ?>
-    <?php foreach ($diffItems as $item): ?>
-      <section class="panel soft mt-2">
-        <div class="title-row">
-          <div class="title-stack">
-            <h3><?= h((string) $item['status']) ?>: <span class="mono"><?= h((string) $item['path']) ?></span></h3>
+  <details>
+    <summary><strong>技術差分</strong></summary>
+    <?php if ($diffItems === []): ?>
+      <p class="empty-state mt-2">ファイル差分はありません。</p>
+    <?php else: ?>
+      <?php foreach ($diffItems as $item): ?>
+        <section class="panel soft mt-2">
+          <div class="title-row">
+            <div class="title-stack">
+              <h3><?= h((string) $item['status']) ?>: <span class="mono"><?= h((string) $item['path']) ?></span></h3>
+            </div>
           </div>
-        </div>
-        <div class="split">
-          <div>
-            <p class="meta">Before</p>
-            <pre><?= h((string) ($item['before'] ?? '')) ?></pre>
+          <div class="split">
+            <div>
+              <p class="meta">変更前</p>
+              <pre><?= h((string) ($item['before'] ?? '')) ?></pre>
+            </div>
+            <div>
+              <p class="meta">変更後</p>
+              <pre><?= h((string) ($item['after'] ?? '')) ?></pre>
+            </div>
           </div>
-          <div>
-            <p class="meta">After</p>
-            <pre><?= h((string) ($item['after'] ?? '')) ?></pre>
-          </div>
-        </div>
-      </section>
-    <?php endforeach; ?>
-  <?php endif; ?>
+        </section>
+      <?php endforeach; ?>
+    <?php endif; ?>
+  </details>
 </div>
 
 <div class="panel">
-  <div class="title-row">
-    <div class="title-stack">
-      <p class="eyebrow">Finalize</p>
-      <h2>Commit or Abort</h2>
-    </div>
+  <div class="actions">
+    <form method="post" action="/changes/<?= rawurlencode((string) $change['id']) ?>/save" class="form-stack">
+      <input type="hidden" name="csrf_token" value="<?= h(csrf_token()) ?>">
+      <div class="field">
+        <label for="commitMessage">保存メッセージ（任意）</label>
+        <input type="text" name="commitMessage" id="commitMessage" placeholder="変更を保存 <?= h((string) $change['id']) ?>">
+      </div>
+      <div class="field inline">
+        <input class="checkbox" type="hidden" name="createGitCommit" value="0">
+        <input class="checkbox" type="checkbox" name="createGitCommit" value="1" id="createGitCommit" checked>
+        <label for="createGitCommit">可能なら Git コミットを作成する</label>
+      </div>
+      <button type="submit" class="primary-button">変更を保存</button>
+    </form>
+
+    <form method="post" action="/changes/<?= rawurlencode((string) $change['id']) ?>/discard">
+      <input type="hidden" name="csrf_token" value="<?= h(csrf_token()) ?>">
+      <button type="submit" class="danger-button">破棄</button>
+    </form>
   </div>
-
-  <form method="post" action="/changes/<?= rawurlencode((string) $change['id']) ?>/commit" class="form-stack">
-    <input type="hidden" name="csrf_token" value="<?= h(csrf_token()) ?>">
-
-    <div class="field">
-      <label for="commitMessage">Git commit message</label>
-      <input type="text" name="commitMessage" id="commitMessage" placeholder="Cataloga change <?= h((string) $change['id']) ?>">
-    </div>
-
-    <div class="field inline">
-      <input class="checkbox" type="hidden" name="createGitCommit" value="0">
-      <input class="checkbox" type="checkbox" name="createGitCommit" value="1" id="createGitCommit" checked>
-      <label for="createGitCommit">Create Git commit when available</label>
-    </div>
-
-    <div class="actions">
-      <button type="submit" class="primary-button">Commit Change</button>
-    </div>
-  </form>
-
-  <form method="post" action="/changes/<?= rawurlencode((string) $change['id']) ?>/abort" class="mt-3">
-    <input type="hidden" name="csrf_token" value="<?= h(csrf_token()) ?>">
-    <div class="actions">
-      <button type="submit" class="danger-button">Abort Change</button>
-    </div>
-  </form>
 </div>

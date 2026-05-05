@@ -22,3 +22,41 @@ function csrf_token(): string
 
     return $_SESSION['csrf_token'];
 }
+
+function ui_change_status_label(string $status): string
+{
+    return match ($status) {
+        'committed' => '保存済み',
+        'aborted' => '破棄済み',
+        'validated' => '保存可能',
+        default => 'ドラフト',
+    };
+}
+
+function ui_change_status_class(string $status): string
+{
+    return match ($status) {
+        'committed' => 'ok',
+        'aborted' => 'error',
+        'validated' => 'info',
+        default => 'warn',
+    };
+}
+
+function ui_record_status_label(string $status): string
+{
+    return match ($status) {
+        'Error' => 'エラー',
+        'Warning' => '警告',
+        default => '正常',
+    };
+}
+
+function ui_record_status_class(string $status): string
+{
+    return match ($status) {
+        'Error' => 'error',
+        'Warning' => 'warn',
+        default => 'ok',
+    };
+}

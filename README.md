@@ -1,20 +1,21 @@
 # Cataloga
 
-Cataloga is an AI-native, Git/file-backed, domain-agnostic registry platform.
+Cataloga is a simple registry for resources and dependencies.
 
-## Cataloga status
+It helps teams record infrastructure and service resources, connect them with dependencies, review draft changes, and save updates safely.
 
-Cataloga is now **PHP-only**.
+- Humans use the Web UI.
+- Automation uses the HTTP API.
+- Type packs add resource types, dependency types, form fields, and validation rules.
 
-- Primary and only implementation runtime: PHP (`apps/php`).
-- Primary local/self-hosted execution path: Docker Compose.
-- Canonical registry data source: Git/file-backed content under `registry/`.
-- Domain packs remain under `domain-packs/`.
-- All writes must go through change sessions (no direct write paths).
-- Legacy Node.js/TypeScript implementation has been removed from this repository.
-- Managed hosting and Cloudflare Worker demo have been removed from this repository.
+## Product model
 
-## Quick start (mise + Docker Compose)
+- `Resource`: a registered catalog item (service, host, VM, VLAN, DNS record, database, repository, cloud account, etc.)
+- `Dependency`: a directed relationship between resources (`runs_on`, `uses`, `belongs_to`, `resolves_to`, etc.)
+- `Type pack`: installable extension that provides types, schema metadata, and validation rules
+- `Draft change`: staged edits reviewed and validated before save
+
+## Quick start
 
 Prepare and start:
 
@@ -23,19 +24,10 @@ mise install
 mise run verify
 ```
 
-This runs:
+Open:
 
-- runtime directory setup (`.cataloga/`)
-- local toolchain verification (`php`)
-- `docker compose` config validation
-- build/start (`docker compose up --build -d`)
-- API health check (`/api/entities`)
-- container status check
-
-PHP syntax check:
-
-```bash
-mise run php-lint
+```text
+http://localhost:8080
 ```
 
 Stop:
@@ -44,59 +36,62 @@ Stop:
 mise run down
 ```
 
-Open:
-
-```text
-http://localhost:8080
-```
-
 ## Repository layout
 
 ```text
 apps/
   php/
-    composer.json
     public/
-      index.php
     src/
     templates/
 registry/
 domain-packs/
-docker/
-docker-compose.yml
+docs/
 ```
 
 ## Core behavior
 
-- Git/file-backed registry remains the source of truth.
-- Runtime state (for example `.cataloga/`) is derived/non-canonical state.
-- Mutations are staged and applied only via change sessions.
-- Validation and diff preview happen before commit.
-- Git diff/commit integration is provided by the PHP app.
+- Registry files under `registry/` are canonical source of truth.
+- Web UI and HTTP API use the same draft-change workflow for writes.
+- Save is blocked when validation errors exist.
+- Technical Git/file details are available as advanced/diagnostic views.
 
-## JSON/API + MCP direction
+## API summary
 
-Current API endpoints are served by the PHP app and share the same mutation engine.
-Future MCP support must use or wrap the **same PHP mutation/change-session path** so write semantics remain auditable and consistent.
+Read:
 
-## CI
+- `GET /api/resources`
+- `GET /api/resources/{id}`
+- `GET /api/dependencies`
+- `GET /api/graph?resource={id}`
+- `GET /api/types`
+- `GET /api/type-packs`
+- `GET /api/type-packs/installed`
+- `GET /api/type-packs/available`
 
-Primary CI workflow is the PHP workflow under `.github/workflows/`.
+Write workflow:
 
-It verifies:
+- `POST /api/changes`
+- `POST /api/changes/{changeId}/edits`
+- `POST /api/changes/{changeId}/validate`
+- `GET /api/changes/{changeId}/diff`
+- `POST /api/changes/{changeId}/save`
+- `POST /api/changes/{changeId}/discard`
 
-- `composer validate` (`apps/php`)
-- `composer install --no-interaction --prefer-dist` (`apps/php`)
-- PHP lint (`php -l`) over `apps/php`
-- `docker compose config`
-- `docker compose build`
+Type pack operations:
 
+- `POST /api/type-packs/install`
+- `POST /api/type-packs/{name}/enable`
+- `POST /api/type-packs/{name}/disable`
+- `POST /api/type-packs/{name}/uninstall`
 
-## Schema-driven registry forms (Phase 1)
+## Documentation
 
-- `/entities/new` now starts with schema/type selection from `registry/schemas/*.yaml` and `domain-packs/*/schemas/*.yaml`.
-- Normal mode renders schema-driven fields (string, text, boolean, enum, array<string>, json, entity_ref).
-- Advanced mode keeps raw JSON editing (`spec`) plus manual `sourcePath` override.
-- `metadata.type` is taken from selected schema; `metadata.id` auto-generates from `type + name` when omitted.
-- Domain packs contribute schema choices to the human UI.
-- `/relations/new` now uses existing entity selections for `from`/`to`, with advanced fields kept in Advanced mode.
+- `docs/product.md`
+- `docs/architecture.md`
+- `docs/ui-ux.md`
+- `docs/type-packs.md`
+- `docs/api.md`
+- `docs/change-workflow.md`
+- `docs/future-ai-integration.md`
+- `docs/future-enterprise.md`

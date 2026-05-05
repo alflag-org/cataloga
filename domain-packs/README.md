@@ -1,6 +1,6 @@
-# Domain Packs
+# Type Packs
 
-Domain packs extend Cataloga without changing core registry semantics.
+Type packs extend Cataloga without changing core registry behavior.
 
 Each pack may include:
 
@@ -10,4 +10,4 @@ Each pack may include:
 - `rules/`
 - `pack.yaml`
 
-Core must remain domain-agnostic. Domain assumptions belong in these packs.
+Core remains registry-focused. Domain-specific assumptions belong in type packs.

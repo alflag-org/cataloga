@@ -1,0 +1,10 @@
+apiVersion: cataloga.io/v2
+kind: Schema
+metadata:
+  id: uses
+  name: Uses
+spec:
+  kind: relation
+  description: Source resource uses target resource.
+  required: []
+  properties: {}

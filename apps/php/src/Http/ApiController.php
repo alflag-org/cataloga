@@ -28,7 +28,21 @@ final class ApiController
         ]);
     }
 
+    public function dependencies(Request $request): Response
+    {
+        return Response::json([
+            'items' => $this->relationRepository->listRelations(),
+        ]);
+    }
+
     public function entities(Request $request): Response
+    {
+        return Response::json([
+            'items' => $this->entityRepository->listEntities(),
+        ]);
+    }
+
+    public function resources(Request $request): Response
     {
         return Response::json([
             'items' => $this->entityRepository->listEntities(),
@@ -42,6 +56,27 @@ final class ApiController
         ]);
     }
 
+    public function typePacks(Request $request): Response
+    {
+        return Response::json([
+            'items' => $this->domainPackRepository->listDomainPacks(),
+        ]);
+    }
+
+    public function installedTypePacks(Request $request): Response
+    {
+        return Response::json([
+            'items' => $this->domainPackRepository->listInstalledPacks(),
+        ]);
+    }
+
+    public function availableTypePacks(Request $request): Response
+    {
+        return Response::json([
+            'items' => $this->domainPackRepository->listAvailablePacks(),
+        ]);
+    }
+
     /**
      * @param array<string,string> $params
      */
@@ -50,17 +85,56 @@ final class ApiController
         $id = $params['id'] ?? '';
         $entity = $this->entityRepository->getEntity($id);
         if ($entity === null) {
-            return Response::json(['error' => 'Entity not found'], 404);
+            return Response::json(['error' => 'Resource not found'], 404);
         }
 
         return Response::json($entity);
     }
 
+    /**
+     * @param array<string,string> $params
+     */
+    public function resource(Request $request, array $params): Response
+    {
+        return $this->entity($request, $params);
+    }
 
     public function schemas(Request $request): Response
     {
         $items = $this->schemaRepository->listSchemas();
+
         return Response::json(['items' => $items, 'counts' => ['items' => count($items)]]);
+    }
+
+    public function types(Request $request): Response
+    {
+        $schemas = $this->activeSchemas();
+        $resourceTypes = [];
+        $dependencyTypes = [];
+
+        foreach ($schemas as $schema) {
+            $entry = [
+                'id' => (string) ($schema['id'] ?? ''),
+                'name' => (string) ($schema['name'] ?? ''),
+                'description' => (string) ($schema['description'] ?? ''),
+                'source' => (string) ($schema['source'] ?? ''),
+                'sourcePath' => (string) ($schema['sourcePath'] ?? ''),
+            ];
+            if (($schema['kind'] ?? 'entity') === 'relation') {
+                $dependencyTypes[] = $entry;
+            } else {
+                $resourceTypes[] = $entry;
+            }
+        }
+
+        return Response::json([
+            'resource_types' => $resourceTypes,
+            'dependency_types' => $dependencyTypes,
+            'counts' => [
+                'resource_types' => count($resourceTypes),
+                'dependency_types' => count($dependencyTypes),
+            ],
+        ]);
     }
 
     /**
@@ -71,7 +145,7 @@ final class ApiController
         $id = $params['id'] ?? '';
         $entity = $this->entityRepository->getEntity($id);
         if ($entity === null) {
-            return Response::json(['error' => 'Entity not found', 'id' => $id], 404);
+            return Response::json(['error' => 'Resource not found', 'id' => $id], 404);
         }
 
         $relations = $this->relationRepository->listRelations();
@@ -84,17 +158,54 @@ final class ApiController
             if ($from !== $id && $to !== $id) {
                 continue;
             }
+
             $neighborId = $from === $id ? $to : $from;
             if ($neighborId !== '') {
                 $neighborEntity = $this->entityRepository->getEntity($neighborId);
                 $neighborMetadata = is_array($neighborEntity['record']['metadata'] ?? null) ? $neighborEntity['record']['metadata'] : [];
-                $neighbors[] = ['id' => $neighborId,'type' => (string) ($neighborMetadata['type'] ?? ''),'path' => $neighborEntity['sourcePath'] ?? null,'exists' => $neighborEntity !== null];
+                $neighbors[] = [
+                    'id' => $neighborId,
+                    'type' => (string) ($neighborMetadata['type'] ?? ''),
+                    'path' => $neighborEntity['sourcePath'] ?? null,
+                    'exists' => $neighborEntity !== null,
+                ];
             }
-            $relatedRelations[] = ['id' => (string) ($relation['id'] ?? ''),'type' => (string) ($relation['type'] ?? ''),'path' => (string) ($relation['sourcePath'] ?? ''),'from' => $from,'to' => $to];
+
+            $relatedRelations[] = [
+                'id' => (string) ($relation['id'] ?? ''),
+                'type' => (string) ($relation['type'] ?? ''),
+                'path' => (string) ($relation['sourcePath'] ?? ''),
+                'from' => $from,
+                'to' => $to,
+            ];
         }
 
         usort($neighbors, static fn (array $a, array $b): int => strcmp((string) $a['id'], (string) $b['id']));
-        return Response::json(['id' => $id,'type' => (string) (($entity['record']['metadata']['type'] ?? '')),'path' => $entity['sourcePath'] ?? null,'neighbors' => $neighbors,'relations' => $relatedRelations,'counts' => ['neighbors' => count($neighbors),'relations' => count($relatedRelations)]]);
+
+        return Response::json([
+            'id' => $id,
+            'type' => (string) (($entity['record']['metadata']['type'] ?? '')),
+            'path' => $entity['sourcePath'] ?? null,
+            'neighbors' => $neighbors,
+            'relations' => $relatedRelations,
+            'counts' => ['neighbors' => count($neighbors), 'relations' => count($relatedRelations)],
+        ]);
+    }
+
+    /**
+     * @param array<string,string> $params
+     */
+    public function graph(Request $request, array $params = []): Response
+    {
+        $resourceId = trim((string) $request->query('resource', ''));
+        if ($resourceId !== '') {
+            return $this->entityNeighbors($request, ['id' => $resourceId]);
+        }
+
+        return Response::json([
+            'resources' => $this->entityRepository->listEntities(),
+            'dependencies' => $this->relationRepository->listRelations(),
+        ]);
     }
 
     public function search(Request $request): Response
@@ -107,13 +218,32 @@ final class ApiController
             $record = is_array($entity['record'] ?? null) ? $entity['record'] : [];
             $metadata = is_array($record['metadata'] ?? null) ? $record['metadata'] : [];
             $haystack = strtolower(json_encode($entity) ?: '');
-            if ($needle !== '' && !str_contains($haystack, $needle)) { continue; }
-            $items[] = ['kind' => 'Entity','id' => (string)($metadata['id'] ?? ''),'type' => (string)($metadata['type'] ?? ''),'name' => (string)($metadata['name'] ?? ''),'path' => (string)($entity['sourcePath'] ?? '')];
+            if ($needle !== '' && !str_contains($haystack, $needle)) {
+                continue;
+            }
+            $items[] = [
+                'kind' => 'Resource',
+                'id' => (string) ($metadata['id'] ?? ''),
+                'type' => (string) ($metadata['type'] ?? ''),
+                'name' => (string) ($metadata['name'] ?? ''),
+                'path' => (string) ($entity['sourcePath'] ?? ''),
+            ];
         }
+
         foreach ($this->relationRepository->listRelations() as $relation) {
             $haystack = strtolower(json_encode($relation) ?: '');
-            if ($needle !== '' && !str_contains($haystack, $needle)) { continue; }
-            $items[] = ['kind' => 'Relation','id' => (string)($relation['id'] ?? ''),'type' => (string)($relation['type'] ?? ''),'name' => (string)(($relation['record']['metadata']['name'] ?? '')),'path' => (string)($relation['sourcePath'] ?? ''),'from' => (string)($relation['from'] ?? ''),'to' => (string)($relation['to'] ?? '')];
+            if ($needle !== '' && !str_contains($haystack, $needle)) {
+                continue;
+            }
+            $items[] = [
+                'kind' => 'Dependency',
+                'id' => (string) ($relation['id'] ?? ''),
+                'type' => (string) ($relation['type'] ?? ''),
+                'name' => (string) (($relation['record']['metadata']['name'] ?? '')),
+                'path' => (string) ($relation['sourcePath'] ?? ''),
+                'from' => (string) ($relation['from'] ?? ''),
+                'to' => (string) ($relation['to'] ?? ''),
+            ];
         }
 
         return Response::json(['query' => $query, 'items' => $items, 'counts' => ['items' => count($items)]]);
@@ -127,7 +257,7 @@ final class ApiController
         $id = $params['id'] ?? '';
         $session = $this->changeService->getChange($id);
         if ($session === null) {
-            return Response::json(['error' => 'Change session not found', 'id' => $id], 404);
+            return Response::json(['error' => 'Draft change not found', 'id' => $id], 404);
         }
 
         $operations = is_array($session['operations'] ?? null) ? $session['operations'] : [];
@@ -136,7 +266,7 @@ final class ApiController
 
         return Response::json([
             'id' => (string) ($session['id'] ?? $id),
-            'type' => 'change_session',
+            'type' => 'draft_change',
             'status' => (string) ($session['status'] ?? 'unknown'),
             'path' => $session['stagingPath'] ?? null,
             'counts' => [
@@ -170,7 +300,7 @@ final class ApiController
         $session = $this->changeService->getChange($id);
 
         if ($session === null) {
-            return Response::json(['error' => 'Change session not found'], 404);
+            return Response::json(['error' => 'Draft change not found'], 404);
         }
 
         return Response::json($session);
@@ -195,6 +325,14 @@ final class ApiController
         } catch (\Throwable $exception) {
             return Response::json(['error' => $exception->getMessage()], 422);
         }
+    }
+
+    /**
+     * @param array<string,string> $params
+     */
+    public function addEdits(Request $request, array $params): Response
+    {
+        return $this->addOperations($request, $params);
     }
 
     /**
@@ -248,6 +386,14 @@ final class ApiController
     /**
      * @param array<string,string> $params
      */
+    public function saveChange(Request $request, array $params): Response
+    {
+        return $this->commitChange($request, $params);
+    }
+
+    /**
+     * @param array<string,string> $params
+     */
     public function abortChange(Request $request, array $params): Response
     {
         try {
@@ -255,6 +401,67 @@ final class ApiController
             $session = $this->changeService->abortChange($id);
 
             return Response::json($session);
+        } catch (\Throwable $exception) {
+            return Response::json(['error' => $exception->getMessage()], 422);
+        }
+    }
+
+    /**
+     * @param array<string,string> $params
+     */
+    public function discardChange(Request $request, array $params): Response
+    {
+        return $this->abortChange($request, $params);
+    }
+
+    public function installTypePack(Request $request): Response
+    {
+        try {
+            $name = trim((string) ($request->all()['name'] ?? ''));
+            if ($name === '') {
+                return Response::json(['error' => 'name is required'], 422);
+            }
+
+            return Response::json(['item' => $this->domainPackRepository->installPack($name)]);
+        } catch (\Throwable $exception) {
+            return Response::json(['error' => $exception->getMessage()], 422);
+        }
+    }
+
+    /**
+     * @param array<string,string> $params
+     */
+    public function enableTypePack(Request $request, array $params): Response
+    {
+        try {
+            $name = trim((string) ($params['name'] ?? ''));
+            return Response::json(['item' => $this->domainPackRepository->enablePack($name)]);
+        } catch (\Throwable $exception) {
+            return Response::json(['error' => $exception->getMessage()], 422);
+        }
+    }
+
+    /**
+     * @param array<string,string> $params
+     */
+    public function disableTypePack(Request $request, array $params): Response
+    {
+        try {
+            $name = trim((string) ($params['name'] ?? ''));
+            return Response::json(['item' => $this->domainPackRepository->disablePack($name)]);
+        } catch (\Throwable $exception) {
+            return Response::json(['error' => $exception->getMessage()], 422);
+        }
+    }
+
+    /**
+     * @param array<string,string> $params
+     */
+    public function uninstallTypePack(Request $request, array $params): Response
+    {
+        try {
+            $name = trim((string) ($params['name'] ?? ''));
+            return Response::json(['item' => $this->domainPackRepository->uninstallPack($name)]);
         } catch (\Throwable $exception) {
             return Response::json(['error' => $exception->getMessage()], 422);
         }
@@ -279,29 +486,40 @@ final class ApiController
         return false;
     }
 
-    private function listRecordsByType(string $type): Response
+    /**
+     * @return array<int,array<string,mixed>>
+     */
+    private function activeSchemas(): array
     {
-        $scan = $this->entityRepository->scanRegistryRecords();
-        $items = [];
-        foreach ($scan['records'] as $item) {
-            $record = $item['record'];
-            $metadata = is_array($record['metadata'] ?? null) ? $record['metadata'] : [];
-            if ((string) ($metadata['type'] ?? '') !== $type) {
+        $schemas = $this->schemaRepository->listSchemas();
+        $packState = [];
+        foreach ($this->domainPackRepository->listDomainPacks() as $pack) {
+            $packId = (string) ($pack['id'] ?? '');
+            if ($packId === '') {
+                continue;
+            }
+            $packState[$packId] = (bool) (($pack['installed'] ?? false) && ($pack['enabled'] ?? false));
+        }
+
+        $active = [];
+        foreach ($schemas as $schema) {
+            $source = (string) ($schema['source'] ?? '');
+            $sourcePath = (string) ($schema['sourcePath'] ?? '');
+            if ($source !== 'domain-pack') {
+                $active[] = $schema;
                 continue;
             }
 
-            $items[] = [
-                'id' => (string) ($metadata['id'] ?? ''),
-                'type' => $type,
-                'path' => $item['path'],
-                'record' => $record,
-            ];
+            if (preg_match('#^domain-packs/([^/]+)/#', $sourcePath, $matches) !== 1) {
+                continue;
+            }
+            $packId = (string) ($matches[1] ?? '');
+            if (($packState[$packId] ?? false) !== true) {
+                continue;
+            }
+            $active[] = $schema;
         }
 
-        return Response::json([
-            'items' => $items,
-            'counts' => ['items' => count($items), 'errors' => count($scan['parseErrors'])],
-            'errors' => $scan['parseErrors'],
-        ]);
+        return $active;
     }
 }
