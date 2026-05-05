@@ -129,7 +129,7 @@ Explore endpoints are read-only and reuse existing repositories/services so muta
 ## Next steps
 
 1. Add authentication and RBAC for UI/API/MCP tool boundaries.
-2. Implement relation mutation operations and richer validation rules.
+2. Expand relation validation rules and semantic policy checks.
 3. Add semantic diff rendering and review workflows.
 4. Implement MCP server using the existing mutation engine (`apps/mcp/README.md`).
 

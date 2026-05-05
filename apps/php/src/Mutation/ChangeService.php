@@ -419,8 +419,6 @@ final class ChangeService
             if ($type === 'upsert_relation') {
                 $relation = is_array($operation['relation'] ?? null) ? $operation['relation'] : [];
                 $metadata = is_array($relation['metadata'] ?? null) ? $relation['metadata'] : [];
-                $spec = is_array($relation['spec'] ?? null) ? $relation['spec'] : [];
-
                 $id = is_string($metadata['id'] ?? null) ? (string) $metadata['id'] : '';
                 if ($id === '') {
                     $errors[] = 'upsert_relation requires relation.metadata.id.';
