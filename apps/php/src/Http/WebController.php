@@ -26,15 +26,51 @@ final class WebController
     public function dashboard(Request $request): Response
     {
         $entities = $this->entityRepository->listEntities();
+        $relations = $this->relationRepository->listRelations();
+        $packs = $this->domainPackRepository->listDomainPacks();
         $changes = $this->changeService->listRecentChanges(10);
+        $openChangeCount = 0;
+        foreach ($changes as $change) {
+            $status = (string) ($change['status'] ?? 'open');
+            if ($status !== 'committed' && $status !== 'aborted') {
+                $openChangeCount++;
+            }
+        }
         $gitStatus = $this->gitService->statusShort();
 
         $html = $this->renderer->render('dashboard', [
             'title' => 'Dashboard',
             'currentPath' => '/',
             'entityCount' => count($entities),
+            'relationCount' => count($relations),
+            'domainPackCount' => count($packs),
+            'openChangeCount' => $openChangeCount,
             'changes' => $changes,
             'gitStatus' => $gitStatus,
+        ]);
+
+        return Response::html($html);
+    }
+
+    public function graphPage(Request $request): Response
+    {
+        $entities = $this->entityRepository->listEntities();
+        $relations = $this->relationRepository->listRelations();
+
+        $typeCounts = [];
+        foreach ($entities as $entity) {
+            $type = (string) ($entity['type'] ?? '');
+            $key = $type !== '' ? $type : 'unknown';
+            $typeCounts[$key] = (int) ($typeCounts[$key] ?? 0) + 1;
+        }
+        arsort($typeCounts);
+
+        $html = $this->renderer->render('graph/index', [
+            'title' => 'Graph',
+            'currentPath' => '/graph',
+            'entities' => $entities,
+            'relations' => $relations,
+            'typeCounts' => $typeCounts,
         ]);
 
         return Response::html($html);

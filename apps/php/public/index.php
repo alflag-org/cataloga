@@ -75,6 +75,7 @@ $api = new ApiController($entityRepository, $relationRepository, $domainPackRepo
 
 $router = new Router();
 $router->add('GET', '/', [$web, 'dashboard']);
+$router->add('GET', '/graph', [$web, 'graphPage']);
 $router->add('GET', '/entities', [$web, 'entityList']);
 $router->add('GET', '/relations', [$web, 'relationList']);
 $router->add('GET', '/relations/new', [$web, 'newRelationForm']);
