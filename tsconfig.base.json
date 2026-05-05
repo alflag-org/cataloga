@@ -37,9 +37,7 @@
       "@cataloga/search": ["packages/search/src/index.ts"],
       "@cataloga/renderer": ["packages/renderer/src/index.ts"],
       "@cataloga/mcp": ["packages/mcp/src/index.ts"],
-      "@cataloga/sample-data": ["packages/sample-data/src/index.ts"],
-      "@cataloga/managed-hosting": ["packages/managed-hosting/src/index.ts"],
-      "@cataloga/api": ["apps/api/src/index.ts"]
+      "@cataloga/sample-data": ["packages/sample-data/src/index.ts"]
     },
     "typeRoots": ["./types", "./node_modules/@types"]
   }

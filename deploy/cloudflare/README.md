@@ -1,16 +1,9 @@
-> [!WARNING]
-> Legacy v1 path: Cloudflare read-only bundle deployment docs are retained for migration.
-> Cataloga v2 primary runtime is the PHP self-hosted app in `apps/php`.
-
 # Cloudflare deployment example (Workers + Assets)
 
 This directory targets the recommended single-repository Cloudflare deployment model.
 
 Use one deployment repository, usually a fork of Cataloga, that keeps runtime code, `registry/`, and GitHub
 Actions workflows together.
-
-For the managed-hosting product path where customer data stays in separate repositories and operator-owned
-infrastructure performs deploys, use `docs/managed-hosting-architecture.md` instead of this direct example.
 
 The Cloudflare runtime serves only packaged assets and read-only API responses.
 

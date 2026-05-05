@@ -28,6 +28,21 @@ Open:
 http://localhost:8080
 ```
 
+## Development setup (mise)
+
+```bash
+mise install
+mise run bootstrap
+mise run build
+mise run test
+```
+
+If you run the PHP app without Docker and have Composer available:
+
+```bash
+mise run bootstrap-php
+```
+
 ## Repository layout (v2 runtime)
 
 ```text
@@ -129,7 +144,6 @@ Explore endpoints are read-only and reuse existing repositories/services so muta
 - Authentication/RBAC is not implemented yet.
 - CSRF protection is UI-only; API auth is not implemented.
 - Diff preview is file-content based and minimal.
-- Existing TypeScript v1/vlegacy modules remain in-repo for migration safety but are not the primary v2 runtime.
 
 ## Next steps
 
@@ -152,7 +166,7 @@ It verifies:
 - `docker compose config` at repo root
 - `docker compose build` at repo root
 
-Legacy demo deployment workflow remains for demo deployment purposes and is not part of v2 mainline quality checks.
+Cloudflare demo deployment workflow exists for optional static demo packaging and is not part of v2 mainline quality checks.
 
 
 ## Canonical Relation record (v2)

@@ -2,9 +2,6 @@
 
 This guide describes the direct self-host path for Cataloga on Cloudflare.
 
-If you are building a hosted product where customer data stays in customer-owned repositories and Cloudflare
-credentials stay operator-side, start with `docs/managed-hosting-architecture.md` instead.
-
 ## Repository model
 
 The direct self-host path assumes one deployment repository controlled by the operator or self-hosting team.

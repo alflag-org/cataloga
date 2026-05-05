@@ -1,6 +1,3 @@
-/* eslint-disable @typescript-eslint/triple-slash-reference */
-/// <reference path="../../api/src/node-shims.d.ts" />
-
 declare const process:
   | {
       env: Record<string, string | undefined>;

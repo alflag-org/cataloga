@@ -31,20 +31,21 @@ export const CLI_COMMANDS = [
 ] as const;
 
 export const API_ENDPOINTS = [
-  '/api/v1/entities',
-  '/api/v1/entities/{id}',
-  '/api/v1/relations',
-  '/api/v1/snapshots',
-  '/api/v1/drift',
-  '/api/v1/topologies',
-  '/api/v1/topologies/{id}',
-  '/api/v1/topologies/{id}/svg',
-  '/api/v1/query/find-assets',
-  '/api/v1/query/get-neighbors',
-  '/api/v1/query/find-public-exposure',
-  '/api/v1/query/find-ingress-paths',
-  '/api/v1/query/diff-snapshots',
-  '/api/v1/query/get-evidence'
+  '/api/entities',
+  '/api/entities/{id}',
+  '/api/relations',
+  '/api/domain-packs',
+  '/api/schemas',
+  '/api/entities/{id}/neighbors',
+  '/api/search',
+  '/api/changes',
+  '/api/changes/{id}',
+  '/api/changes/{id}/operations',
+  '/api/changes/{id}/validate',
+  '/api/changes/{id}/diff',
+  '/api/changes/{id}/commit',
+  '/api/changes/{id}/abort',
+  '/api/changes/{id}/summary'
 ] as const;
 
 export const VIEWER_POLICY = {

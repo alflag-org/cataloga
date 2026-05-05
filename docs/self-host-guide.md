@@ -54,4 +54,3 @@ All writes must use change sessions:
 ## Notes
 
 - Managed hosting/operator control plane is out of scope for v2.
-- Existing Node read-only assets remain temporarily for migration and are not the primary runtime path.

@@ -4,8 +4,14 @@ Build first:
 
 ```bash
 mise install
-npm install
-npm run build
+mise run bootstrap
+mise run build
+```
+
+If Composer is available locally, install PHP dependencies as well:
+
+```bash
+mise run bootstrap-php
 ```
 
 Use the CLI via workspace bin:
@@ -55,11 +61,4 @@ npm exec --workspace @cataloga/cli cataloga -- topology export --config cataloga
 
 ```bash
 npm exec --workspace @cataloga/cli cataloga -- drift compute --config cataloga.yaml
-```
-
-## API server
-
-```bash
-npm exec --workspace @cataloga/cli cataloga -- serve --config cataloga.yaml --port 3000
-npm exec --workspace @cataloga/cli cataloga -- serve --registry packages/sample-data/registry --port 3000
 ```

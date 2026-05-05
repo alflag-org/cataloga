@@ -34,12 +34,6 @@ jobs:
           node --test
           tests/cloudflare-package.test.mjs
           tests/cloudflare-worker.test.mjs
-          tests/managed-hosting-contracts.test.mjs
-          tests/managed-hosting-github.test.mjs
-          tests/managed-hosting-onboarding.test.mjs
-          tests/managed-hosting-deployment.test.mjs
-          tests/managed-hosting-operator.test.mjs
-          tests/managed-hosting-subscription.test.mjs
 
       - name: Validate demo registry
         run: npm exec --workspace @cataloga/cli cataloga -- validate --registry "${{ github.workspace }}/${{ env.CATALOGA_REGISTRY_PATH }}"

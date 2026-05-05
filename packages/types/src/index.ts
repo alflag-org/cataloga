@@ -7,9 +7,7 @@ export const IMPLEMENTATION_ORDER = [
   'packages/validator',
   'packages/bundle',
   'packages/search',
-  'packages/managed-hosting',
   'apps/cli',
-  'apps/api',
   'apps/web'
 ] as const;
 

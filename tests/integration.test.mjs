@@ -3,7 +3,6 @@ import assert from 'node:assert/strict';
 import { existsSync, mkdtempSync, readdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { join, resolve } from 'node:path';
 import { tmpdir } from 'node:os';
-import { createReadOnlyApi } from '../apps/api/dist/apps/api/src/index.js';
 import { runCatalogaCli } from '../apps/cli/dist/apps/cli/src/index.js';
 import { loadRuntimeConfig } from '../packages/core/dist/core/src/index.js';
 
@@ -71,7 +70,7 @@ const runCli = async (args) => {
   return JSON.parse(output);
 };
 
-test('workspace cataloga command exposes v1 help output', async () => {
+test('workspace cataloga command exposes help output', async () => {
   const output = await runCatalogaCli(['--help']);
 
   assert.match(output, /Usage: cataloga/u);
@@ -178,32 +177,6 @@ test('drift compute returns findings after ingest', async () => {
     assert.ok(Array.isArray(findings));
     assert.ok(findings.length > 0);
     assert.equal(typeof findings[0].drift_type, 'string');
-  } finally {
-    runtime.cleanup();
-  }
-});
-
-test('read-only API v1 exposes entities, snapshots, drift, and query metadata', async () => {
-  const runtime = createTempRuntime();
-
-  try {
-    const api = createReadOnlyApi(runtime.configPath);
-    await api.ingest.run();
-
-    const entities = api['/api/v1/entities']();
-    const snapshots = api['/api/v1/snapshots']();
-    const drift = api['/api/v1/drift']();
-    const queryResult = api['/api/v1/query/find-public-exposure']();
-
-    assert.ok(Array.isArray(entities));
-    assert.ok(entities.length > 0);
-    assert.ok(Array.isArray(snapshots));
-    assert.ok(snapshots.length > 0);
-    assert.ok(Array.isArray(drift));
-    assert.equal(typeof queryResult.observed_at, 'string');
-    assert.ok(Array.isArray(queryResult.source));
-    assert.equal(typeof queryResult.confidence, 'number');
-    assert.ok(Array.isArray(queryResult.evidence_refs));
   } finally {
     runtime.cleanup();
   }

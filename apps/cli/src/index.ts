@@ -32,8 +32,7 @@ type Command =
   | 'ingest'
   | 'snapshot'
   | 'topology'
-  | 'drift'
-  | 'serve';
+  | 'drift';
 
 type ParsedArgs = {
   command?: Command;
@@ -56,7 +55,6 @@ const usage = [
   '  topology build [--view <site-overview|aws-vpc-overview|internet-ingress|service-dependency|drift-view>]',
   '  topology export --id <topology-id> --out <path>',
   '  drift compute',
-  '  serve [--config <path>|--registry <path>] [--port <port>]',
   '',
   'Global flags:',
   '  --config <path>   Config file path (default: cataloga.yaml)',
@@ -114,36 +112,6 @@ const registryPathFromArgs = (args: ParsedArgs): string => {
   }
 
   return registryPath;
-};
-
-const writeRegistryRuntimeConfig = (args: ParsedArgs): string => {
-  const registryPath = resolve(registryPathFromArgs(args));
-  const configPath = asString(args.flags.config) ?? '.cataloga/serve-config.yaml';
-  const storePath = asString(args.flags.store) ?? '.cataloga/canonical-store.json';
-  const evidencePath = asString(args.flags.evidence) ?? '.cataloga/evidence';
-  const content = [
-    'version: 1',
-    'storage:',
-    '  driver: postgres',
-    `  file_path: ${JSON.stringify(resolve(storePath))}`,
-    'object_store:',
-    '  driver: local',
-    `  bucket: ${JSON.stringify(resolve(evidencePath))}`,
-    'sources:',
-    '  - id: registry',
-    '    type: git',
-    '    enabled: true',
-    '    scope: registry',
-    '    poll_mode: full',
-    '    config:',
-    '      ref: local',
-    `      path: ${JSON.stringify(registryPath)}`,
-    '      allow_external_paths: true'
-  ].join('\n');
-
-  mkdirSync(dirname(resolve(configPath)), { recursive: true });
-  writeFileSync(resolve(configPath), `${content}\n`, 'utf8');
-  return configPath;
 };
 
 const handleValidate = (args: ParsedArgs): string => {
@@ -321,24 +289,6 @@ const handleDrift = (args: ParsedArgs): string => {
   return formatJson(findings);
 };
 
-const handleServe = async (args: ParsedArgs): Promise<string> => {
-  const configPath = args.flags.registry
-    ? writeRegistryRuntimeConfig(args)
-    : (asString(args.flags.config) ?? defaultConfigPath);
-  if (args.flags.registry) {
-    const runtime = createCatalogaRuntime(configPath);
-    await runtime.ingest.run();
-  }
-  const port = Number.parseInt(asString(args.flags.port) ?? process?.env.PORT ?? '3000', 10);
-  const apiModule = await import('@cataloga/api');
-  const server = apiModule.createHttpEntrypoint(configPath);
-  await new Promise<void>((resolvePromise) => {
-    server.listen(port, '127.0.0.1', () => resolvePromise());
-  });
-
-  return formatJson({ ok: true, port, configPath, status: 'Listening' });
-};
-
 export const runCatalogaCli = async (argv: readonly string[]): Promise<string> => {
   if (argv.includes('--help') || argv.includes('-h')) {
     return usage;
@@ -368,8 +318,6 @@ export const runCatalogaCli = async (argv: readonly string[]): Promise<string> =
       return handleTopology(args);
     case 'drift':
       return handleDrift(args);
-    case 'serve':
-      return handleServe(args);
     default:
       return usage;
   }
