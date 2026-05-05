@@ -1,8 +1,0 @@
-id: relation-prefix-tokyo-app-allocates-web-01
-type: allocates
-source:
-  type: prefix
-  id: prefix-tokyo-app
-target:
-  type: allocation
-  id: allocation-web-01

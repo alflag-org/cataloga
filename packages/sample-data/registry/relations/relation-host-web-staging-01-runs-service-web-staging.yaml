@@ -1,8 +1,0 @@
-id: relation-host-web-staging-01-runs-service-web-staging
-type: runs
-source:
-  type: host
-  id: host-web-staging-01
-target:
-  type: service
-  id: service-web-staging

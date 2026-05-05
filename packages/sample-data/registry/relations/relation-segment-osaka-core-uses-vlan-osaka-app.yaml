@@ -1,8 +1,0 @@
-id: relation-segment-osaka-core-uses-vlan-osaka-app
-type: uses
-source:
-  type: segment
-  id: segment-osaka-core
-target:
-  type: vlan
-  id: vlan-osaka-app

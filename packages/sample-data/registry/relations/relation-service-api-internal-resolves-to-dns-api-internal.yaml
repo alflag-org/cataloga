@@ -1,8 +1,0 @@
-id: relation-service-api-internal-resolves-to-dns-api-internal
-type: resolves_to
-source:
-  type: service
-  id: service-api-internal
-target:
-  type: dns_record
-  id: dns-api-internal

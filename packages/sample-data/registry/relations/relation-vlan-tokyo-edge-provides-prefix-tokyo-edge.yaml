@@ -1,8 +1,0 @@
-id: relation-vlan-tokyo-edge-provides-prefix-tokyo-edge
-type: provides
-source:
-  type: vlan
-  id: vlan-tokyo-edge
-target:
-  type: prefix
-  id: prefix-tokyo-edge

@@ -1,8 +1,0 @@
-id: relation-service-admin-ssh-resolves-to-dns-bastion-public
-type: resolves_to
-source:
-  type: service
-  id: service-admin-ssh
-target:
-  type: dns_record
-  id: dns-bastion-public

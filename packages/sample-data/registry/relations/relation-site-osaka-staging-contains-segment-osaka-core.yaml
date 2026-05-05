@@ -1,8 +1,0 @@
-id: relation-site-osaka-staging-contains-segment-osaka-core
-type: contains
-source:
-  type: site
-  id: site-osaka-staging
-target:
-  type: segment
-  id: segment-osaka-core

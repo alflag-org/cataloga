@@ -1,6 +1,0 @@
-id: view-sites
-title: Sites
-summary: Compare the production and staging sites in one place.
-entityTypes:
-  - site
-query: type=site

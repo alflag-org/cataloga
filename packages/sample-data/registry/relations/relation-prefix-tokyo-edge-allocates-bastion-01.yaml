@@ -1,8 +1,0 @@
-id: relation-prefix-tokyo-edge-allocates-bastion-01
-type: allocates
-source:
-  type: prefix
-  id: prefix-tokyo-edge
-target:
-  type: allocation
-  id: allocation-bastion-01

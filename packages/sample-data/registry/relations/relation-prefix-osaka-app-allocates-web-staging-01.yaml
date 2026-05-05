@@ -1,8 +1,0 @@
-id: relation-prefix-osaka-app-allocates-web-staging-01
-type: allocates
-source:
-  type: prefix
-  id: prefix-osaka-app
-target:
-  type: allocation
-  id: allocation-web-staging-01

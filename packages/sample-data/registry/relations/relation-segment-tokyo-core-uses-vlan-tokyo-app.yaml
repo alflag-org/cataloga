@@ -1,8 +1,0 @@
-id: relation-segment-tokyo-core-uses-vlan-tokyo-app
-type: uses
-source:
-  type: segment
-  id: segment-tokyo-core
-target:
-  type: vlan
-  id: vlan-tokyo-app

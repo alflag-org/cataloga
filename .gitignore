@@ -1,5 +1,19 @@
+# Dependency artifacts
+apps/php/vendor/
 node_modules/
-dist/
 
 # Runtime/derived state (non-canonical)
 .cataloga/
+
+# Composer and PHP runtime artifacts
+composer.phar
+*.cache
+.phpunit.result.cache
+
+# Logs
+*.log
+logs/
+
+# Docker/runtime artifacts
+*.pid
+*.sock

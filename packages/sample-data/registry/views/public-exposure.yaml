@@ -1,6 +1,0 @@
-id: view-public-exposure
-title: Public Exposure
-summary: Focus on externally exposed services and operator entrypoints.
-entityTypes:
-  - service
-query: exposure=external

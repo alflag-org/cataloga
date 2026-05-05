@@ -1,8 +1,0 @@
-id: view-application-stack
-title: Application Stack
-summary: Follow the API host and the services directly related to the customer-facing app.
-entityTypes:
-  - host
-  - service
-  - dns_record
-query: relatedTo=host-api-01

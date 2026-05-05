@@ -1,8 +1,0 @@
-id: relation-site-tokyo-prod-contains-segment-tokyo-edge
-type: contains
-source:
-  type: site
-  id: site-tokyo-prod
-target:
-  type: segment
-  id: segment-tokyo-edge

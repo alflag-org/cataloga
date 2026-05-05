@@ -10,6 +10,13 @@ Cataloga is an AI-native, Git/file-backed, domain-agnostic registry platform.
 - Backward compatibility with pre-v2 abstractions is not required.
 - Prefer simple, local-first, self-hostable architecture.
 
+## Runtime and Tooling Rules (v2)
+
+- PHP is the only implementation runtime for v2.
+- Do not create or restore Node.js / TypeScript app code unless explicitly requested.
+- Do not add npm workspace tooling.
+- Docker Compose and Composer are the expected development/runtime tools.
+
 ## Architecture Rules
 
 - Git/file-backed registry data is the source of truth.
@@ -26,6 +33,8 @@ Cataloga is an AI-native, Git/file-backed, domain-agnostic registry platform.
 - Domain semantics belong in packs.
 - Human UI, CLI, API, and MCP tools must share the same mutation engine.
 - Do not create direct write paths that bypass change sessions.
+- All writes must continue to go through PHP change sessions.
+- Future MCP must call the same PHP mutation/change-session path.
 
 ## AI-Native Rules
 
@@ -37,8 +46,6 @@ Cataloga is an AI-native, Git/file-backed, domain-agnostic registry platform.
 
 ## Coding Rules
 
-- PHP is the primary v2 runtime for current implementation.
-- TypeScript legacy code is not the preferred path for current implementation unless reducing v2 confusion.
 - Avoid network-specific assumptions in core packages.
 - Avoid managed-hosting/operator/tenant abstractions unless explicitly requested.
 - Preserve unrelated worktree changes.

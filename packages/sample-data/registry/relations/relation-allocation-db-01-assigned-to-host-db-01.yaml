@@ -1,8 +1,0 @@
-id: relation-allocation-db-01-assigned-to-host-db-01
-type: assigned_to
-source:
-  type: allocation
-  id: allocation-db-01
-target:
-  type: host
-  id: host-db-01
