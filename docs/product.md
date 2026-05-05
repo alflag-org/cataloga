@@ -19,13 +19,13 @@ It records operational resources (services, hosts, networks, DNS, databases, rep
 - Resource metadata uses AWS-style key-value tags (`metadata.tags`).
 - Common operational metadata (`environment`, `owner`, `site`, `zone`, `lifecycle`, etc.) are tags, not fixed `spec` fields.
 - Memo-like content is represented with tags (for example `note`, `todo`, `risk`), not a first-class memo field.
-- Reserved prefixes (`cataloga:`, `aws:`) are not user-authored in normal workflows.
+- Reserved prefixes (`cataloga:`) are not user-authored in normal workflows.
 - Workspace-level vocabulary and defaults are configured in `registry/settings.yaml`.
 
 ## Dependency UX model
 
-- Underlying records remain `Relation`, but normal UI editing is slot-based per resource type.
-- Dependency slots are declared by type pack schema metadata and drive guided selection in resource forms.
+- Underlying records remain `Relation`, but normal UI editing should be slot-based from resource detail pages.
+- Dependency slots are declared by type pack schema metadata and drive guided selection after the resource exists.
 - Generic dependency create/edit screen remains available as an advanced path.
 
 ## Interfaces
@@ -43,7 +43,9 @@ All writes follow the same path:
 2. Add edits
 3. Validate
 4. Review diff
-5. Save changes or discard
+5. Save changes to registry files or discard
+
+Git commit creation is intentionally separate from the normal save action.
 
 ## Non-goals for core product copy
 

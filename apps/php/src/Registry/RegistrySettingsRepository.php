@@ -9,19 +9,19 @@ final class RegistrySettingsRepository
     private const DEFAULT_SETTINGS = [
         'version' => 1,
         'tag_keys' => [
-            'environment' => ['label' => '環境', 'required' => true, 'values' => ['prod', 'dev', 'sandbox', 'home']],
-            'owner' => ['label' => 'オーナー', 'required' => true, 'values' => ['infra-team', 'network-team', 'personal']],
-            'site' => ['label' => 'サイト', 'values' => ['kng01']],
-            'zone' => ['label' => 'ゾーン', 'values' => ['mgmt', 'client', 'dmz', 'transit']],
+            'environment' => ['label' => '環境', 'required' => true, 'values' => ['prod', 'staging', 'dev', 'sandbox']],
+            'owner' => ['label' => 'オーナー', 'required' => true, 'free_value' => true],
+            'site' => ['label' => 'サイト', 'free_value' => true],
+            'zone' => ['label' => 'ゾーン', 'free_value' => true],
             'visibility' => ['label' => '公開範囲', 'values' => ['private', 'internal', 'public']],
             'lifecycle' => ['label' => 'ライフサイクル', 'values' => ['active', 'temporary', 'deprecated', 'retired']],
             'criticality' => ['label' => '重要度', 'values' => ['low', 'medium', 'high', 'critical']],
-            'managed-by' => ['label' => '管理方法', 'values' => ['manual', 'ansible', 'terraform', 'cloudflare']],
+            'managed-by' => ['label' => '管理方法', 'values' => ['manual', 'ansible', 'terraform']],
             'note' => ['label' => '補足', 'free_value' => true],
             'todo' => ['label' => 'TODO', 'free_value' => true],
             'risk' => ['label' => '注意', 'free_value' => true],
         ],
-        'reserved_prefixes' => ['cataloga:', 'aws:'],
+        'reserved_prefixes' => ['cataloga:'],
     ];
 
     public function __construct(

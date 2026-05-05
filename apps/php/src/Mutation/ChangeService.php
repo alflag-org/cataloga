@@ -15,6 +15,7 @@ use Cataloga\Validation\RegistryValidator;
 final class ChangeService
 {
     private const ALLOWED_OPERATIONS = ['upsert_entity', 'delete_entity', 'upsert_relation', 'delete_relation'];
+    private const CLOSED_STATUSES = ['applied', 'committed', 'failed', 'discarded', 'aborted'];
 
     public function __construct(
         private readonly EntityRepository $entityRepository,
@@ -59,7 +60,7 @@ final class ChangeService
     public function addOperations(string $changeId, array $operations): array
     {
         $session = $this->requireChange($changeId);
-        if (in_array($session['status'], ['committed', 'aborted'], true)) {
+        if (in_array($session['status'], self::CLOSED_STATUSES, true)) {
             throw new \RuntimeException('Cannot add operations to closed change session.');
         }
 
@@ -93,7 +94,7 @@ final class ChangeService
     public function validateChange(string $changeId): array
     {
         $session = $this->requireChange($changeId);
-        if (in_array($session['status'], ['committed', 'aborted'], true)) {
+        if (in_array($session['status'], self::CLOSED_STATUSES, true)) {
             throw new \RuntimeException('Cannot validate closed change session.');
         }
 
@@ -159,7 +160,7 @@ final class ChangeService
     public function commitChange(string $changeId, string $commitMessage = '', bool $createGitCommit = true): array
     {
         $session = $this->requireChange($changeId);
-        if (in_array($session['status'], ['committed', 'aborted'], true)) {
+        if (in_array($session['status'], self::CLOSED_STATUSES, true)) {
             throw new \RuntimeException('Cannot commit closed change session.');
         }
 
@@ -176,6 +177,7 @@ final class ChangeService
             $commitHash = null;
             $git = [
                 'enabled' => $createGitCommit,
+                'ok' => null,
                 'message' => '',
             ];
 
@@ -184,29 +186,36 @@ final class ChangeService
                 $addResult = $this->gitService->addRegistry();
 
                 if (!$addResult['ok']) {
+                    $git['ok'] = false;
                     $git['message'] = $addResult['stderr'] ?: 'git add failed.';
                 } else {
                     $commitResult = $this->gitService->commit($message);
                     if (!$commitResult['ok']) {
+                        $git['ok'] = false;
                         $git['message'] = $commitResult['stderr'] ?: 'git commit failed.';
                     } else {
+                        $git['ok'] = true;
                         $head = $this->gitService->revParseHead();
                         if ($head['ok']) {
                             $commitHash = $head['stdout'];
                         }
                     }
                 }
+            } else {
+                $git['ok'] = null;
+                $git['message'] = 'Git commit was not requested.';
             }
 
-            $session['status'] = 'committed';
+            $session['status'] = $createGitCommit && $git['ok'] === true ? 'committed' : 'applied';
             $session['commitHash'] = $commitHash;
             $session['git'] = $git;
             $this->changeRepository->save($session);
 
-            $this->audit('commit', $session, $commitHash);
+            $this->audit($session['status'] === 'committed' ? 'commit' : 'apply', $session, $commitHash);
 
             return $session;
         } catch (\Throwable $exception) {
+            $session['status'] = 'failed';
             $session['lastError'] = $exception->getMessage();
             $this->changeRepository->save($session);
             $this->audit('commit_failed', $session, null);
@@ -220,11 +229,11 @@ final class ChangeService
     public function abortChange(string $changeId): array
     {
         $session = $this->requireChange($changeId);
-        if (in_array($session['status'], ['committed', 'aborted'], true)) {
+        if (in_array($session['status'], self::CLOSED_STATUSES, true)) {
             return $session;
         }
 
-        $session['status'] = 'aborted';
+        $session['status'] = 'discarded';
         $this->changeRepository->save($session);
 
         $this->audit('abort', $session, null);

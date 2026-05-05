@@ -6,30 +6,22 @@ tag_keys:
     required: true
     values:
       - prod
+      - staging
       - dev
       - sandbox
-      - home
 
   owner:
     label: オーナー
     required: true
-    values:
-      - infra-team
-      - network-team
-      - personal
+    free_value: true
 
   site:
     label: サイト
-    values:
-      - kng01
+    free_value: true
 
   zone:
     label: ゾーン
-    values:
-      - mgmt
-      - client
-      - dmz
-      - transit
+    free_value: true
 
   visibility:
     label: 公開範囲
@@ -60,7 +52,6 @@ tag_keys:
       - manual
       - ansible
       - terraform
-      - cloudflare
 
   note:
     label: 補足
@@ -76,4 +67,3 @@ tag_keys:
 
 reserved_prefixes:
   - "cataloga:"
-  - "aws:"

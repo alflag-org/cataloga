@@ -37,7 +37,7 @@ final class WebController
         $draftCount = 0;
         foreach ($changes as $change) {
             $status = (string) ($change['status'] ?? 'open');
-            if (!in_array($status, ['committed', 'aborted'], true)) {
+            if (!in_array($status, ['applied', 'committed', 'failed', 'discarded', 'aborted'], true)) {
                 $draftCount++;
             }
         }
@@ -686,7 +686,7 @@ final class WebController
 
         try {
             $message = (string) $request->post('commitMessage', '');
-            $createGitCommit = $request->post('createGitCommit', '1') === '1';
+            $createGitCommit = $request->post('createGitCommit', '0') === '1';
             $this->changeService->commitChange($id, $message, $createGitCommit);
 
             return Response::redirect('/changes/' . rawurlencode($id));
@@ -788,7 +788,7 @@ final class WebController
         $labels = $this->decodeJsonObject(trim((string) $request->post('labels', '{}')), 'labels');
         $spec = $advanced ? $this->decodeJsonObject(trim((string) $request->post('spec', '{}')), 'spec') : $this->buildSpecFromSchema($request);
         $settings = $this->settingsRepository->loadSettings();
-        $reservedPrefixes = is_array($settings['reserved_prefixes'] ?? null) ? $settings['reserved_prefixes'] : ['cataloga:', 'aws:'];
+        $reservedPrefixes = is_array($settings['reserved_prefixes'] ?? null) ? $settings['reserved_prefixes'] : ['cataloga:'];
         $tags = $this->buildTagsFromRequest($request, $spec, $reservedPrefixes);
 
         return [

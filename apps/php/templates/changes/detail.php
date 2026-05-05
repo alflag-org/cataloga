@@ -5,6 +5,7 @@ $diffItems = is_array($diff['items'] ?? null) ? $diff['items'] : [];
 $status = (string) ($change['status'] ?? 'open');
 $statusLabel = ui_change_status_label($status);
 $statusClass = ui_change_status_class($status);
+$git = is_array($change['git'] ?? null) ? $change['git'] : null;
 ?>
 <div class="panel soft">
   <div class="title-row">
@@ -34,6 +35,25 @@ $statusClass = ui_change_status_class($status);
       <?php endforeach; ?>
     <?php endif; ?>
   </ul>
+  <?php if ($git !== null): ?>
+    <div class="mt-2">
+      <h3>保存結果</h3>
+      <p class="meta">
+        Registry files: 反映済み
+        <?php if (($git['enabled'] ?? false) === true): ?>
+          · Git commit: <?= ($git['ok'] ?? false) === true ? '成功' : '未完了' ?>
+        <?php else: ?>
+          · Git commit: 未実行
+        <?php endif; ?>
+      </p>
+      <?php if ((string) ($git['message'] ?? '') !== ''): ?>
+        <p class="meta"><?= h((string) $git['message']) ?></p>
+      <?php endif; ?>
+      <?php if ((string) ($change['commitHash'] ?? '') !== ''): ?>
+        <p class="meta">Commit: <span class="mono"><?= h((string) $change['commitHash']) ?></span></p>
+      <?php endif; ?>
+    </div>
+  <?php endif; ?>
 </div>
 
 <div class="panel">
@@ -114,11 +134,7 @@ $statusClass = ui_change_status_class($status);
         <label for="commitMessage">保存メッセージ（任意）</label>
         <input type="text" name="commitMessage" id="commitMessage" placeholder="変更を保存 <?= h((string) $change['id']) ?>">
       </div>
-      <div class="field inline">
-        <input class="checkbox" type="hidden" name="createGitCommit" value="0">
-        <input class="checkbox" type="checkbox" name="createGitCommit" value="1" id="createGitCommit" checked>
-        <label for="createGitCommit">可能なら Git コミットを作成する</label>
-      </div>
+      <input type="hidden" name="createGitCommit" value="0">
       <button type="submit" class="primary-button">変更を保存</button>
     </form>
 

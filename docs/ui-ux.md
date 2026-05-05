@@ -11,26 +11,25 @@ Terminology is fixed by [docs/ui-terminology-ja.md](./ui-terminology-ja.md) for 
 - Dependencies
 - Changes
 - Type packs
-- Settings
 
 ## Resource flow
 
 1. Choose resource type from installed type packs
 2. Enter basic information and tags
 3. Fill resource-specific `spec` fields from schema metadata
-4. Select optional dependency slots
-5. Review and create draft
+4. Review and create draft
 
 ### Tag UX
 
 - Tags are key-value inputs.
 - Basic tags are shown prominently (environment/owner/site/zone/lifecycle and schema-required tags).
 - Additional custom tags are editable as key-value rows.
-- Reserved prefixes are blocked in normal editing (`cataloga:`, `aws:`).
+- Custom tag rows are added only when the user asks for another tag.
+- Reserved prefixes are blocked in normal editing (`cataloga:`).
 
 ## Dependency flow
 
-- Normal path: edit dependencies from resource form/detail using slot labels.
+- Normal path: edit dependencies from resource detail using slot labels.
 - Advanced path (`/dependencies/new`): manual source/type/target editing for exceptional cases.
 
 ## Change flow

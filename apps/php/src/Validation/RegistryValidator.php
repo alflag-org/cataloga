@@ -59,10 +59,10 @@ final class RegistryValidator
 
         $settings = $this->settingsRepository?->loadSettings() ?? [
             'tag_keys' => [],
-            'reserved_prefixes' => ['cataloga:', 'aws:'],
+            'reserved_prefixes' => ['cataloga:'],
         ];
         $tagSettings = is_array($settings['tag_keys'] ?? null) ? $settings['tag_keys'] : [];
-        $reservedPrefixes = is_array($settings['reserved_prefixes'] ?? null) ? $settings['reserved_prefixes'] : ['cataloga:', 'aws:'];
+        $reservedPrefixes = is_array($settings['reserved_prefixes'] ?? null) ? $settings['reserved_prefixes'] : ['cataloga:'];
         $schemasById = $this->activeSchemasById();
 
         foreach ($projectionErrors as $message) {

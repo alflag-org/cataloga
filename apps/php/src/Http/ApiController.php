@@ -432,7 +432,7 @@ final class ApiController
             $id = $params['id'] ?? '';
             $payload = $request->all();
             $message = (string) ($payload['commitMessage'] ?? '');
-            $createGitCommit = $this->parseBoolean($payload['createGitCommit'] ?? true);
+            $createGitCommit = $this->parseBoolean($payload['createGitCommit'] ?? false);
 
             $session = $this->changeService->commitChange($id, $message, $createGitCommit);
 

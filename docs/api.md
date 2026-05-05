@@ -25,7 +25,7 @@ Compatibility aliases are kept for existing clients:
 
 - Resource tags are key-value under `metadata.tags`.
 - New writes should not use list-style tags.
-- Reserved tag prefixes (`cataloga:`, `aws:`) are treated as system-reserved.
+- Reserved tag prefixes (`cataloga:`) are treated as system-reserved.
 
 ## Write workflow endpoints
 
@@ -35,6 +35,8 @@ Compatibility aliases are kept for existing clients:
 - `GET /api/changes/{changeId}/diff`
 - `POST /api/changes/{changeId}/save`
 - `POST /api/changes/{changeId}/discard`
+
+`save` applies validated changes to registry files. API clients that also want a Git commit must explicitly send `createGitCommit: true`.
 
 Compatibility aliases are also available:
 

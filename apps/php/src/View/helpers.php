@@ -26,8 +26,11 @@ function csrf_token(): string
 function ui_change_status_label(string $status): string
 {
     return match ($status) {
-        'committed' => '保存済み',
+        'applied' => '反映済み',
+        'committed' => 'Git 記録済み',
+        'discarded' => '破棄済み',
         'aborted' => '破棄済み',
+        'failed' => '失敗',
         'validated' => '保存可能',
         default => 'ドラフト',
     };
@@ -36,8 +39,11 @@ function ui_change_status_label(string $status): string
 function ui_change_status_class(string $status): string
 {
     return match ($status) {
+        'applied' => 'info',
         'committed' => 'ok',
+        'discarded' => 'error',
         'aborted' => 'error',
+        'failed' => 'error',
         'validated' => 'info',
         default => 'warn',
     };

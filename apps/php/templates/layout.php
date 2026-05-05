@@ -81,6 +81,16 @@
       max-width: 520px;
     }
 
+    .searchbar input[type="search"] {
+      min-width: 0;
+    }
+
+    .searchbar button {
+      flex: 0 0 auto;
+      white-space: nowrap;
+      min-width: 4.6rem;
+    }
+
     .top-actions {
       display: flex;
       align-items: center;
@@ -362,6 +372,22 @@
       grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
     }
 
+    .tag-editor {
+      display: grid;
+      gap: 0.65rem;
+    }
+
+    .tag-row {
+      display: grid;
+      grid-template-columns: minmax(150px, 0.9fr) minmax(180px, 1fr) auto;
+      gap: 0.55rem;
+      align-items: end;
+    }
+
+    .tag-row .secondary-button {
+      min-width: 4.6rem;
+    }
+
     pre {
       margin: 0;
       border-radius: 10px;
@@ -640,6 +666,7 @@
     @media (max-width: 760px) {
       .topbar-inner { padding: 0.7rem 0.8rem; }
       .page-shell { padding: 0.8rem; }
+      .tag-row { grid-template-columns: 1fr; }
       table { min-width: 640px; }
       th, td { font-size: 0.8rem; }
       .filters { grid-template-columns: 1fr; }
@@ -667,9 +694,6 @@
       <input type="search" name="q" placeholder="リソースを検索..." value="<?= h((string) ($_GET['q'] ?? '')) ?>">
       <button type="submit" class="secondary-button">検索</button>
     </form>
-    <div class="top-actions">
-      <a class="secondary-button" href="/settings" onclick="event.preventDefault();">設定</a>
-    </div>
   </div>
 </header>
 
@@ -682,7 +706,6 @@
       <a href="/changes" class="<?= str_starts_with((string) ($currentPath ?? ''), '/changes') ? 'active' : '' ?>">変更</a>
       <a href="/type-packs" class="<?= str_starts_with((string) ($currentPath ?? ''), '/type-packs') || str_starts_with((string) ($currentPath ?? ''), '/domain-packs') ? 'active' : '' ?>">タイプパック</a>
       <a href="/validation" class="<?= ($currentPath ?? '') === '/validation' ? 'active' : '' ?>">検証</a>
-      <a href="/settings" onclick="event.preventDefault();">設定</a>
     </nav>
   </aside>
 

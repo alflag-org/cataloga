@@ -26,7 +26,7 @@ $existingRelations = is_array($existingRelations ?? null) ? $existingRelations :
 
 $settings = is_array($settings ?? null) ? $settings : [];
 $tagKeys = is_array($settings['tag_keys'] ?? null) ? $settings['tag_keys'] : [];
-$reservedPrefixes = is_array($settings['reserved_prefixes'] ?? null) ? $settings['reserved_prefixes'] : ['cataloga:', 'aws:'];
+$reservedPrefixes = is_array($settings['reserved_prefixes'] ?? null) ? $settings['reserved_prefixes'] : ['cataloga:'];
 
 $normalizedTags = [];
 $rawTags = $metadata['tags'] ?? [];
@@ -127,47 +127,6 @@ foreach ($normalizedTags as $key => $value) {
     $additionalTags[$key] = (string) $value;
 }
 
-$additionalRows = max(3, count($additionalTags) + 1);
-
-$dependencySlots = is_array($selectedSchema['dependencySlots'] ?? null) ? $selectedSchema['dependencySlots'] : [];
-$currentDependencyValues = [];
-if ($id !== '' && $dependencySlots !== []) {
-    foreach ($dependencySlots as $slot) {
-        $slotKey = (string) ($slot['key'] ?? '');
-        $relationType = (string) ($slot['relation_type'] ?? '');
-        $direction = (string) ($slot['direction'] ?? 'outgoing');
-        if ($slotKey === '' || $relationType === '') {
-            continue;
-        }
-        $values = [];
-        foreach ($existingRelations as $relation) {
-            if ((string) ($relation['type'] ?? '') !== $relationType) {
-                continue;
-            }
-            if ($direction === 'incoming' && (string) ($relation['to'] ?? '') === $id) {
-                $values[] = (string) ($relation['from'] ?? '');
-            }
-            if ($direction === 'outgoing' && (string) ($relation['from'] ?? '') === $id) {
-                $values[] = (string) ($relation['to'] ?? '');
-            }
-        }
-        $currentDependencyValues[$slotKey] = array_values(array_unique(array_filter($values)));
-    }
-}
-
-$dependencyValuesFromPost = [];
-foreach ($_POST as $postKey => $postValue) {
-    if (!is_string($postKey) || !str_starts_with($postKey, 'dependency_slot_target_')) {
-        continue;
-    }
-    $slotKey = substr($postKey, strlen('dependency_slot_target_'));
-    if ($slotKey === '') {
-        continue;
-    }
-    if (is_array($postValue)) {
-        $dependencyValuesFromPost[$slotKey] = array_values(array_filter(array_map(static fn ($x): string => trim((string) $x), $postValue), static fn (string $x): bool => $x !== ''));
-    }
-}
 ?>
 
 <?php if ($mode === 'create' && $selectedSchema === null): ?>
@@ -207,7 +166,8 @@ foreach ($_POST as $postKey => $postValue) {
     <div class="title-row">
       <div class="title-stack">
         <p class="eyebrow"><?= $mode === 'edit' ? 'リソース編集' : 'リソース作成' ?></p>
-        <h2><?= $mode === 'edit' ? '変更内容を確認して更新' : 'ガイド付きでリソースを作成' ?></h2>
+        <h2><?= $mode === 'edit' ? 'リソースを編集' : 'リソースを作成' ?></h2>
+        <p class="meta">依存関係は作成後にリソース詳細から設定します。ここでは台帳の基本情報と設定値だけを保存します。</p>
       </div>
       <div class="actions">
         <?php if ($mode === 'create'): ?>
@@ -241,7 +201,7 @@ foreach ($_POST as $postKey => $postValue) {
           <input type="text" required id="name" name="name" value="<?= h($name) ?>" placeholder="cataloga">
         </div>
 
-        <h3>基本タグ</h3>
+        <h3>管理情報</h3>
         <?php foreach ($basicTagKeys as $tagKey): ?>
           <?php
           $tagConfig = is_array($tagKeys[$tagKey] ?? null) ? $tagKeys[$tagKey] : [];
@@ -266,8 +226,8 @@ foreach ($_POST as $postKey => $postValue) {
           </div>
         <?php endforeach; ?>
 
-        <h3>追加タグ</h3>
-        <p class="meta">キーと値を入力してください。`cataloga:` と `aws:` のプレフィックスは予約済みです。</p>
+        <h3>タグ</h3>
+        <p class="meta">追加の key-value metadata です。予約済みプレフィックス: <?= h(implode(', ', array_map('strval', $reservedPrefixes))) ?></p>
 
         <?php
         $additionalEntries = array_values(array_map(
@@ -276,21 +236,24 @@ foreach ($_POST as $postKey => $postValue) {
             array_values($additionalTags)
         ));
         ?>
-        <?php for ($i = 0; $i < $additionalRows; $i++): ?>
-          <?php
-          $entry = $additionalEntries[$i] ?? ['key' => '', 'value' => ''];
-          ?>
-          <div class="split">
-            <div class="field">
-              <label>キー</label>
-              <input type="text" name="tag_key[]" value="<?= h((string) $entry['key']) ?>" placeholder="managed-by">
+        <div class="tag-editor" data-tag-editor>
+          <?php foreach ($additionalEntries as $entry): ?>
+            <div class="tag-row" data-tag-row>
+              <div class="field">
+                <label>キー</label>
+                <input type="text" name="tag_key[]" value="<?= h((string) $entry['key']) ?>" placeholder="managed-by">
+              </div>
+              <div class="field">
+                <label>値</label>
+                <input type="text" name="tag_value[]" value="<?= h((string) $entry['value']) ?>" placeholder="ansible">
+              </div>
+              <button type="button" class="secondary-button" data-remove-tag>削除</button>
             </div>
-            <div class="field">
-              <label>値</label>
-              <input type="text" name="tag_value[]" value="<?= h((string) $entry['value']) ?>" placeholder="ansible">
-            </div>
-          </div>
-        <?php endfor; ?>
+          <?php endforeach; ?>
+        </div>
+        <div class="actions mt-2">
+          <button type="button" class="secondary-button" data-add-tag>+ タグを追加</button>
+        </div>
 
         <details>
           <summary>詳細設定</summary>
@@ -363,128 +326,6 @@ foreach ($_POST as $postKey => $postValue) {
       <section class="panel soft">
         <div class="title-row">
           <div class="title-stack">
-            <h3>依存関係</h3>
-            <p class="meta">通常はスロットごとに設定します。表現できない場合は高度な依存関係を使用してください。</p>
-          </div>
-        </div>
-
-        <?php if ($dependencySlots !== []): ?>
-          <?php foreach ($dependencySlots as $slot): ?>
-            <?php
-            $slotKey = (string) ($slot['key'] ?? '');
-            $direction = (string) ($slot['direction'] ?? 'outgoing');
-            $label = (string) ($slot['label'] ?? $slotKey);
-            $description = (string) ($slot['description'] ?? '');
-            $multiple = (bool) ($slot['multiple'] ?? true);
-            $required = (bool) ($slot['required'] ?? false);
-            $targetTypes = is_array($slot['target_types'] ?? null) ? $slot['target_types'] : [];
-            $sourceTypes = is_array($slot['source_types'] ?? null) ? $slot['source_types'] : [];
-
-            $candidates = [];
-            foreach ($allResources as $resource) {
-                $resourceType = (string) ($resource['type'] ?? '');
-                if ($direction === 'outgoing' && $targetTypes !== [] && !in_array($resourceType, $targetTypes, true)) {
-                    continue;
-                }
-                if ($direction === 'incoming' && $sourceTypes !== [] && !in_array($resourceType, $sourceTypes, true)) {
-                    continue;
-                }
-                $candidates[] = $resource;
-            }
-
-            $selectedValues = $dependencyValuesFromPost[$slotKey] ?? ($currentDependencyValues[$slotKey] ?? []);
-            if ($selectedValues === []) {
-                $selectedValues = [''];
-            }
-            if ($multiple) {
-                $selectedValues[] = '';
-                $selectedValues = array_slice(array_values(array_unique($selectedValues)), 0, 3);
-            } else {
-                $selectedValues = [trim((string) ($selectedValues[0] ?? ''))];
-            }
-            ?>
-            <div class="field">
-              <label><?= h($label) ?><?= $required ? ' *' : '' ?></label>
-              <?php if ($description !== ''): ?><p class="meta"><?= h($description) ?></p><?php endif; ?>
-
-              <?php if ($candidates === []): ?>
-                <?php if ($direction === 'outgoing'): ?>
-                  <p class="empty-state">互換性のある対象リソースがありません。先にリソースを作成するか、この依存関係をスキップしてください。</p>
-                <?php else: ?>
-                  <p class="empty-state">互換性のある参照元リソースがありません。先にリソースを作成するか、この依存関係をスキップしてください。</p>
-                <?php endif; ?>
-              <?php else: ?>
-                <?php foreach ($selectedValues as $selectedValue): ?>
-                  <select name="dependency_slot_target_<?= h($slotKey) ?>[]" <?= $required ? 'required' : '' ?>>
-                    <option value="">選択</option>
-                    <?php foreach ($candidates as $candidate): ?>
-                      <option value="<?= h((string) $candidate['id']) ?>" <?= (string) $candidate['id'] === (string) $selectedValue ? 'selected' : '' ?>><?= h((string) ($candidate['name'] !== '' ? $candidate['name'] : $candidate['id'])) ?> (<?= h((string) $candidate['type']) ?>)</option>
-                    <?php endforeach; ?>
-                  </select>
-                <?php endforeach; ?>
-              <?php endif; ?>
-            </div>
-          <?php endforeach; ?>
-
-          <details>
-            <summary>高度な依存関係を追加</summary>
-            <p class="meta mt-2">スロット表現できない依存関係のみ手動で追加してください。</p>
-            <?php for ($i = 0; $i < 2; $i++): ?>
-              <div class="split mt-2">
-                <div class="field">
-                  <label>関係タイプ</label>
-                  <select name="dependency_type[]">
-                    <option value="">関係タイプを選択</option>
-                    <?php foreach ($relationTypes as $relationType): ?>
-                      <option value="<?= h((string) $relationType) ?>"><?= h((string) $relationType) ?></option>
-                    <?php endforeach; ?>
-                  </select>
-                </div>
-                <div class="field">
-                  <label>対象リソース</label>
-                  <select name="dependency_target[]">
-                    <option value="">リソースを選択</option>
-                    <?php foreach ($allResources as $ent): ?>
-                      <option value="<?= h((string) $ent['id']) ?>"><?= h((string) ($ent['name'] !== '' ? $ent['name'] : $ent['id'])) ?> (<?= h((string) $ent['type']) ?>)</option>
-                    <?php endforeach; ?>
-                  </select>
-                </div>
-              </div>
-            <?php endfor; ?>
-          </details>
-        <?php else: ?>
-          <?php if ($relationTypes === []): ?>
-            <p class="meta">利用可能な依存関係タイプがありません。依存関係スキーマを含むタイプパックをインストールしてください。</p>
-          <?php else: ?>
-            <?php for ($i = 0; $i < 3; $i++): ?>
-              <div class="split">
-                <div class="field">
-                  <label>関係タイプ</label>
-                  <select name="dependency_type[]">
-                    <option value="">関係タイプを選択</option>
-                    <?php foreach ($relationTypes as $relationType): ?>
-                      <option value="<?= h((string) $relationType) ?>"><?= h((string) $relationType) ?></option>
-                    <?php endforeach; ?>
-                  </select>
-                </div>
-                <div class="field">
-                  <label>対象リソース</label>
-                  <select name="dependency_target[]">
-                    <option value="">リソースを選択</option>
-                    <?php foreach ($allResources as $ent): ?>
-                      <option value="<?= h((string) $ent['id']) ?>"><?= h((string) ($ent['name'] !== '' ? $ent['name'] : $ent['id'])) ?> (<?= h((string) $ent['type']) ?>)</option>
-                    <?php endforeach; ?>
-                  </select>
-                </div>
-              </div>
-            <?php endfor; ?>
-          <?php endif; ?>
-        <?php endif; ?>
-      </section>
-
-      <section class="panel soft">
-        <div class="title-row">
-          <div class="title-stack">
             <h3>確認</h3>
             <p class="meta">ドラフト変更を作成し、検証結果と差分を確認してから保存できます。</p>
           </div>
@@ -508,4 +349,45 @@ foreach ($_POST as $postKey => $postValue) {
       </details>
     </form>
   </div>
+  <script>
+    (() => {
+      const editor = document.querySelector('[data-tag-editor]');
+      const addButton = document.querySelector('[data-add-tag]');
+      if (!editor || !addButton) {
+        return;
+      }
+
+      const createRow = () => {
+        const row = document.createElement('div');
+        row.className = 'tag-row';
+        row.dataset.tagRow = '';
+        row.innerHTML = `
+          <div class="field">
+            <label>キー</label>
+            <input type="text" name="tag_key[]" placeholder="managed-by">
+          </div>
+          <div class="field">
+            <label>値</label>
+            <input type="text" name="tag_value[]" placeholder="ansible">
+          </div>
+          <button type="button" class="secondary-button" data-remove-tag>削除</button>
+        `;
+        return row;
+      };
+
+      addButton.addEventListener('click', () => {
+        const row = createRow();
+        editor.appendChild(row);
+        row.querySelector('input')?.focus();
+      });
+
+      editor.addEventListener('click', (event) => {
+        const target = event.target;
+        if (!(target instanceof HTMLElement) || !target.matches('[data-remove-tag]')) {
+          return;
+        }
+        target.closest('[data-tag-row]')?.remove();
+      });
+    })();
+  </script>
 <?php endif; ?>
