@@ -16,8 +16,10 @@ use Cataloga\Registry\EntityRepository;
 use Cataloga\Registry\PathGuard;
 use Cataloga\Registry\RecordParser;
 use Cataloga\Registry\RecordSerializer;
+use Cataloga\Registry\RegistryFileRepository;
 use Cataloga\Registry\RegistrySettingsRepository;
 use Cataloga\Registry\RelationRepository;
+use Cataloga\Registry\ResourceDependencyProjector;
 use Cataloga\Registry\SchemaRepository;
 use Cataloga\Validation\RegistryValidator;
 use Cataloga\View\TemplateRenderer;
@@ -53,8 +55,10 @@ if (!is_dir($runtimeRoot) && !mkdir($runtimeRoot, 0775, true) && !is_dir($runtim
 $recordParser = new RecordParser();
 $recordSerializer = new RecordSerializer();
 $pathGuard = new PathGuard($registryRoot);
+$registryFileRepository = new RegistryFileRepository($registryRoot);
+$resourceDependencyProjector = new ResourceDependencyProjector();
 $entityRepository = new EntityRepository($registryRoot, $recordParser, $recordSerializer, $pathGuard);
-$relationRepository = new RelationRepository($registryRoot, $recordParser, $recordSerializer, $pathGuard);
+$relationRepository = new RelationRepository($registryRoot, $recordParser, $recordSerializer, $pathGuard, $resourceDependencyProjector);
 $domainPackRepository = new DomainPackRepository($projectRoot, $recordParser);
 $schemaRepository = new SchemaRepository($projectRoot, $registryRoot, $recordParser);
 $settingsRepository = new RegistrySettingsRepository($registryRoot, $recordParser);
@@ -67,6 +71,8 @@ $changeService = new ChangeService(
     $relationRepository,
     $recordSerializer,
     $pathGuard,
+    $registryFileRepository,
+    $resourceDependencyProjector,
     $changeRepository,
     $validator,
     $gitService,
@@ -128,8 +134,10 @@ $router->add('GET', '/settings', [$web, 'settingsPage']);
 $router->add('POST', '/settings', [$web, 'upsertSettings']);
 
 $router->add('GET', '/api/resources', [$api, 'resources']);
+$router->add('POST', '/api/resources', [$api, 'createResource']);
 $router->add('GET', '/api/entities', [$api, 'entities']);
 $router->add('GET', '/api/resources/{id}', [$api, 'resource']);
+$router->add('PATCH', '/api/resources/{id}', [$api, 'updateResource']);
 $router->add('GET', '/api/entities/{id}', [$api, 'entity']);
 
 $router->add('GET', '/api/dependencies', [$api, 'dependencies']);
@@ -144,6 +152,8 @@ $router->add('GET', '/api/tag-keys', [$api, 'tagKeys']);
 $router->add('GET', '/api/search', [$api, 'search']);
 $router->add('GET', '/api/resources/{id}/dependency-slots', [$api, 'resourceDependencySlots']);
 $router->add('GET', '/api/entities/{id}/dependency-slots', [$api, 'resourceDependencySlots']);
+$router->add('PUT', '/api/resources/{id}/dependencies/{slot}', [$api, 'putResourceDependencySlot']);
+$router->add('PATCH', '/api/settings/tag-keys/{key}', [$api, 'patchTagKey']);
 
 $router->add('GET', '/api/type-packs', [$api, 'typePacks']);
 $router->add('GET', '/api/domain-packs', [$api, 'domainPacks']);

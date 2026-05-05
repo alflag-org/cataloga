@@ -1,0 +1,16 @@
+apiVersion: cataloga.io/v2
+kind: Resource
+metadata:
+  id: database.aa
+  type: database
+  name: aa
+  labels: {  }
+  tags:
+    environment: prod
+    lifecycle: ''
+    owner: aa
+    site: ''
+    visibility: ''
+    zone: ''
+spec: {  }
+dependencies: {  }

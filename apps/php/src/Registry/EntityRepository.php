@@ -200,6 +200,7 @@ final class EntityRepository
     {
         $files = [];
         foreach (['resources', 'entities'] as $topDirectory) {
+            $bucket = [];
             $directory = $this->registryRoot . '/' . $topDirectory;
             if (!is_dir($directory)) {
                 continue;

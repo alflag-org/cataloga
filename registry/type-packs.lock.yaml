@@ -7,8 +7,8 @@ packs:
     installed: true
     enabled: true
   example:
-    installed: false
-    enabled: false
+    installed: true
+    enabled: true
   inventory:
     installed: false
     enabled: false

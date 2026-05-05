@@ -7,10 +7,11 @@ $typeFilter = (string) ($filters['type'] ?? '');
   <div class="title-row">
     <div class="title-stack">
       <p class="eyebrow">依存関係</p>
-      <h2>リソース間の関係を管理</h2>
+      <h2>リソース間の関係を確認</h2>
+      <p class="muted">通常の編集はリソース詳細から行い、この画面は高度な依存関係の確認・診断に使用します。</p>
     </div>
     <div class="actions">
-      <a class="primary-button" href="/dependencies/new">依存関係を作成</a>
+      <a class="secondary-button" href="/dependencies/new">高度な依存関係を作成</a>
     </div>
   </div>
 
@@ -38,7 +39,7 @@ $typeFilter = (string) ($filters['type'] ?? '');
     <div class="empty-state mt-3">
       依存関係はまだありません。
       <div class="actions mt-2">
-        <a class="primary-button" href="/dependencies/new">依存関係を作成</a>
+        <a class="secondary-button" href="/dependencies/new">高度な依存関係を作成</a>
       </div>
     </div>
   <?php else: ?>

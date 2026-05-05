@@ -7,9 +7,11 @@ namespace Cataloga\Mutation;
 use Cataloga\Audit\AuditLogger;
 use Cataloga\Git\GitService;
 use Cataloga\Registry\EntityRepository;
+use Cataloga\Registry\RegistryFileRepository;
 use Cataloga\Registry\RelationRepository;
 use Cataloga\Registry\PathGuard;
 use Cataloga\Registry\RecordSerializer;
+use Cataloga\Registry\ResourceDependencyProjector;
 use Cataloga\Validation\RegistryValidator;
 
 final class ChangeService
@@ -22,6 +24,8 @@ final class ChangeService
         private readonly RelationRepository $relationRepository,
         private readonly RecordSerializer $recordSerializer,
         private readonly PathGuard $pathGuard,
+        private readonly RegistryFileRepository $registryFileRepository,
+        private readonly ResourceDependencyProjector $dependencyProjector,
         private readonly ChangeSessionRepository $changeRepository,
         private readonly RegistryValidator $validator,
         private readonly GitService $gitService,
@@ -625,33 +629,12 @@ final class ChangeService
 
     private function readRegistryFileIfExists(string $relativePath): ?string
     {
-        $absolute = $this->registryAbsolutePath($relativePath);
-        if (!is_file($absolute)) {
-            return null;
-        }
-        $content = file_get_contents($absolute);
-
-        return $content === false ? null : $content;
+        return $this->registryFileRepository->read($relativePath);
     }
 
     private function writeRegistryFile(string $relativePath, string $content): void
     {
-        $absolute = $this->registryAbsolutePath($relativePath);
-        $directory = dirname($absolute);
-        if (!is_dir($directory) && !mkdir($directory, 0775, true) && !is_dir($directory)) {
-            throw new \RuntimeException('Failed to create directory: ' . $directory);
-        }
-        if (file_put_contents($absolute, $content) === false) {
-            throw new \RuntimeException('Failed to write registry file: ' . $relativePath);
-        }
-    }
-
-    private function registryAbsolutePath(string $relativePath): string
-    {
-        $probe = $this->entityRepository->absolutePathForEntity('resources/__probe__.yaml');
-        $registryRoot = dirname(dirname($probe));
-
-        return $registryRoot . '/' . ltrim($relativePath, '/');
+        $this->registryFileRepository->write($relativePath, $content);
     }
 
     /**
@@ -742,54 +725,16 @@ final class ChangeService
      */
     private function derivedRelationsFromProjectedEntities(array $entitiesById): array
     {
-        $relations = [];
+        $resources = [];
         foreach ($entitiesById as $entity) {
             $record = is_array($entity['record'] ?? null) ? $entity['record'] : [];
-            $metadata = is_array($record['metadata'] ?? null) ? $record['metadata'] : [];
-            $from = (string) ($metadata['id'] ?? '');
-            if ($from === '') {
-                continue;
-            }
-            $dependencies = is_array($record['dependencies'] ?? null) ? $record['dependencies'] : [];
-            foreach ($dependencies as $slot => $targets) {
-                $slotKey = trim((string) $slot);
-                if ($slotKey === '') {
-                    continue;
-                }
-                $targetList = is_array($targets) ? $targets : [$targets];
-                foreach ($targetList as $target) {
-                    if (!is_scalar($target) && $target !== null) {
-                        continue;
-                    }
-                    $to = trim((string) ($target ?? ''));
-                    if ($to === '') {
-                        continue;
-                    }
-                    $id = $this->slugForId($from . '-' . $slotKey . '-' . $to);
-                    $relations[] = [
-                        'record' => [
-                            'apiVersion' => 'cataloga.io/v2',
-                            'kind' => 'Relation',
-                            'metadata' => ['id' => $id, 'type' => $slotKey, 'name' => $from . ' ' . $slotKey . ' ' . $to],
-                            'spec' => ['from' => $from, 'to' => $to, 'attributes' => ['slot' => $slotKey, 'derived_from' => 'resource.dependencies']],
-                        ],
-                        'sourcePath' => (string) ($entity['sourcePath'] ?? ''),
-                        'derived' => true,
-                    ];
-                }
-            }
+            $resources[] = [
+                'record' => $record,
+                'sourcePath' => (string) ($entity['sourcePath'] ?? ''),
+            ];
         }
 
-        return $relations;
-    }
-
-    private function slugForId(string $value): string
-    {
-        $slug = strtolower($value);
-        $slug = preg_replace('/[^a-z0-9]+/', '-', $slug) ?? '';
-        $slug = trim($slug, '-');
-
-        return $slug !== '' ? $slug : bin2hex(random_bytes(4));
+        return $this->dependencyProjector->project($resources);
     }
 
     /**

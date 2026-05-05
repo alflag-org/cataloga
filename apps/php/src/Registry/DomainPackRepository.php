@@ -158,6 +158,7 @@ final class DomainPackRepository
             $this->recordParser,
             new RecordSerializer(),
             new PathGuard(rtrim($this->projectRoot, '/') . '/registry'),
+            new ResourceDependencyProjector(),
         );
 
         $resourcesByType = [];

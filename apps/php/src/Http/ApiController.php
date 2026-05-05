@@ -101,6 +101,131 @@ final class ApiController
         return $this->entity($request, $params);
     }
 
+    public function createResource(Request $request): Response
+    {
+        $payload = $request->all();
+        $metadata = is_array($payload['metadata'] ?? null) ? $payload['metadata'] : [];
+        $id = trim((string) ($metadata['id'] ?? ''));
+        if ($id === '') {
+            return Response::json(['error' => 'metadata.id is required'], 422);
+        }
+
+        $record = [
+            'apiVersion' => 'cataloga.io/v2',
+            'kind' => 'Resource',
+            'metadata' => [
+                'id' => $id,
+                'type' => trim((string) ($metadata['type'] ?? '')),
+                'name' => trim((string) ($metadata['name'] ?? $id)),
+                'labels' => is_array($metadata['labels'] ?? null) ? $metadata['labels'] : [],
+                'tags' => is_array($metadata['tags'] ?? null) ? $metadata['tags'] : [],
+            ],
+            'spec' => is_array($payload['spec'] ?? null) ? $payload['spec'] : [],
+            'dependencies' => is_array($payload['dependencies'] ?? null) ? $payload['dependencies'] : [],
+        ];
+
+        $change = $this->changeService->createChange('api', 'agent');
+        $this->changeService->addOperations((string) $change['id'], ['type' => 'upsert_entity', 'entity' => $record]);
+        $validated = $this->changeService->validateChange((string) $change['id']);
+
+        return Response::json($validated, 201);
+    }
+
+    /**
+     * @param array<string,string> $params
+     */
+    public function updateResource(Request $request, array $params): Response
+    {
+        $id = (string) ($params['id'] ?? '');
+        $current = $this->entityRepository->getEntity($id);
+        if ($current === null) {
+            return Response::json(['error' => 'Resource not found'], 404);
+        }
+
+        $payload = $request->all();
+        $record = is_array($current['record'] ?? null) ? $current['record'] : [];
+        $metadata = is_array($record['metadata'] ?? null) ? $record['metadata'] : [];
+        $patchMeta = is_array($payload['metadata'] ?? null) ? $payload['metadata'] : [];
+        $metadata['name'] = trim((string) ($patchMeta['name'] ?? ($metadata['name'] ?? $id)));
+        $metadata['type'] = trim((string) ($patchMeta['type'] ?? ($metadata['type'] ?? '')));
+        if (is_array($patchMeta['tags'] ?? null)) {
+            $metadata['tags'] = $patchMeta['tags'];
+        }
+        $record['metadata'] = $metadata;
+        if (array_key_exists('spec', $payload) && is_array($payload['spec'])) {
+            $record['spec'] = $payload['spec'];
+        }
+        if (array_key_exists('dependencies', $payload) && is_array($payload['dependencies'])) {
+            $record['dependencies'] = $payload['dependencies'];
+        }
+
+        $change = $this->changeService->createChange('api', 'agent');
+        $this->changeService->addOperations((string) $change['id'], ['type' => 'upsert_entity', 'entity' => $record, 'sourcePath' => (string) ($current['sourcePath'] ?? '')]);
+        $validated = $this->changeService->validateChange((string) $change['id']);
+
+        return Response::json($validated);
+    }
+
+    /**
+     * @param array<string,string> $params
+     */
+    public function putResourceDependencySlot(Request $request, array $params): Response
+    {
+        $id = (string) ($params['id'] ?? '');
+        $slot = (string) ($params['slot'] ?? '');
+        $targets = $request->input('targets', []);
+        if (!is_array($targets)) {
+            $targets = [$targets];
+        }
+
+        $change = $this->changeService->createChange('api', 'agent');
+        $this->changeService->addOperations((string) $change['id'], [
+            'type' => 'set_dependency_slot',
+            'resourceId' => $id,
+            'slot' => $slot,
+            'targets' => $targets,
+        ]);
+        $validated = $this->changeService->validateChange((string) $change['id']);
+
+        return Response::json($validated);
+    }
+
+    /**
+     * @param array<string,string> $params
+     */
+    public function patchTagKey(Request $request, array $params): Response
+    {
+        $key = (string) ($params['key'] ?? '');
+        if ($key === '') {
+            return Response::json(['error' => 'Tag key is required'], 422);
+        }
+        $settings = $this->settingsRepository->loadSettings();
+        $tagKeys = is_array($settings['tag_keys'] ?? null) ? $settings['tag_keys'] : [];
+        $existing = is_array($tagKeys[$key] ?? null) ? $tagKeys[$key] : [];
+        $payload = $request->all();
+
+        $tagKeys[$key] = [
+            'label' => trim((string) ($payload['label'] ?? ($existing['label'] ?? $key))),
+            'required' => (bool) ($payload['required'] ?? ($existing['required'] ?? false)),
+            'values' => is_array($payload['values'] ?? null) ? $payload['values'] : (is_array($existing['values'] ?? null) ? $existing['values'] : []),
+            'free_value' => (bool) ($payload['free_value'] ?? ($existing['free_value'] ?? true)),
+            'allow_empty' => (bool) ($payload['allow_empty'] ?? ($existing['allow_empty'] ?? false)),
+        ];
+        ksort($tagKeys);
+
+        $updated = [
+            'version' => (int) ($settings['version'] ?? 1),
+            'tag_keys' => $tagKeys,
+            'reserved_prefixes' => is_array($settings['reserved_prefixes'] ?? null) ? $settings['reserved_prefixes'] : ['cataloga:'],
+        ];
+
+        $change = $this->changeService->createChange('api', 'agent');
+        $this->changeService->addOperations((string) $change['id'], ['type' => 'upsert_settings', 'settings' => $updated]);
+        $validated = $this->changeService->validateChange((string) $change['id']);
+
+        return Response::json($validated);
+    }
+
     public function schemas(Request $request): Response
     {
         $items = $this->schemaRepository->listSchemas();
@@ -300,6 +425,7 @@ final class ApiController
         }
 
         $slots = is_array($resourceSchema['dependencySlots'] ?? null) ? $resourceSchema['dependencySlots'] : [];
+        $slots = array_values(array_filter($slots, static fn (mixed $slot): bool => is_array($slot) && (string) ($slot['direction'] ?? 'outgoing') === 'outgoing'));
 
         return Response::json([
             'id' => $id,

@@ -124,10 +124,16 @@ $owner = (string) ($tagGroups['basic']['owner'] ?? '');
             <?php foreach ($slotItems as $slotItem): ?>
               <?php
               $peerId = (string) ($slotItem['peer_id'] ?? '');
+              $peerName = (string) ($slotItem['peer_name'] ?? $peerId);
+              $peerType = (string) ($slotItem['peer_type'] ?? '');
+              $peerEnvironment = (string) ($slotItem['peer_environment'] ?? '');
               $relation = is_array($slotItem['relation'] ?? null) ? $slotItem['relation'] : [];
               ?>
               <li>
-                <a class="text-link" href="/resources/<?= rawurlencode($peerId) ?>"><?= h($peerId) ?></a>
+                <a class="text-link" href="/resources/<?= rawurlencode($peerId) ?>"><?= h($peerName) ?></a>
+                <?php if ($peerType !== ''): ?><span class="pill"><?= h($peerType) ?></span><?php endif; ?>
+                <?php if ($peerEnvironment !== ''): ?><span class="pill"><?= h($peerEnvironment) ?></span><?php endif; ?>
+                <span class="meta mono"><?= h($peerId) ?></span>
                 <span class="pill"><?= h((string) ($relation['type'] ?? '')) ?></span>
               </li>
             <?php endforeach; ?>

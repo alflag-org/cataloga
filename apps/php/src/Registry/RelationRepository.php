@@ -11,6 +11,7 @@ final class RelationRepository
         private readonly RecordParser $recordParser,
         private readonly RecordSerializer $recordSerializer,
         private readonly PathGuard $pathGuard,
+        private readonly ResourceDependencyProjector $dependencyProjector,
     ) {
     }
 
@@ -178,7 +179,7 @@ final class RelationRepository
      */
     private function dependencyRelationsFromResources(): array
     {
-        $relations = [];
+        $resources = [];
         foreach ($this->resourceFiles() as $absolutePath) {
             $relativePath = $this->toRelativePath($absolutePath);
             try {
@@ -186,53 +187,10 @@ final class RelationRepository
             } catch (\Throwable) {
                 continue;
             }
-
-            $metadata = is_array($record['metadata'] ?? null) ? $record['metadata'] : [];
-            $from = (string) ($metadata['id'] ?? '');
-            if ($from === '') {
-                continue;
-            }
-
-            $dependencies = is_array($record['dependencies'] ?? null) ? $record['dependencies'] : [];
-            foreach ($dependencies as $slot => $targets) {
-                $slotKey = trim((string) $slot);
-                if ($slotKey === '') {
-                    continue;
-                }
-
-                $targetList = is_array($targets) ? $targets : [$targets];
-                foreach ($targetList as $target) {
-                    if (!is_scalar($target) && $target !== null) {
-                        continue;
-                    }
-                    $to = trim((string) ($target ?? ''));
-                    if ($to === '') {
-                        continue;
-                    }
-                    $id = $this->relationId($from, $slotKey, $to);
-                    $relations[] = [
-                        'record' => [
-                            'apiVersion' => 'cataloga.io/v2',
-                            'kind' => 'Relation',
-                            'metadata' => [
-                                'id' => $id,
-                                'type' => $slotKey,
-                                'name' => $from . ' ' . $slotKey . ' ' . $to,
-                            ],
-                            'spec' => [
-                                'from' => $from,
-                                'to' => $to,
-                                'attributes' => ['slot' => $slotKey, 'derived_from' => 'resource.dependencies'],
-                            ],
-                        ],
-                        'sourcePath' => $relativePath,
-                        'derived' => true,
-                    ];
-                }
-            }
+            $resources[] = ['record' => $record, 'sourcePath' => $relativePath];
         }
 
-        return $relations;
+        return $this->dependencyProjector->project($resources);
     }
 
     /** @return array<int,string> */
@@ -260,12 +218,4 @@ final class RelationRepository
         return $files;
     }
 
-    private function relationId(string $from, string $slot, string $to): string
-    {
-        $slug = strtolower($from . '-' . $slot . '-' . $to);
-        $slug = preg_replace('/[^a-z0-9]+/', '-', $slug) ?? '';
-        $slug = trim($slug, '-');
-
-        return $slug !== '' ? $slug : bin2hex(random_bytes(4));
-    }
 }

@@ -1,6 +1,12 @@
 version: 1
-
 tag_keys:
+  criticality:
+    label: 重要度
+    values:
+      - low
+      - medium
+      - high
+      - critical
   environment:
     label: 環境
     required: true
@@ -9,27 +15,6 @@ tag_keys:
       - staging
       - dev
       - sandbox
-
-  owner:
-    label: オーナー
-    required: true
-    free_value: true
-
-  site:
-    label: サイト
-    free_value: true
-
-  zone:
-    label: ゾーン
-    free_value: true
-
-  visibility:
-    label: 公開範囲
-    values:
-      - private
-      - internal
-      - public
-
   lifecycle:
     label: ライフサイクル
     values:
@@ -37,33 +22,36 @@ tag_keys:
       - temporary
       - deprecated
       - retired
-
-  criticality:
-    label: 重要度
-    values:
-      - low
-      - medium
-      - high
-      - critical
-
   managed-by:
     label: 管理方法
     values:
       - manual
       - ansible
       - terraform
-
   note:
     label: 補足
     free_value: true
-
-  todo:
-    label: TODO
+  owner:
+    label: オーナー
+    required: true
     free_value: true
-
   risk:
     label: 注意
     free_value: true
-
+  site:
+    label: サイト
+    free_value: true
+  todo:
+    label: TODO
+    free_value: true
+  visibility:
+    label: 公開範囲
+    values:
+      - private
+      - internal
+      - public
+  zone:
+    label: ゾーン
+    free_value: true
 reserved_prefixes:
-  - "cataloga:"
+  - 'cataloga:'

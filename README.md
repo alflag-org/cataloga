@@ -26,6 +26,13 @@ It helps teams record infrastructure and service resources, connect them with de
 
 Workspace tag vocabulary is configured in `registry/settings.yaml`.
 
+### Dependency storage model
+
+- Canonical dependency source is `Resource.dependencies` in `registry/resources/*`.
+- Derived dependencies are read-only relation indexes generated from resource dependencies.
+- Explicit relations in `registry/relations/*` are for advanced, legacy, or imported cases.
+- The dependency list UI is a unified view of `derived dependencies + explicit relations`.
+
 ## Quick start
 
 Prepare and start:
@@ -94,6 +101,10 @@ Write workflow:
 - `GET /api/changes/{changeId}/diff`
 - `POST /api/changes/{changeId}/save`
 - `POST /api/changes/{changeId}/discard`
+- `POST /api/resources`
+- `PATCH /api/resources/{id}`
+- `PUT /api/resources/{id}/dependencies/{slot}`
+- `PATCH /api/settings/tag-keys/{key}`
 
 Type pack operations:
 

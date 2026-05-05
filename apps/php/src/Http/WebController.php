@@ -11,6 +11,7 @@ use Cataloga\Registry\EntityRepository;
 use Cataloga\Registry\RegistrySettingsRepository;
 use Cataloga\Registry\RelationRepository;
 use Cataloga\Registry\SchemaRepository;
+use Cataloga\View\ResourceFormViewModel;
 use Cataloga\View\TemplateRenderer;
 
 final class WebController
@@ -228,6 +229,7 @@ final class WebController
                 'type' => $relationType,
                 'from' => (string) ($relation['from'] ?? ''),
                 'to' => (string) ($relation['to'] ?? ''),
+                'derived' => (bool) ($relation['derived'] ?? false),
                 'status' => ((string) ($relation['from'] ?? '') !== '' && (string) ($relation['to'] ?? '') !== '') ? 'Valid' : 'Warning',
                 'sourcePath' => (string) ($relation['sourcePath'] ?? ''),
             ];
@@ -390,6 +392,7 @@ final class WebController
         $entities = $this->entityRepository->listEntities();
         $record = is_array($relation['record'] ?? null) ? $relation['record'] : [];
         $spec = is_array($record['spec'] ?? null) ? $record['spec'] : [];
+        $specJson = format_json($spec);
         $metadata = is_array($record['metadata'] ?? null) ? $record['metadata'] : [];
         $selectedSource = (string) ($spec['from'] ?? '');
         $selectedType = (string) ($metadata['type'] ?? '');
@@ -589,7 +592,7 @@ final class WebController
         $schemasById = $this->activeEntitySchemasById();
         $schema = $schemasById[$resourceType] ?? null;
         $dependencySlots = is_array($schema['dependencySlots'] ?? null) ? $schema['dependencySlots'] : [];
-        $slotGroups = $this->groupDependenciesBySlots($id, $dependsOn, $usedBy, $dependencySlots);
+        $slotGroups = $this->groupDependenciesBySlots($id, $dependsOn, $usedBy, $dependencySlots, $this->entityRepository->listEntities());
         $normalizedTags = $this->normalizedTagsForRecord($record);
         $tagGroups = $this->groupTagsForDetail($normalizedTags);
 
@@ -609,23 +612,13 @@ final class WebController
     public function newEntityForm(Request $request): Response
     {
         $selectedType = (string) $request->query('schema', '');
-        $settings = $this->settingsRepository->loadSettings();
-        $entities = $this->entityRepository->listEntities();
 
         $html = $this->renderer->render('entities/form', [
             'title' => 'リソースを作成',
             'currentPath' => '/resources',
             'mode' => 'create',
-            'entity' => null,
             'error' => null,
-            'schemas' => $this->activeSchemas(),
-            'selectedSchemaId' => $selectedType,
-            'entities' => $entities,
-            'relationTypes' => $this->listRelationTypes(),
-            'fieldErrors' => [],
-            'yamlPreview' => null,
-            'settings' => $settings,
-            'existingRelations' => $this->relationRepository->listRelations(),
+            'viewModel' => $this->buildResourceFormViewModel(null, $selectedType),
         ]);
 
         return Response::html($html);
@@ -641,23 +634,13 @@ final class WebController
         if ($entity === null) {
             return Response::html('リソースが見つかりません。', 404);
         }
-        $settings = $this->settingsRepository->loadSettings();
-        $entities = $this->entityRepository->listEntities();
 
         $html = $this->renderer->render('entities/form', [
             'title' => 'リソースを編集: ' . $id,
             'currentPath' => '/resources',
             'mode' => 'edit',
-            'entity' => $entity,
             'error' => null,
-            'schemas' => $this->activeSchemas(),
-            'selectedSchemaId' => (string) $request->query('schema', ''),
-            'entities' => $entities,
-            'relationTypes' => $this->listRelationTypes(),
-            'fieldErrors' => [],
-            'yamlPreview' => null,
-            'settings' => $settings,
-            'existingRelations' => $this->relationRepository->listRelations(),
+            'viewModel' => $this->buildResourceFormViewModel($entity, (string) $request->query('schema', '')),
         ]);
 
         return Response::html($html);
@@ -698,21 +681,12 @@ final class WebController
         } catch (\Throwable $exception) {
             $existingId = $params['id'] ?? null;
             $entity = $existingId !== null ? $this->entityRepository->getEntity($existingId) : null;
-            $entities = $this->entityRepository->listEntities();
             $html = $this->renderer->render('entities/form', [
                 'title' => 'リソースフォーム',
                 'currentPath' => '/resources',
                 'mode' => $existingId !== null ? 'edit' : 'create',
-                'entity' => $entity,
                 'error' => $exception->getMessage(),
-                'schemas' => $this->activeSchemas(),
-                'selectedSchemaId' => (string) $request->post('type', ''),
-                'entities' => $entities,
-                'relationTypes' => $this->listRelationTypes(),
-                'fieldErrors' => [],
-                'yamlPreview' => null,
-                'settings' => $this->settingsRepository->loadSettings(),
-                'existingRelations' => $this->relationRepository->listRelations(),
+                'viewModel' => $this->buildResourceFormViewModel($entity, (string) $request->post('type', ''), $request),
             ]);
 
             return Response::html($html, 422);
@@ -868,6 +842,155 @@ final class WebController
 
             return Response::html($html, 422);
         }
+    }
+
+    /**
+     * @param array<string,mixed>|null $entity
+     */
+    private function buildResourceFormViewModel(?array $entity, string $selectedSchemaId = '', ?Request $request = null): ResourceFormViewModel
+    {
+        $record = is_array($entity['record'] ?? null) ? $entity['record'] : [];
+        $metadata = is_array($record['metadata'] ?? null) ? $record['metadata'] : [];
+        $spec = is_array($record['spec'] ?? null) ? $record['spec'] : [];
+        $specJson = format_json($spec);
+
+        $id = trim((string) ($metadata['id'] ?? ''));
+        $type = trim((string) ($metadata['type'] ?? ($selectedSchemaId !== '' ? $selectedSchemaId : '')));
+        $name = trim((string) ($metadata['name'] ?? ''));
+        $sourcePath = trim((string) ($entity['sourcePath'] ?? ''));
+        if ($request !== null) {
+            $id = trim((string) $request->post('id', $id));
+            $type = trim((string) $request->post('type', $type));
+            $name = trim((string) $request->post('name', $name));
+            $sourcePath = trim((string) $request->post('sourcePath', $sourcePath));
+            $specJson = trim((string) $request->post('spec', $specJson));
+        }
+
+        $schemas = $this->activeSchemas();
+        $schemaItems = [];
+        $selectedSchema = null;
+        foreach ($schemas as $schema) {
+            if (($schema['kind'] ?? 'entity') === 'relation') {
+                continue;
+            }
+            $schemaItems[] = $schema;
+            if ((string) ($schema['id'] ?? '') === $type) {
+                $selectedSchema = $schema;
+            }
+        }
+        if ($selectedSchema === null && $selectedSchemaId !== '') {
+            foreach ($schemaItems as $schemaItem) {
+                if ((string) ($schemaItem['id'] ?? '') === $selectedSchemaId) {
+                    $selectedSchema = $schemaItem;
+                    $type = (string) ($schemaItem['id'] ?? $type);
+                    break;
+                }
+            }
+        }
+
+        $normalizedTags = $this->normalizedTagsForRecord($record);
+        if ($request !== null && is_array($request->post('basic_tag_key', null)) && is_array($request->post('basic_tag_value', null))) {
+            $normalizedTags = [];
+            $basicKeys = $request->post('basic_tag_key', []);
+            $basicValues = $request->post('basic_tag_value', []);
+            $count = min(count($basicKeys), count($basicValues));
+            for ($i = 0; $i < $count; $i++) {
+                $k = trim((string) ($basicKeys[$i] ?? ''));
+                if ($k === '') {
+                    continue;
+                }
+                $normalizedTags[$k] = trim((string) ($basicValues[$i] ?? ''));
+            }
+            if (is_array($request->post('tag_key', null)) && is_array($request->post('tag_value', null))) {
+                $extraKeys = $request->post('tag_key', []);
+                $extraValues = $request->post('tag_value', []);
+                $extraCount = min(count($extraKeys), count($extraValues));
+                for ($i = 0; $i < $extraCount; $i++) {
+                    $k = trim((string) ($extraKeys[$i] ?? ''));
+                    if ($k === '') {
+                        continue;
+                    }
+                    $normalizedTags[$k] = trim((string) ($extraValues[$i] ?? ''));
+                }
+            }
+        }
+
+        $settings = $this->settingsRepository->loadSettings();
+        $tagKeys = is_array($settings['tag_keys'] ?? null) ? $settings['tag_keys'] : [];
+        $reservedPrefixes = is_array($settings['reserved_prefixes'] ?? null) ? $settings['reserved_prefixes'] : ['cataloga:'];
+        $requiredTagKeys = is_array($selectedSchema['requiredTags'] ?? null) ? $selectedSchema['requiredTags'] : [];
+        $recommendedTagKeys = is_array($selectedSchema['recommendedTags'] ?? null) ? $selectedSchema['recommendedTags'] : [];
+        $basicTagOrder = ['environment', 'owner', 'site', 'zone', 'lifecycle'];
+        $basicTagKeys = $basicTagOrder;
+        foreach (array_merge($requiredTagKeys, $recommendedTagKeys) as $schemaTagKey) {
+            $schemaTagKey = (string) $schemaTagKey;
+            if ($schemaTagKey === '' || in_array($schemaTagKey, $basicTagKeys, true)) {
+                continue;
+            }
+            $basicTagKeys[] = $schemaTagKey;
+        }
+
+        $settingsFields = [];
+        foreach (($selectedSchema['properties'] ?? []) as $field => $def) {
+            $fieldName = (string) $field;
+            if (in_array($fieldName, ['environment', 'owner', 'site', 'zone', 'visibility', 'lifecycle', 'criticality', 'managed-by', 'cost-center', 'data-classification', 'backup-policy', 'patch-policy'], true)) {
+                continue;
+            }
+            $value = $spec[$fieldName] ?? '';
+            if ($request !== null && is_array($request->post('schema_fields', null))) {
+                $schemaFields = $request->post('schema_fields', []);
+                if (array_key_exists($fieldName, $schemaFields)) {
+                    $value = $schemaFields[$fieldName];
+                }
+            }
+            $settingsFields[] = [
+                'name' => $fieldName,
+                'type' => (string) ($def['type'] ?? 'string'),
+                'format' => (string) ($def['format'] ?? ''),
+                'enum' => is_array($def['enum'] ?? null) ? $def['enum'] : [],
+                'value' => $value,
+            ];
+        }
+
+        $basicTags = [];
+        foreach ($basicTagKeys as $tagKey) {
+            $tagConfig = is_array($tagKeys[$tagKey] ?? null) ? $tagKeys[$tagKey] : [];
+            $basicTags[] = [
+                'key' => $tagKey,
+                'label' => (string) ($tagConfig['label'] ?? $tagKey),
+                'required' => in_array($tagKey, $requiredTagKeys, true) || (bool) ($tagConfig['required'] ?? false),
+                'values' => is_array($tagConfig['values'] ?? null) ? $tagConfig['values'] : [],
+                'value' => (string) ($normalizedTags[$tagKey] ?? ''),
+            ];
+        }
+
+        $additionalTags = [];
+        foreach ($normalizedTags as $tagKey => $tagValue) {
+            if (in_array($tagKey, $basicTagKeys, true)) {
+                continue;
+            }
+            if ($this->isReservedTagKey((string) $tagKey, $reservedPrefixes)) {
+                continue;
+            }
+            $additionalTags[] = ['key' => (string) $tagKey, 'value' => (string) $tagValue];
+        }
+
+        $formAction = $entity !== null && $id !== '' ? '/resources/' . rawurlencode($id) : '/resources';
+
+        return new ResourceFormViewModel(
+            $id,
+            $type,
+            $name,
+            $sourcePath,
+            $formAction,
+            $schemaItems,
+            $selectedSchema,
+            $basicTags,
+            $settingsFields,
+            $additionalTags,
+            $specJson,
+            $entity === null && $selectedSchema === null
+        );
     }
 
     /** @return array<int,string> */
@@ -1507,6 +1630,9 @@ final class WebController
         $slots = is_array($schema['dependencySlots'] ?? null) ? $schema['dependencySlots'] : [];
         foreach ($slots as $slot) {
             if ((string) ($slot['key'] ?? '') === $slotKey) {
+                if ((string) ($slot['direction'] ?? 'outgoing') !== 'outgoing') {
+                    return null;
+                }
                 return $slot;
             }
         }
@@ -1541,10 +1667,16 @@ final class WebController
      * @param array<int,array<string,mixed>> $dependsOn
      * @param array<int,array<string,mixed>> $usedBy
      * @param array<int,array<string,mixed>> $slots
+     * @param array<int,array<string,mixed>> $entities
      * @return array<string,mixed>
      */
-    private function groupDependenciesBySlots(string $resourceId, array $dependsOn, array $usedBy, array $slots): array
+    private function groupDependenciesBySlots(string $resourceId, array $dependsOn, array $usedBy, array $slots, array $entities): array
     {
+        $entityMap = [];
+        foreach ($entities as $entity) {
+            $entityMap[(string) ($entity['id'] ?? '')] = $entity;
+        }
+
         if ($slots === []) {
             return ['slots' => [], 'other' => array_merge($dependsOn, $usedBy)];
         }
@@ -1555,7 +1687,7 @@ final class WebController
             $slotKey = (string) ($slot['key'] ?? '');
             $relationType = (string) ($slot['relation_type'] ?? '');
             $direction = (string) ($slot['direction'] ?? 'outgoing');
-            if ($slotKey === '' || $relationType === '') {
+            if ($slotKey === '' || $relationType === '' || $direction !== 'outgoing') {
                 continue;
             }
 
@@ -1571,9 +1703,16 @@ final class WebController
                     $assigned[$relationId] = true;
                 }
                 $peerId = $direction === 'incoming' ? (string) ($relation['from'] ?? '') : (string) ($relation['to'] ?? '');
+                $peer = is_array($entityMap[$peerId] ?? null) ? $entityMap[$peerId] : [];
+                $peerRecord = is_array($peer['record'] ?? null) ? $peer['record'] : [];
+                $peerMetadata = is_array($peerRecord['metadata'] ?? null) ? $peerRecord['metadata'] : [];
+                $peerTags = $this->normalizedTagsForRecord($peerRecord);
                 $items[] = [
                     'relation' => $relation,
                     'peer_id' => $peerId,
+                    'peer_name' => (string) ($peerMetadata['name'] ?? $peerId),
+                    'peer_type' => (string) ($peerMetadata['type'] ?? ''),
+                    'peer_environment' => (string) ($peerTags['environment'] ?? ''),
                 ];
             }
 
