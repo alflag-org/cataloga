@@ -107,6 +107,7 @@ final class WebController
         $types = [];
         $settings = $this->settingsRepository->loadSettings();
         $tagKeys = is_array($settings['tag_keys'] ?? null) ? $settings['tag_keys'] : [];
+        $resourceProfiles = $this->resourceTypeProfilesByType($settings, $this->activeEntitySchemasById());
 
         foreach ($entities as $entity) {
             $record = is_array($entity['record'] ?? null) ? $entity['record'] : [];
@@ -142,10 +143,11 @@ final class WebController
                 continue;
             }
 
-            $filtered[] = [
+            $row = [
                 'id' => (string) ($entity['id'] ?? ''),
                 'name' => (string) ($entity['name'] ?? ''),
                 'type' => $resourceType,
+                'record' => $record,
                 'environment' => (string) ($normalizedTags['environment'] ?? ''),
                 'owner' => (string) ($normalizedTags['owner'] ?? ''),
                 'site' => (string) ($normalizedTags['site'] ?? ''),
@@ -155,9 +157,24 @@ final class WebController
                 'updated' => '—',
                 'sourcePath' => (string) ($entity['sourcePath'] ?? ''),
             ];
+            $row['computed'] = $this->buildTypeSpecificComputedColumns($row);
+            $filtered[] = $row;
         }
 
         ksort($types);
+
+        $defaultColumns = [
+            ['label' => '名前', 'path' => 'metadata.name'],
+            ['label' => 'タイプ', 'path' => 'metadata.type'],
+            ['label' => '環境', 'path' => 'metadata.tags.environment'],
+            ['label' => 'オーナー', 'path' => 'metadata.tags.owner'],
+            ['label' => 'サイト', 'path' => 'metadata.tags.site'],
+            ['label' => '状態', 'path' => 'computed.status'],
+        ];
+        $activeProfile = $type !== '' ? ($resourceProfiles[$type] ?? null) : null;
+        $listColumns = is_array($activeProfile['list_columns'] ?? null) && ($activeProfile['list_columns'] ?? []) !== []
+            ? array_values($activeProfile['list_columns'])
+            : $defaultColumns;
 
         $html = $this->renderer->render('entities/list', [
             'title' => 'リソース',
@@ -180,6 +197,7 @@ final class WebController
                 'zone' => is_array($tagKeys['zone']['values'] ?? null) ? $tagKeys['zone']['values'] : [],
                 'lifecycle' => is_array($tagKeys['lifecycle']['values'] ?? null) ? $tagKeys['lifecycle']['values'] : [],
             ],
+            'listColumns' => $listColumns,
         ]);
 
         return Response::html($html);
@@ -590,6 +608,7 @@ final class WebController
         $slotGroups = $this->groupDependenciesBySlots($id, $dependsOn, $usedBy, $dependencySlots, $this->entityRepository->listEntities());
         $normalizedTags = $this->normalizedTagsForRecord($record);
         $tagGroups = $this->groupTagsForDetail($normalizedTags);
+        $softAssociations = $this->softAssociationTags($normalizedTags);
 
         $html = $this->renderer->render('entities/detail', [
             'title' => 'リソース: ' . $id,
@@ -598,6 +617,7 @@ final class WebController
             'dependsOn' => $dependsOn,
             'usedBy' => $usedBy,
             'tagGroups' => $tagGroups,
+            'softAssociations' => $softAssociations,
             'dependencySlotGroups' => $slotGroups,
         ]);
 
@@ -916,15 +936,7 @@ final class WebController
         $reservedPrefixes = is_array($settings['reserved_prefixes'] ?? null) ? $settings['reserved_prefixes'] : ['cataloga:'];
         $requiredTagKeys = is_array($selectedSchema['requiredTags'] ?? null) ? $selectedSchema['requiredTags'] : [];
         $recommendedTagKeys = is_array($selectedSchema['recommendedTags'] ?? null) ? $selectedSchema['recommendedTags'] : [];
-        $basicTagOrder = ['environment', 'owner', 'site', 'zone', 'lifecycle'];
-        $basicTagKeys = $basicTagOrder;
-        foreach (array_merge($requiredTagKeys, $recommendedTagKeys) as $schemaTagKey) {
-            $schemaTagKey = (string) $schemaTagKey;
-            if ($schemaTagKey === '' || in_array($schemaTagKey, $basicTagKeys, true)) {
-                continue;
-            }
-            $basicTagKeys[] = $schemaTagKey;
-        }
+        $basicTagKeys = $this->resolveManagementTagsForType((string) ($selectedSchema['id'] ?? $type), $settings, $selectedSchema);
 
         $settingsFields = [];
         foreach (($selectedSchema['properties'] ?? []) as $field => $def) {
@@ -1088,10 +1100,14 @@ final class WebController
 
         $reservedPrefixesRaw = trim((string) $request->post('reserved_prefixes', 'cataloga:'));
         $reservedPrefixes = array_values(array_filter(array_map('trim', explode(',', $reservedPrefixesRaw)), static fn (string $prefix): bool => $prefix !== ''));
+        $defaultManagementTagsRaw = trim((string) $request->post('default_management_tags', 'environment, owner'));
+        $defaultManagementTags = array_values(array_filter(array_map('trim', explode(',', $defaultManagementTagsRaw)), static fn (string $tag): bool => $tag !== ''));
 
         return [
             'version' => 1,
             'tag_keys' => $tagKeys,
+            'default_management_tags' => $defaultManagementTags,
+            'resource_type_profiles' => $this->settingsRepository->loadSettings()['resource_type_profiles'] ?? [],
             'reserved_prefixes' => $reservedPrefixes,
         ];
     }
@@ -1391,6 +1407,99 @@ final class WebController
             'todo' => $todos,
             'risk' => $risks,
             'other' => $others,
+        ];
+    }
+
+    /**
+     * @param array<string,string> $tags
+     * @return array<string,string>
+     */
+    private function softAssociationTags(array $tags): array
+    {
+        $hidden = ['environment', 'owner', 'site', 'zone', 'lifecycle', 'note', 'todo', 'risk'];
+        $rows = [];
+        foreach ($tags as $key => $value) {
+            if (in_array($key, $hidden, true)) {
+                continue;
+            }
+            if (trim((string) $value) === '') {
+                continue;
+            }
+            $rows[$key] = $value;
+        }
+        ksort($rows);
+
+        return $rows;
+    }
+
+    /**
+     * @param array<string,mixed> $settings
+     * @param array<string,mixed>|null $schema
+     * @return array<int,string>
+     */
+    private function resolveManagementTagsForType(string $resourceType, array $settings, ?array $schema): array
+    {
+        $profiles = is_array($settings['resource_type_profiles'] ?? null) ? $settings['resource_type_profiles'] : [];
+        $profile = is_array($profiles[$resourceType] ?? null) ? $profiles[$resourceType] : [];
+        $workspaceTags = is_array($profile['management_tags'] ?? null) ? array_values(array_map('strval', $profile['management_tags'])) : [];
+        if ($workspaceTags !== []) {
+            return array_values(array_unique(array_filter(array_map('trim', $workspaceTags), static fn (string $v): bool => $v !== '')));
+        }
+
+        $recommended = is_array($schema['recommendedManagementTags'] ?? null) ? array_values(array_map('strval', $schema['recommendedManagementTags'])) : [];
+        if ($recommended !== []) {
+            return array_values(array_unique(array_filter(array_map('trim', $recommended), static fn (string $v): bool => $v !== '')));
+        }
+
+        $defaults = is_array($settings['default_management_tags'] ?? null) ? array_values(array_map('strval', $settings['default_management_tags'])) : [];
+        if ($defaults !== []) {
+            return array_values(array_unique(array_filter(array_map('trim', $defaults), static fn (string $v): bool => $v !== '')));
+        }
+
+        return ['environment', 'owner'];
+    }
+
+    /**
+     * @param array<string,mixed> $settings
+     * @param array<string,array<string,mixed>> $schemasById
+     * @return array<string,array<string,mixed>>
+     */
+    private function resourceTypeProfilesByType(array $settings, array $schemasById): array
+    {
+        $profiles = is_array($settings['resource_type_profiles'] ?? null) ? $settings['resource_type_profiles'] : [];
+        $items = [];
+        foreach ($schemasById as $type => $schema) {
+            $profile = is_array($profiles[$type] ?? null) ? $profiles[$type] : [];
+            $items[$type] = [
+                'type' => $type,
+                'management_tags' => $this->resolveManagementTagsForType($type, $settings, $schema),
+                'list_columns' => is_array($profile['list_columns'] ?? null) ? $profile['list_columns'] : [],
+            ];
+        }
+        ksort($items);
+
+        return $items;
+    }
+
+    /**
+     * @param array<string,mixed> $row
+     * @return array<string,string>
+     */
+    private function buildTypeSpecificComputedColumns(array $row): array
+    {
+        $record = is_array($row['record'] ?? null) ? $row['record'] : [];
+        $spec = is_array($record['spec'] ?? null) ? $record['spec'] : [];
+        $value = static fn (string $key): string => trim((string) ($spec[$key] ?? ''));
+        return [
+            'status' => (string) ($row['status'] ?? ''),
+            'record_type' => $value('record_type') !== '' ? $value('record_type') : $value('type'),
+            'value' => $value('value'),
+            'vlan_id' => $value('vlan_id'),
+            'cidr' => $value('cidr'),
+            'os' => $value('os') !== '' ? $value('os') : $value('os_family'),
+            'ip' => $value('ip') !== '' ? $value('ip') : $value('ip_address'),
+            'runtime' => $value('runtime'),
+            'port' => $value('port'),
         ];
     }
 

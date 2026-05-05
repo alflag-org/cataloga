@@ -2,6 +2,8 @@
 $settings = is_array($settings ?? null) ? $settings : [];
 $tagKeys = is_array($settings['tag_keys'] ?? null) ? $settings['tag_keys'] : [];
 $reservedPrefixes = is_array($settings['reserved_prefixes'] ?? null) ? $settings['reserved_prefixes'] : ['cataloga:'];
+$defaultManagementTags = is_array($settings['default_management_tags'] ?? null) ? $settings['default_management_tags'] : ['environment', 'owner'];
+$resourceTypeProfiles = is_array($settings['resource_type_profiles'] ?? null) ? $settings['resource_type_profiles'] : [];
 $rows = [];
 foreach ($tagKeys as $key => $config) {
     if (!is_array($config)) {
@@ -38,6 +40,21 @@ foreach ($tagKeys as $key => $config) {
         <h3>よく使う管理情報</h3>
         <p class="meta">環境、オーナー、サイト、ゾーン、ライフサイクルなどのタグキーをここで管理します。</p>
       </div>
+    </section>
+
+    <section class="panel soft">
+      <div class="field">
+        <label for="default_management_tags">デフォルト管理タグ</label>
+        <input type="text" id="default_management_tags" name="default_management_tags" value="<?= h(implode(', ', array_map('strval', $defaultManagementTags))) ?>" placeholder="environment, owner">
+        <p class="meta">resource_type_profiles と type pack 推奨タグがない場合に使います。</p>
+      </div>
+      <p class="meta">TODO: リソースタイプ別プロファイル（management_tags / list_columns）の編集UIは今後追加予定です。現時点では <span class="mono">registry/settings.yaml</span> を直接編集してください。</p>
+      <?php if ($resourceTypeProfiles !== []): ?>
+        <details class="mt-2">
+          <summary><strong>現在の resource_type_profiles</strong></summary>
+          <pre><?= h(format_json($resourceTypeProfiles)) ?></pre>
+        </details>
+      <?php endif; ?>
     </section>
 
     <div class="tag-editor" data-settings-tag-editor>

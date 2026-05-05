@@ -4,7 +4,7 @@
 
 Cataloga is a registry application.
 
-It records operational resources (services, hosts, networks, DNS, databases, repositories, cloud accounts) and the dependencies between them.
+It records operational resources (services, hosts, networks, DNS, databases, repositories, cloud accounts) and optional hard dependencies between them.
 
 ## Primary objects
 
@@ -18,13 +18,15 @@ It records operational resources (services, hosts, networks, DNS, databases, rep
 
 - Resource metadata uses AWS-style key-value tags (`metadata.tags`).
 - Common operational metadata (`environment`, `owner`, `site`, `zone`, `lifecycle`, etc.) are tags, not fixed `spec` fields.
+- `resource_type_profiles` define which management tags are shown prominently per type.
 - Memo-like content is represented with tags (for example `note`, `todo`, `risk`), not a first-class memo field.
 - Reserved prefixes (`cataloga:`) are not user-authored in normal workflows.
 - Workspace-level vocabulary and defaults are configured in `registry/settings.yaml`.
+- Tag-based associations are soft metadata for grouping/filtering/search, not graph edges.
 
 ## Dependency UX model
 
-- Normal dependency slots are stored in each resource file under `dependencies:`.
+- Normal dependency slots are stored in each resource file under `dependencies:` and are optional for resource validity.
 - Runtime relation views are derived from resource dependency slot maps for list, graph, API, and validation.
 - Generic dependency create/edit screen remains available as an advanced path.
 

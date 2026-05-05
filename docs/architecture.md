@@ -46,6 +46,17 @@ Cataloga is a local file-backed registry for Resources and Dependencies.
 
 Type packs only extend schemas/metadata. Core does not hard-code domain-specific assumptions.
 
+## Management-tag and view model
+
+- Global tag vocabulary lives in `settings.tag_keys`.
+- UI management-tag focus resolves by resource type using:
+  1. `settings.resource_type_profiles[type].management_tags`
+  2. schema `recommended_management_tags`
+  3. `settings.default_management_tags`
+  4. fallback `environment, owner`
+- Optional type-specific list columns are sourced from `settings.resource_type_profiles[type].list_columns`.
+- If no type-specific columns exist, the resources list uses workspace default columns.
+
 ## Canonical storage
 
 ```text

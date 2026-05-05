@@ -229,10 +229,10 @@ final class RegistryValidator
                 $errors[] = ['code' => 'relation_to_required', 'message' => sprintf('%s requires spec.to.', $path)];
             }
             if ($from !== '' && !in_array($from, $entityIds, true)) {
-                $errors[] = ['code' => 'relation_source_missing', 'message' => sprintf('%s references missing source entity "%s".', $path, $from)];
+                $warnings[] = ['code' => 'relation_source_missing', 'message' => sprintf('%s references missing source entity "%s".', $path, $from)];
             }
             if ($to !== '' && !in_array($to, $entityIds, true)) {
-                $errors[] = ['code' => 'relation_target_missing', 'message' => sprintf('%s references missing target entity "%s".', $path, $to)];
+                $warnings[] = ['code' => 'relation_target_missing', 'message' => sprintf('%s references missing target entity "%s".', $path, $to)];
             }
             $derivedFromResource = str_starts_with($path, 'resources/');
             if (!str_starts_with($path, 'relations/') && !$derivedFromResource) {
@@ -265,7 +265,7 @@ final class RegistryValidator
                 $slotKey = (string) ($slot['key'] ?? '');
                 $targetTypes = is_array($slot['target_types'] ?? null) ? $slot['target_types'] : [];
                 if ($targetTypes !== [] && !in_array($toType, $targetTypes, true)) {
-                    $errors[] = [
+                    $warnings[] = [
                         'code' => 'dependency_slot_target_type_mismatch',
                         'message' => sprintf('%s relation "%s" target type "%s" is not compatible with slot "%s" on source "%s".', $path, $relationType, $toType, $slotKey, $from),
                     ];
@@ -288,7 +288,7 @@ final class RegistryValidator
                 $slotKey = (string) ($slot['key'] ?? '');
                 $sourceTypes = is_array($slot['source_types'] ?? null) ? $slot['source_types'] : [];
                 if ($sourceTypes !== [] && !in_array($fromType, $sourceTypes, true)) {
-                    $errors[] = [
+                    $warnings[] = [
                         'code' => 'dependency_slot_source_type_mismatch',
                         'message' => sprintf('%s relation "%s" source type "%s" is not compatible with incoming slot "%s" on target "%s".', $path, $relationType, $fromType, $slotKey, $to),
                     ];
@@ -300,7 +300,7 @@ final class RegistryValidator
             }
 
             if (($fromSlots !== [] || $toSlots !== []) && !$matchesSourceSlot && !$matchesTargetSlot) {
-                $errors[] = [
+                $warnings[] = [
                     'code' => 'dependency_slot_no_match',
                     'message' => sprintf('%s relation "%s" does not match declared dependency slots for source "%s" or target "%s".', $path, $relationType, $from, $to),
                 ];
@@ -332,7 +332,7 @@ final class RegistryValidator
                 }
 
                 if ((bool) ($slot['required'] ?? false) && $count === 0) {
-                    $errors[] = [
+                    $warnings[] = [
                         'code' => 'dependency_slot_required_missing',
                         'message' => sprintf('Entity "%s" requires dependency slot "%s".', $entityId, $slotKey),
                     ];

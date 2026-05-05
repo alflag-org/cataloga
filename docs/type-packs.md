@@ -13,6 +13,7 @@ Entity schema metadata can define:
 
 - `required_tags`: tags that must exist and be non-empty (unless `allow_empty` is explicitly enabled in settings)
 - `recommended_tags`: tags that should exist (warning if missing)
+- `recommended_management_tags`: recommended management-tag focus for UI forms/lists
 - `dependency_slots`: slot-based dependency UX metadata
 
 `dependency_slots` supports:

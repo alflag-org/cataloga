@@ -1,6 +1,6 @@
 # Cataloga
 
-Cataloga is a simple registry for resources and dependencies.
+Cataloga is a simple registry for resources and optional hard dependencies.
 
 It helps teams record infrastructure and service resources, connect them with dependencies, review draft changes, and save updates safely.
 
@@ -26,12 +26,16 @@ It helps teams record infrastructure and service resources, connect them with de
 
 Workspace tag vocabulary is configured in `registry/settings.yaml`.
 
+Management-tag focus can be configured per resource type in `resource_type_profiles`, with fallback to type-pack recommendations and workspace defaults.
+
 ### Dependency storage model
 
 - Canonical dependency source is `Resource.dependencies` in `registry/resources/*`.
+- Dependencies are optional for normal resource validity.
 - Derived dependencies are read-only relation indexes generated from resource dependencies.
 - Explicit relations in `registry/relations/*` are for advanced, legacy, or imported cases.
 - The dependency list UI is a unified view of `derived dependencies + explicit relations`.
+- Tag-based associations remain soft metadata (search/filter/grouping) and are not auto-converted to graph edges.
 
 ## Quick start
 
@@ -82,10 +86,13 @@ docs/
 Read:
 
 - `GET /api/resources`
+- `GET /api/resources?type={type}`
 - `GET /api/resources/{id}`
 - `GET /api/dependencies`
 - `GET /api/graph?resource={id}`
 - `GET /api/types`
+- `GET /api/resource-type-profiles`
+- `GET /api/resource-types/{type}/profile`
 - `GET /api/settings`
 - `GET /api/tag-keys`
 - `GET /api/resources/{id}/dependency-slots`

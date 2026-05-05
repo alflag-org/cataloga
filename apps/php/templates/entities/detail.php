@@ -9,6 +9,7 @@ $dependsOn = is_array($dependsOn ?? null) ? $dependsOn : [];
 $usedBy = is_array($usedBy ?? null) ? $usedBy : [];
 $tagGroups = is_array($tagGroups ?? null) ? $tagGroups : ['basic' => [], 'note' => [], 'todo' => [], 'risk' => [], 'other' => []];
 $dependencySlotGroups = is_array($dependencySlotGroups ?? null) ? $dependencySlotGroups : ['slots' => [], 'other' => []];
+$softAssociations = is_array($softAssociations ?? null) ? $softAssociations : [];
 
 $environment = (string) ($tagGroups['basic']['environment'] ?? '');
 $owner = (string) ($tagGroups['basic']['owner'] ?? '');
@@ -107,6 +108,7 @@ $owner = (string) ($tagGroups['basic']['owner'] ?? '');
     <div class="title-row">
       <div class="title-stack">
         <h3>依存関係</h3>
+        <p class="meta">このリソースの強い依存関係を設定できます。未設定でもリソースは保存できます。</p>
       </div>
     </div>
 
@@ -141,7 +143,7 @@ $owner = (string) ($tagGroups['basic']['owner'] ?? '');
         <?php endif; ?>
         <?php if ((string) ($slot['direction'] ?? 'outgoing') === 'outgoing'): ?>
           <div class="actions mt-2">
-            <a class="secondary-button" href="/resources/<?= rawurlencode($id) ?>/dependencies/<?= rawurlencode((string) ($slot['key'] ?? '')) ?>"><?= $slotItems === [] ? '設定' : '変更' ?></a>
+            <a class="secondary-button" href="/resources/<?= rawurlencode($id) ?>/dependencies/<?= rawurlencode((string) ($slot['key'] ?? '')) ?>"><?= $slotItems === [] ? '依存関係を設定' : '依存関係を変更' ?></a>
           </div>
         <?php endif; ?>
       <?php endforeach; ?>
@@ -185,6 +187,21 @@ $owner = (string) ($tagGroups['basic']['owner'] ?? '');
           <?php endforeach; ?>
         </ul>
       <?php endif; ?>
+    <?php endif; ?>
+
+    <div class="title-row mt-3">
+      <div class="title-stack">
+        <h3>関連タグ</h3>
+      </div>
+    </div>
+    <?php if ($softAssociations === []): ?>
+      <p class="meta">関連タグはありません。</p>
+    <?php else: ?>
+      <ul class="clean">
+        <?php foreach ($softAssociations as $key => $value): ?>
+          <li><strong><?= h((string) $key) ?></strong> = <?= h((string) $value) ?></li>
+        <?php endforeach; ?>
+      </ul>
     <?php endif; ?>
   </section>
 </div>

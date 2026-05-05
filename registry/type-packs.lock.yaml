@@ -10,11 +10,11 @@ packs:
     installed: true
     enabled: true
   inventory:
-    installed: false
-    enabled: false
+    installed: true
+    enabled: true
   network:
-    installed: false
-    enabled: false
+    installed: true
+    enabled: true
   service-catalog:
     installed: true
     enabled: true

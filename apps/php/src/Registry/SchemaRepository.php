@@ -28,6 +28,7 @@ final class SchemaRepository
             $required = is_array($spec['required'] ?? null) ? array_values(array_map('strval', $spec['required'])) : [];
             $requiredTags = is_array($spec['required_tags'] ?? null) ? array_values(array_map('strval', $spec['required_tags'])) : [];
             $recommendedTags = is_array($spec['recommended_tags'] ?? null) ? array_values(array_map('strval', $spec['recommended_tags'])) : [];
+            $recommendedManagementTags = is_array($spec['recommended_management_tags'] ?? null) ? array_values(array_map('strval', $spec['recommended_management_tags'])) : [];
             $dependencySlots = $this->normalizeDependencySlots($spec['dependency_slots'] ?? []);
             $sourceTypes = is_array($spec['source_types'] ?? null) ? array_values(array_map('strval', $spec['source_types'])) : [];
             $targetTypes = is_array($spec['target_types'] ?? null) ? array_values(array_map('strval', $spec['target_types'])) : [];
@@ -40,6 +41,7 @@ final class SchemaRepository
                 'required' => $required,
                 'requiredTags' => $requiredTags,
                 'recommendedTags' => $recommendedTags,
+                'recommendedManagementTags' => $recommendedManagementTags,
                 'dependencySlots' => $dependencySlots,
                 'sourceTypes' => $sourceTypes,
                 'targetTypes' => $targetTypes,

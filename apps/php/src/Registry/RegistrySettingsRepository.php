@@ -21,6 +21,8 @@ final class RegistrySettingsRepository
             'todo' => ['label' => 'TODO', 'free_value' => true],
             'risk' => ['label' => '注意', 'free_value' => true],
         ],
+        'default_management_tags' => ['environment', 'owner'],
+        'resource_type_profiles' => [],
         'reserved_prefixes' => ['cataloga:'],
     ];
 
@@ -89,6 +91,41 @@ final class RegistrySettingsRepository
 
         if (is_array($parsed['reserved_prefixes'] ?? null)) {
             $settings['reserved_prefixes'] = $this->normalizePrefixList($parsed['reserved_prefixes']);
+        }
+
+        if (is_array($parsed['default_management_tags'] ?? null)) {
+            $settings['default_management_tags'] = $this->normalizeStringList($parsed['default_management_tags']);
+        }
+
+        if (is_array($parsed['resource_type_profiles'] ?? null)) {
+            $profiles = [];
+            foreach ($parsed['resource_type_profiles'] as $resourceType => $profileRow) {
+                $type = trim((string) $resourceType);
+                if ($type === '' || !is_array($profileRow)) {
+                    continue;
+                }
+
+                $listColumns = [];
+                if (is_array($profileRow['list_columns'] ?? null)) {
+                    foreach ($profileRow['list_columns'] as $column) {
+                        if (!is_array($column)) {
+                            continue;
+                        }
+                        $label = trim((string) ($column['label'] ?? ''));
+                        $path = trim((string) ($column['path'] ?? ''));
+                        if ($label === '' || $path === '') {
+                            continue;
+                        }
+                        $listColumns[] = ['label' => $label, 'path' => $path];
+                    }
+                }
+
+                $profiles[$type] = [
+                    'management_tags' => $this->normalizeStringList(is_array($profileRow['management_tags'] ?? null) ? $profileRow['management_tags'] : []),
+                    'list_columns' => $listColumns,
+                ];
+            }
+            $settings['resource_type_profiles'] = $profiles;
         }
 
         return $settings;

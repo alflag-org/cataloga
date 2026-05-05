@@ -1,0 +1,13 @@
+apiVersion: cataloga.io/v2
+kind: Resource
+metadata:
+  id: database.test
+  type: database
+  name: test
+  labels: {  }
+  tags:
+    environment: prod
+    owner: aa
+spec:
+  engine: PostgreSQL
+dependencies: {  }

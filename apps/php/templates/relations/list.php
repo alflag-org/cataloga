@@ -7,8 +7,8 @@ $typeFilter = (string) ($filters['type'] ?? '');
   <div class="title-row">
     <div class="title-stack">
       <p class="eyebrow">依存関係</p>
-      <h2>リソース間の関係を確認</h2>
-      <p class="muted">通常の編集はリソース詳細から行い、この画面は高度な依存関係の確認・診断に使用します。</p>
+      <h2>依存関係</h2>
+      <p class="muted">リソース間の強い依存関係を確認します。通常の編集はリソース詳細画面から行います。タグによる関連付けはリソース一覧や検索で確認できます。</p>
     </div>
     <div class="actions">
       <a class="secondary-button" href="/dependencies/new">高度な依存関係を作成</a>

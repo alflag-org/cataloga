@@ -8,6 +8,52 @@ $siteFilter = (string) ($filters['site'] ?? '');
 $zoneFilter = (string) ($filters['zone'] ?? '');
 $lifecycleFilter = (string) ($filters['lifecycle'] ?? '');
 $tagFilterOptions = is_array($tagFilterOptions ?? null) ? $tagFilterOptions : [];
+$listColumns = is_array($listColumns ?? null) ? $listColumns : [];
+
+$resolveCell = static function (array $entity, string $path): string {
+    $segments = array_values(array_filter(explode('.', trim($path)), static fn (string $v): bool => $v !== ''));
+    if ($segments === []) {
+        return '—';
+    }
+    $record = is_array($entity['record'] ?? null) ? $entity['record'] : [];
+    $metadata = is_array($record['metadata'] ?? null) ? $record['metadata'] : [];
+    $spec = is_array($record['spec'] ?? null) ? $record['spec'] : [];
+    $computed = is_array($entity['computed'] ?? null) ? $entity['computed'] : [];
+    $cursor = null;
+    if ($segments[0] === 'metadata') {
+        $cursor = $metadata;
+    } elseif ($segments[0] === 'spec') {
+        $cursor = $spec;
+    } elseif ($segments[0] === 'computed') {
+        $cursor = $computed;
+    } else {
+        return '—';
+    }
+    array_shift($segments);
+    foreach ($segments as $segment) {
+        if (!is_array($cursor) || !array_key_exists($segment, $cursor)) {
+            return '—';
+        }
+        $cursor = $cursor[$segment];
+    }
+
+    if (is_scalar($cursor) || $cursor === null) {
+        $value = trim((string) ($cursor ?? ''));
+        if ($value === '' && $path === 'metadata.name') {
+            $fallbackName = trim((string) ($entity['name'] ?? ''));
+            if ($fallbackName !== '') {
+                return $fallbackName;
+            }
+            return trim((string) ($entity['id'] ?? '')) !== '' ? (string) $entity['id'] : '—';
+        }
+        return $value !== '' ? $value : '—';
+    }
+    if (is_array($cursor)) {
+        return implode(', ', array_map('strval', $cursor));
+    }
+
+    return '—';
+};
 ?>
 <div class="panel">
   <div class="title-row">
@@ -97,7 +143,11 @@ $tagFilterOptions = is_array($tagFilterOptions ?? null) ? $tagFilterOptions : []
     <div class="table-shell mt-3">
       <table>
         <thead>
-        <tr><th>名前</th><th>タイプ</th><th>環境</th><th>オーナー</th><th>状態</th><th>更新</th></tr>
+        <tr>
+          <?php foreach ($listColumns as $column): ?>
+            <th><?= h((string) ($column['label'] ?? '')) ?></th>
+          <?php endforeach; ?>
+        </tr>
         </thead>
         <tbody>
         <?php foreach ($entities as $entity): ?>
@@ -107,12 +157,23 @@ $tagFilterOptions = is_array($tagFilterOptions ?? null) ? $tagFilterOptions : []
           $statusClass = ui_record_status_class($status);
           ?>
           <tr>
-            <td><a class="text-link" href="/resources/<?= rawurlencode((string) $entity['id']) ?>"><?= h((string) ($entity['name'] !== '' ? $entity['name'] : $entity['id'])) ?></a></td>
-            <td><span class="pill"><?= h((string) ($entity['type'] ?? '')) ?></span></td>
-            <td><?= h((string) ($entity['environment'] !== '' ? $entity['environment'] : '—')) ?></td>
-            <td><?= h((string) ($entity['owner'] !== '' ? $entity['owner'] : '—')) ?></td>
-            <td><span class="pill <?= h($statusClass) ?>"><?= h($statusLabel) ?></span></td>
-            <td><?= h((string) ($entity['updated'] ?? '—')) ?></td>
+            <?php foreach ($listColumns as $column): ?>
+              <?php
+              $path = (string) ($column['path'] ?? '');
+              $cell = $resolveCell($entity, $path);
+              ?>
+              <td>
+                <?php if ($path === 'metadata.name'): ?>
+                  <a class="text-link" href="/resources/<?= rawurlencode((string) $entity['id']) ?>"><?= h($cell) ?></a>
+                <?php elseif ($path === 'metadata.type'): ?>
+                  <span class="pill"><?= h($cell) ?></span>
+                <?php elseif ($path === 'computed.status'): ?>
+                  <span class="pill <?= h($statusClass) ?>"><?= h($statusLabel) ?></span>
+                <?php else: ?>
+                  <?= h($cell) ?>
+                <?php endif; ?>
+              </td>
+            <?php endforeach; ?>
           </tr>
         <?php endforeach; ?>
         </tbody>

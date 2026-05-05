@@ -707,9 +707,47 @@ final class ChangeService
             $reservedPrefixes
         ), static fn (string $prefix): bool => $prefix !== ':')));
 
+        $defaultManagementTags = is_array($settings['default_management_tags'] ?? null)
+            ? array_values(array_unique(array_filter(array_map(static fn (mixed $v): string => trim((string) $v), $settings['default_management_tags']), static fn (string $v): bool => $v !== '')))
+            : ['environment', 'owner'];
+
+        $resourceTypeProfiles = [];
+        if (is_array($settings['resource_type_profiles'] ?? null)) {
+            foreach ($settings['resource_type_profiles'] as $resourceType => $profile) {
+                $type = trim((string) $resourceType);
+                if ($type === '' || !is_array($profile)) {
+                    continue;
+                }
+                $managementTags = is_array($profile['management_tags'] ?? null)
+                    ? array_values(array_unique(array_filter(array_map(static fn (mixed $v): string => trim((string) $v), $profile['management_tags']), static fn (string $v): bool => $v !== '')))
+                    : [];
+                $listColumns = [];
+                if (is_array($profile['list_columns'] ?? null)) {
+                    foreach ($profile['list_columns'] as $column) {
+                        if (!is_array($column)) {
+                            continue;
+                        }
+                        $label = trim((string) ($column['label'] ?? ''));
+                        $path = trim((string) ($column['path'] ?? ''));
+                        if ($label === '' || $path === '') {
+                            continue;
+                        }
+                        $listColumns[] = ['label' => $label, 'path' => $path];
+                    }
+                }
+                $resourceTypeProfiles[$type] = [
+                    'management_tags' => $managementTags,
+                    'list_columns' => $listColumns,
+                ];
+            }
+            ksort($resourceTypeProfiles);
+        }
+
         return [
             'version' => (int) ($settings['version'] ?? 1),
             'tag_keys' => $tagKeys,
+            'default_management_tags' => $defaultManagementTags,
+            'resource_type_profiles' => $resourceTypeProfiles,
             'reserved_prefixes' => $reservedPrefixes !== [] ? $reservedPrefixes : ['cataloga:'],
         ];
     }

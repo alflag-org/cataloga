@@ -46,8 +46,14 @@ final class ApiController
 
     public function resources(Request $request): Response
     {
+        $typeFilter = trim((string) $request->query('type', ''));
+        $items = $this->entityRepository->listEntities();
+        if ($typeFilter !== '') {
+            $items = array_values(array_filter($items, static fn (array $entity): bool => (string) ($entity['type'] ?? '') === $typeFilter));
+        }
+
         return Response::json([
-            'items' => $this->entityRepository->listEntities(),
+            'items' => $items,
         ]);
     }
 
@@ -216,6 +222,8 @@ final class ApiController
         $updated = [
             'version' => (int) ($settings['version'] ?? 1),
             'tag_keys' => $tagKeys,
+            'default_management_tags' => is_array($settings['default_management_tags'] ?? null) ? $settings['default_management_tags'] : ['environment', 'owner'],
+            'resource_type_profiles' => is_array($settings['resource_type_profiles'] ?? null) ? $settings['resource_type_profiles'] : [],
             'reserved_prefixes' => is_array($settings['reserved_prefixes'] ?? null) ? $settings['reserved_prefixes'] : ['cataloga:'],
         ];
 
@@ -236,6 +244,31 @@ final class ApiController
     public function settings(Request $request): Response
     {
         return Response::json($this->settingsRepository->loadSettings());
+    }
+
+    public function resourceTypeProfiles(Request $request): Response
+    {
+        $profiles = $this->profilesByType();
+
+        return Response::json(['items' => array_values($profiles)]);
+    }
+
+    /**
+     * @param array<string,string> $params
+     */
+    public function resourceTypeProfile(Request $request, array $params): Response
+    {
+        $type = trim((string) ($params['type'] ?? ''));
+        if ($type === '') {
+            return Response::json(['error' => 'type is required'], 422);
+        }
+
+        $profiles = $this->profilesByType();
+        if (!isset($profiles[$type])) {
+            return Response::json(['error' => 'resource type profile not found', 'type' => $type], 404);
+        }
+
+        return Response::json($profiles[$type]);
     }
 
     public function tagKeys(Request $request): Response
@@ -690,5 +723,39 @@ final class ApiController
         }
 
         return $active;
+    }
+
+    /**
+     * @return array<string,array<string,mixed>>
+     */
+    private function profilesByType(): array
+    {
+        $settings = $this->settingsRepository->loadSettings();
+        $profiles = is_array($settings['resource_type_profiles'] ?? null) ? $settings['resource_type_profiles'] : [];
+        $defaultManagementTags = is_array($settings['default_management_tags'] ?? null) ? array_values(array_map('strval', $settings['default_management_tags'])) : ['environment', 'owner'];
+
+        $items = [];
+        foreach ($this->activeSchemas() as $schema) {
+            if ((string) ($schema['kind'] ?? 'entity') !== 'entity') {
+                continue;
+            }
+            $type = (string) ($schema['id'] ?? '');
+            if ($type === '') {
+                continue;
+            }
+            $profile = is_array($profiles[$type] ?? null) ? $profiles[$type] : [];
+            $workspaceManagementTags = is_array($profile['management_tags'] ?? null) ? array_values(array_map('strval', $profile['management_tags'])) : [];
+            $packRecommended = is_array($schema['recommendedManagementTags'] ?? null) ? array_values(array_map('strval', $schema['recommendedManagementTags'])) : [];
+            $resolved = $workspaceManagementTags !== [] ? $workspaceManagementTags : ($packRecommended !== [] ? $packRecommended : $defaultManagementTags);
+            $listColumns = is_array($profile['list_columns'] ?? null) ? $profile['list_columns'] : [];
+            $items[$type] = [
+                'type' => $type,
+                'management_tags' => array_values(array_unique(array_filter(array_map('trim', $resolved), static fn (string $v): bool => $v !== ''))),
+                'list_columns' => array_values(array_filter($listColumns, static fn (mixed $row): bool => is_array($row) && trim((string) ($row['label'] ?? '')) !== '' && trim((string) ($row['path'] ?? '')) !== '')),
+            ];
+        }
+        ksort($items);
+
+        return $items;
     }
 }
