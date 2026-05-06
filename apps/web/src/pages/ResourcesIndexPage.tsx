@@ -2,7 +2,11 @@ import { useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import { api } from "../api/client";
 import { DataCard } from "../components/DataCard";
-import { DataTable, FilterSelect, type DataTableColumn } from "../components/DataTable";
+import {
+  DataTable,
+  FilterSelect,
+  type DataTableColumn,
+} from "../components/DataTable";
 import { ErrorBanner } from "../components/ErrorBanner";
 import { PageHeader } from "../components/PageHeader";
 import type { ResourceType } from "../types";
@@ -29,7 +33,12 @@ export function ResourcesIndexPage() {
       try {
         const rt = await api.listResourceTypes();
         setTypes(rt);
-        const entries = await Promise.all(rt.map(async (t) => [t.id, (await api.listResources(t.id)).length] as const));
+        const entries = await Promise.all(
+          rt.map(
+            async (t) =>
+              [t.id, (await api.listResources(t.id)).length] as const,
+          ),
+        );
         setCounts(Object.fromEntries(entries));
       } catch (e) {
         setError(e instanceof Error ? e.message : String(e));
@@ -53,7 +62,14 @@ export function ResourcesIndexPage() {
 
   const filteredRows = rows.filter((row) => {
     const q = query.trim().toLowerCase();
-    if (q && ![row.group, row.typeTitle, row.typeId].join(" ").toLowerCase().includes(q)) return false;
+    if (
+      q &&
+      ![row.group, row.typeTitle, row.typeId]
+        .join(" ")
+        .toLowerCase()
+        .includes(q)
+    )
+      return false;
     if (groupFilter !== "all" && row.group !== groupFilter) return false;
     if (hasResourcesFilter === "has" && row.count === 0) return false;
     if (hasResourcesFilter === "empty" && row.count > 0) return false;
@@ -61,15 +77,38 @@ export function ResourcesIndexPage() {
   });
 
   const columns: DataTableColumn<Row>[] = [
-    { key: "group", label: "Group", render: (row) => row.group, sortValue: (row) => row.group },
-    { key: "type", label: "Type", render: (row) => row.typeTitle, sortValue: (row) => row.typeTitle },
-    { key: "id", label: "ID", render: (row) => row.typeId, sortValue: (row) => row.typeId },
-    { key: "resources", label: "Resources", render: (row) => row.count, sortValue: (row) => row.count },
+    {
+      key: "group",
+      label: "Group",
+      render: (row) => row.group,
+      sortValue: (row) => row.group,
+    },
+    {
+      key: "type",
+      label: "Type",
+      render: (row) => row.typeTitle,
+      sortValue: (row) => row.typeTitle,
+    },
+    {
+      key: "id",
+      label: "ID",
+      render: (row) => row.typeId,
+      sortValue: (row) => row.typeId,
+    },
+    {
+      key: "resources",
+      label: "Resources",
+      render: (row) => row.count,
+      sortValue: (row) => row.count,
+    },
     {
       key: "actions",
       label: "Actions",
       render: (row) => (
-        <Link className="text-blue-700 hover:text-blue-800" to={`/resources/${row.typeId}`}>
+        <Link
+          className="text-blue-700 hover:text-blue-800"
+          to={`/resources/${row.typeId}`}
+        >
           View resources
         </Link>
       ),
@@ -85,7 +124,9 @@ export function ResourcesIndexPage() {
         {rows.length === 0 ? (
           <div className="text-sm text-gray-700">
             <p className="font-medium text-gray-900">No Resource Types</p>
-            <p className="mt-1">Create Resource Types from Administration / Resource Types.</p>
+            <p className="mt-1">
+              Create Resource Types from Administration / Resource Types.
+            </p>
           </div>
         ) : (
           <DataTable
@@ -96,7 +137,8 @@ export function ResourcesIndexPage() {
             sortKey={sortKey}
             sortDir={sortDir}
             onSort={(key) => {
-              if (sortKey === key) setSortDir((prev) => (prev === "asc" ? "desc" : "asc"));
+              if (sortKey === key)
+                setSortDir((prev) => (prev === "asc" ? "desc" : "asc"));
               else {
                 setSortKey(key);
                 setSortDir("asc");
@@ -109,7 +151,10 @@ export function ResourcesIndexPage() {
                   label="Group"
                   value={groupFilter}
                   onChange={setGroupFilter}
-                  options={groups.map((group) => ({ value: group, label: group === "all" ? "All" : group }))}
+                  options={groups.map((group) => ({
+                    value: group,
+                    label: group === "all" ? "All" : group,
+                  }))}
                 />
                 <FilterSelect
                   label="Has resources"

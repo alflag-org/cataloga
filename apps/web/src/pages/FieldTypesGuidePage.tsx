@@ -102,12 +102,17 @@ export function FieldTypesGuidePage() {
       <DataCard title="Field Types">
         <div className="space-y-3">
           {rows.map((row) => (
-            <div key={row.type} className="rounded-lg border border-gray-200 p-3 text-sm">
+            <div
+              key={row.type}
+              className="rounded-lg border border-gray-200 p-3 text-sm"
+            >
               <p className="font-semibold text-gray-900">{row.type}</p>
               <p className="text-gray-700">Purpose: {row.purpose}</p>
               <p className="text-gray-700">Resource form: {row.form}</p>
               <p className="text-gray-700">Stored value: {row.stored}</p>
-              <p className="font-mono text-xs text-gray-600">Example: {row.example}</p>
+              <p className="font-mono text-xs text-gray-600">
+                Example: {row.example}
+              </p>
             </div>
           ))}
         </div>
@@ -115,7 +120,10 @@ export function FieldTypesGuidePage() {
 
       <DataCard title="Recommendations">
         <ul className="list-disc space-y-1 pl-5 text-sm text-gray-700">
-          <li>Use reference instead of plain string when the value points to another Resource.</li>
+          <li>
+            Use reference instead of plain string when the value points to
+            another Resource.
+          </li>
           <li>Use enum when allowed values are small and stable.</li>
           <li>Use json only when no simpler field type fits.</li>
           <li>Use array for simple lists.</li>

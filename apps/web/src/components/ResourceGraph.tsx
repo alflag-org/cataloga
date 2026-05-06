@@ -39,7 +39,10 @@ function toTargetId(value: unknown): string | null {
   return null;
 }
 
-function buildGraph(types: ResourceType[], resourcesByType: Record<string, Resource[]>) {
+function buildGraph(
+  types: ResourceType[],
+  resourcesByType: Record<string, Resource[]>,
+) {
   const typeMap = new Map(types.map((t) => [t.id, t]));
   const groupedTypes = [...types].sort((a, b) => {
     const ag = (a.group || "Other").localeCompare(b.group || "Other");
@@ -90,7 +93,11 @@ function buildGraph(types: ResourceType[], resourcesByType: Record<string, Resou
             const edgeKey = `${sourceKey}|${targetKey}|${reference.field}`;
             if (!edgeSet.has(edgeKey)) {
               edgeSet.add(edgeKey);
-              edges.push({ source: sourceKey, target: targetKey, field: reference.field });
+              edges.push({
+                source: sourceKey,
+                target: targetKey,
+                field: reference.field,
+              });
             }
           }
         } else {
@@ -101,7 +108,11 @@ function buildGraph(types: ResourceType[], resourcesByType: Record<string, Resou
           const edgeKey = `${sourceKey}|${targetKey}|${reference.field}`;
           if (!edgeSet.has(edgeKey)) {
             edgeSet.add(edgeKey);
-            edges.push({ source: sourceKey, target: targetKey, field: reference.field });
+            edges.push({
+              source: sourceKey,
+              target: targetKey,
+              field: reference.field,
+            });
           }
         }
       }
@@ -111,12 +122,19 @@ function buildGraph(types: ResourceType[], resourcesByType: Record<string, Resou
   return { nodes, edges };
 }
 
-export function ResourceGraph({ types, resourcesByType, compact = false }: Props) {
+export function ResourceGraph({
+  types,
+  resourcesByType,
+  compact = false,
+}: Props) {
   const [query, setQuery] = useState("");
   const [mode, setMode] = useState<"all" | "connected" | "isolated">("all");
   const [selectedKey, setSelectedKey] = useState<string | null>(null);
 
-  const graph = useMemo(() => buildGraph(types, resourcesByType), [types, resourcesByType]);
+  const graph = useMemo(
+    () => buildGraph(types, resourcesByType),
+    [types, resourcesByType],
+  );
 
   const degree = useMemo(() => {
     const map = new Map<string, number>();
@@ -131,16 +149,21 @@ export function ResourceGraph({ types, resourcesByType, compact = false }: Props
   const filteredNodes = useMemo(() => {
     const q = query.trim().toLowerCase();
     return graph.nodes.filter((node) => {
-      if (mode === "connected" && (degree.get(node.key) ?? 0) === 0) return false;
+      if (mode === "connected" && (degree.get(node.key) ?? 0) === 0)
+        return false;
       if (mode === "isolated" && (degree.get(node.key) ?? 0) > 0) return false;
       if (!q) return true;
-      return [node.typeTitle, node.resourceId, node.name].join(" ").toLowerCase().includes(q);
+      return [node.typeTitle, node.resourceId, node.name]
+        .join(" ")
+        .toLowerCase()
+        .includes(q);
     });
   }, [degree, graph.nodes, mode, query]);
 
   const visibleNodeSet = new Set(filteredNodes.map((n) => n.key));
   const visibleEdges = graph.edges.filter(
-    (edge) => visibleNodeSet.has(edge.source) && visibleNodeSet.has(edge.target),
+    (edge) =>
+      visibleNodeSet.has(edge.source) && visibleNodeSet.has(edge.target),
   );
 
   const columns = useMemo(() => {
@@ -168,19 +191,32 @@ export function ResourceGraph({ types, resourcesByType, compact = false }: Props
   });
 
   const graphHeight = compact ? 360 : 420;
-  const canvasWidth = Math.max(980, startX + columns.length * (columnWidth + columnGap));
-  const canvasHeight = Math.max(graphHeight, startY + Math.max(...columns.map((c) => c.nodes.length), 1) * rowHeight + 30);
+  const canvasWidth = Math.max(
+    980,
+    startX + columns.length * (columnWidth + columnGap),
+  );
+  const canvasHeight = Math.max(
+    graphHeight,
+    startY +
+      Math.max(...columns.map((c) => c.nodes.length), 1) * rowHeight +
+      30,
+  );
 
   const selectedNode = filteredNodes.find((n) => n.key === selectedKey) ?? null;
   const selectedEdges = selectedNode
-    ? visibleEdges.filter((edge) => edge.source === selectedNode.key || edge.target === selectedNode.key)
+    ? visibleEdges.filter(
+        (edge) =>
+          edge.source === selectedNode.key || edge.target === selectedNode.key,
+      )
     : [];
 
   if (graph.nodes.length === 0) {
     return (
       <div className="rounded-2xl border border-gray-200 bg-white p-6 text-sm text-gray-600">
         <p className="font-medium text-gray-900">No resources</p>
-        <p className="mt-1">Create Resource Types and Resources to populate the graph.</p>
+        <p className="mt-1">
+          Create Resource Types and Resources to populate the graph.
+        </p>
       </div>
     );
   }
@@ -194,7 +230,10 @@ export function ResourceGraph({ types, resourcesByType, compact = false }: Props
         </label>
         <label className="text-sm text-gray-700">
           Show
-          <SelectInput value={mode} onChange={(e) => setMode(e.target.value as typeof mode)}>
+          <SelectInput
+            value={mode}
+            onChange={(e) => setMode(e.target.value as typeof mode)}
+          >
             <option value="all">All</option>
             <option value="connected">Connected only</option>
             <option value="isolated">Isolated only</option>
@@ -203,9 +242,22 @@ export function ResourceGraph({ types, resourcesByType, compact = false }: Props
       </div>
 
       <div className="grid gap-3 lg:grid-cols-[1fr_300px]">
-        <div className="overflow-auto rounded-2xl border border-gray-200 bg-slate-50" style={{ height: graphHeight }}>
-          <div style={{ width: canvasWidth, height: canvasHeight, position: "relative" }}>
-            <svg width={canvasWidth} height={canvasHeight} className="absolute inset-0">
+        <div
+          className="overflow-auto rounded-2xl border border-gray-200 bg-slate-50"
+          style={{ height: graphHeight }}
+        >
+          <div
+            style={{
+              width: canvasWidth,
+              height: canvasHeight,
+              position: "relative",
+            }}
+          >
+            <svg
+              width={canvasWidth}
+              height={canvasHeight}
+              className="absolute inset-0"
+            >
               {visibleEdges.map((edge, idx) => {
                 const source = pos.get(edge.source);
                 const target = pos.get(edge.target);
@@ -215,7 +267,9 @@ export function ResourceGraph({ types, resourcesByType, compact = false }: Props
                 const tx = target.x;
                 const ty = target.y + 32;
                 const mx = (sx + tx) / 2;
-                const active = selectedKey ? edge.source === selectedKey || edge.target === selectedKey : false;
+                const active = selectedKey
+                  ? edge.source === selectedKey || edge.target === selectedKey
+                  : false;
                 return (
                   <g key={`${edge.source}-${edge.target}-${idx}`}>
                     <path
@@ -224,7 +278,10 @@ export function ResourceGraph({ types, resourcesByType, compact = false }: Props
                       stroke={active ? "#2563eb" : "#94a3b8"}
                       strokeWidth={active ? 2 : 1.5}
                     />
-                    <polygon points={`${tx - 8},${ty - 4} ${tx - 8},${ty + 4} ${tx},${ty}`} fill={active ? "#2563eb" : "#94a3b8"} />
+                    <polygon
+                      points={`${tx - 8},${ty - 4} ${tx - 8},${ty + 4} ${tx},${ty}`}
+                      fill={active ? "#2563eb" : "#94a3b8"}
+                    />
                   </g>
                 );
               })}
@@ -239,12 +296,18 @@ export function ResourceGraph({ types, resourcesByType, compact = false }: Props
                   key={node.key}
                   onClick={() => setSelectedKey(node.key)}
                   className={`absolute rounded-xl border px-3 py-2 text-left shadow-sm ${
-                    active ? "border-blue-500 bg-blue-50" : "border-gray-200 bg-white hover:border-gray-300"
+                    active
+                      ? "border-blue-500 bg-blue-50"
+                      : "border-gray-200 bg-white hover:border-gray-300"
                   }`}
                   style={{ left: p.x, top: p.y, width: columnWidth }}
                 >
-                  <p className="text-[11px] font-semibold uppercase tracking-wide text-gray-500">{node.typeTitle}</p>
-                  <p className="text-sm font-semibold text-gray-900">{node.name}</p>
+                  <p className="text-[11px] font-semibold uppercase tracking-wide text-gray-500">
+                    {node.typeTitle}
+                  </p>
+                  <p className="text-sm font-semibold text-gray-900">
+                    {node.name}
+                  </p>
                   <p className="text-xs text-gray-600">{node.resourceId}</p>
                 </button>
               );
@@ -253,15 +316,27 @@ export function ResourceGraph({ types, resourcesByType, compact = false }: Props
         </div>
 
         <aside className="rounded-2xl border border-gray-200 bg-white p-4">
-          <h3 className="text-xs font-semibold uppercase tracking-wide text-gray-500">Selected resource</h3>
+          <h3 className="text-xs font-semibold uppercase tracking-wide text-gray-500">
+            Selected resource
+          </h3>
           {!selectedNode ? (
-            <p className="mt-3 text-sm text-gray-600">Select a node to inspect relations.</p>
+            <p className="mt-3 text-sm text-gray-600">
+              Select a node to inspect relations.
+            </p>
           ) : (
             <div className="mt-3 space-y-3 text-sm">
               <div>
-                <p><span className="font-medium">Type:</span> {selectedNode.typeTitle}</p>
-                <p><span className="font-medium">Name:</span> {selectedNode.name}</p>
-                <p><span className="font-medium">ID:</span> {selectedNode.resourceId}</p>
+                <p>
+                  <span className="font-medium">Type:</span>{" "}
+                  {selectedNode.typeTitle}
+                </p>
+                <p>
+                  <span className="font-medium">Name:</span> {selectedNode.name}
+                </p>
+                <p>
+                  <span className="font-medium">ID:</span>{" "}
+                  {selectedNode.resourceId}
+                </p>
               </div>
               <div>
                 <p className="font-medium text-gray-900">Relations</p>
@@ -270,9 +345,14 @@ export function ResourceGraph({ types, resourcesByType, compact = false }: Props
                 ) : (
                   <ul className="mt-1 space-y-1 text-xs text-gray-700">
                     {selectedEdges.map((edge, index) => {
-                      const other = edge.source === selectedNode.key ? edge.target : edge.source;
+                      const other =
+                        edge.source === selectedNode.key
+                          ? edge.target
+                          : edge.source;
                       return (
-                        <li key={`${other}-${index}`}>{deriveDisplayLabel(edge.field)}: {other}</li>
+                        <li key={`${other}-${index}`}>
+                          {deriveDisplayLabel(edge.field)}: {other}
+                        </li>
                       );
                     })}
                   </ul>

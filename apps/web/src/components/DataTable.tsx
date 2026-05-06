@@ -71,11 +71,13 @@ export function DataTable<T>({
             onChange={(e) => onSearchChange(e.target.value)}
           />
         </label>
-        {filters ? <div className="grid grid-cols-1 gap-3 md:grid-cols-2">{filters}</div> : null}
+        {filters ? (
+          <div className="grid grid-cols-1 gap-3 md:grid-cols-2">{filters}</div>
+        ) : null}
       </div>
 
       {sortedRows.length === 0 ? (
-        empty ?? <p className="text-sm text-gray-600">No rows.</p>
+        (empty ?? <p className="text-sm text-gray-600">No rows.</p>)
       ) : (
         <div className="overflow-x-auto">
           <table className="min-w-full divide-y divide-gray-200 text-sm">
@@ -91,7 +93,11 @@ export function DataTable<T>({
                       onClick={() => onSort(column.key)}
                     >
                       {column.label}
-                      {sortKey === column.key ? (sortDir === "asc" ? "↑" : "↓") : ""}
+                      {sortKey === column.key
+                        ? sortDir === "asc"
+                          ? "↑"
+                          : "↓"
+                        : ""}
                     </button>
                   </th>
                 ))}
@@ -101,7 +107,10 @@ export function DataTable<T>({
               {sortedRows.map((row, index) => (
                 <tr key={rowKey(row, index)} className="hover:bg-gray-50">
                   {columns.map((column) => (
-                    <td key={column.key} className={`px-3 py-2 text-gray-700 ${column.className ?? ""}`}>
+                    <td
+                      key={column.key}
+                      className={`px-3 py-2 text-gray-700 ${column.className ?? ""}`}
+                    >
                       {column.render ? column.render(row) : ""}
                     </td>
                   ))}

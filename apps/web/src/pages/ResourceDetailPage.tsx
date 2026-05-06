@@ -29,16 +29,29 @@ function renderValue(value: unknown, field?: FieldDef): ReactNode {
     );
   }
   if (type === "json" && value && typeof value === "object") {
-    return <pre className="rounded bg-gray-50 p-2 text-xs text-gray-700">{JSON.stringify(value, null, 2)}</pre>;
+    return (
+      <pre className="rounded bg-gray-50 p-2 text-xs text-gray-700">
+        {JSON.stringify(value, null, 2)}
+      </pre>
+    );
   }
   if (type === "url" && typeof value === "string" && value.startsWith("http")) {
     return (
-      <a className="text-blue-700 hover:text-blue-800" href={value} target="_blank" rel="noreferrer">
+      <a
+        className="text-blue-700 hover:text-blue-800"
+        href={value}
+        target="_blank"
+        rel="noreferrer"
+      >
         {value}
       </a>
     );
   }
-  return <span className="text-sm text-gray-700">{value == null ? "" : String(value)}</span>;
+  return (
+    <span className="text-sm text-gray-700">
+      {value == null ? "" : String(value)}
+    </span>
+  );
 }
 
 export function ResourceDetailPage() {
@@ -50,9 +63,18 @@ export function ResourceDetailPage() {
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    api.getResource(type, id).then(setResource).catch((e) => setError(e.message));
-    api.getResourceType(type).then(setResourceType).catch((e) => setError(e.message));
-    api.getResourceReferences(type, id).then(setReferences).catch((e) => setError(e.message));
+    api
+      .getResource(type, id)
+      .then(setResource)
+      .catch((e) => setError(e.message));
+    api
+      .getResourceType(type)
+      .then(setResourceType)
+      .catch((e) => setError(e.message));
+    api
+      .getResourceReferences(type, id)
+      .then(setReferences)
+      .catch((e) => setError(e.message));
   }, [id, type]);
 
   const fieldMap = useMemo(() => {
@@ -98,7 +120,11 @@ export function ResourceDetailPage() {
               <dt className="font-medium text-gray-600">Name</dt>
               <dd>{resource.metadata.name}</dd>
               <dt className="font-medium text-gray-600">Tags</dt>
-              <dd>{Object.entries(resource.metadata.tags || {}).map(([k, v]) => `${k}=${v}`).join(", ") || "-"}</dd>
+              <dd>
+                {Object.entries(resource.metadata.tags || {})
+                  .map(([k, v]) => `${k}=${v}`)
+                  .join(", ") || "-"}
+              </dd>
             </dl>
           </DataCard>
 
@@ -110,8 +136,13 @@ export function ResourceDetailPage() {
                 {Object.entries(resource.spec).map(([key, value]) => {
                   const field = fieldMap.get(key);
                   return (
-                    <div key={key} className="grid grid-cols-[180px_1fr] items-start gap-2">
-                      <p className="text-sm font-medium text-gray-700">{field?.label || deriveDisplayLabel(`spec.${key}`)}</p>
+                    <div
+                      key={key}
+                      className="grid grid-cols-[180px_1fr] items-start gap-2"
+                    >
+                      <p className="text-sm font-medium text-gray-700">
+                        {field?.label || deriveDisplayLabel(`spec.${key}`)}
+                      </p>
                       <div>{renderValue(value, field)}</div>
                     </div>
                   );
@@ -124,9 +155,18 @@ export function ResourceDetailPage() {
             {references && references.outgoing.length > 0 ? (
               <div className="space-y-2 text-sm">
                 {references.outgoing.map((item, idx) => (
-                  <div key={`${item.resource_type}-${item.resource_id}-${idx}`} className="grid grid-cols-[180px_1fr] gap-2">
-                    <span className="text-gray-700">{deriveDisplayLabel(`spec.${item.field}`)}</span>
-                    <ActionLink tone="primary" className="underline underline-offset-2" to={`/resources/${item.resource_type}/${item.resource_id}`}>
+                  <div
+                    key={`${item.resource_type}-${item.resource_id}-${idx}`}
+                    className="grid grid-cols-[180px_1fr] gap-2"
+                  >
+                    <span className="text-gray-700">
+                      {deriveDisplayLabel(`spec.${item.field}`)}
+                    </span>
+                    <ActionLink
+                      tone="primary"
+                      className="underline underline-offset-2"
+                      to={`/resources/${item.resource_type}/${item.resource_id}`}
+                    >
                       {item.resource_type} / {item.name} ({item.resource_id})
                     </ActionLink>
                   </div>
@@ -141,34 +181,53 @@ export function ResourceDetailPage() {
             {references && references.incoming.length > 0 ? (
               <div className="space-y-2 text-sm">
                 {references.incoming.map((item, idx) => (
-                  <div key={`${item.resource_type}-${item.resource_id}-${idx}`} className="grid grid-cols-[180px_1fr] gap-2">
-                    <span className="text-gray-700">{deriveDisplayLabel(`spec.${item.field}`)}</span>
-                    <ActionLink tone="primary" className="underline underline-offset-2" to={`/resources/${item.resource_type}/${item.resource_id}`}>
+                  <div
+                    key={`${item.resource_type}-${item.resource_id}-${idx}`}
+                    className="grid grid-cols-[180px_1fr] gap-2"
+                  >
+                    <span className="text-gray-700">
+                      {deriveDisplayLabel(`spec.${item.field}`)}
+                    </span>
+                    <ActionLink
+                      tone="primary"
+                      className="underline underline-offset-2"
+                      to={`/resources/${item.resource_type}/${item.resource_id}`}
+                    >
                       {item.resource_type} / {item.name} ({item.resource_id})
                     </ActionLink>
                   </div>
                 ))}
               </div>
             ) : (
-              <p className="text-sm text-gray-600">No resources reference this resource.</p>
+              <p className="text-sm text-gray-600">
+                No resources reference this resource.
+              </p>
             )}
           </DataCard>
 
           {Object.keys(resource.custom_fields || {}).length > 0 ? (
             <DataCard title="Custom fields">
-              <pre className="overflow-x-auto rounded-lg bg-gray-50 p-3 text-xs text-gray-700">{JSON.stringify(resource.custom_fields, null, 2)}</pre>
+              <pre className="overflow-x-auto rounded-lg bg-gray-50 p-3 text-xs text-gray-700">
+                {JSON.stringify(resource.custom_fields, null, 2)}
+              </pre>
             </DataCard>
           ) : null}
 
           {Object.keys(resource.dependencies || {}).length > 0 ? (
             <DataCard title="Dependencies">
-              <pre className="overflow-x-auto rounded-lg bg-gray-50 p-3 text-xs text-gray-700">{JSON.stringify(resource.dependencies, null, 2)}</pre>
+              <pre className="overflow-x-auto rounded-lg bg-gray-50 p-3 text-xs text-gray-700">
+                {JSON.stringify(resource.dependencies, null, 2)}
+              </pre>
             </DataCard>
           ) : null}
 
           <details className="rounded-xl border border-gray-200 bg-white p-4">
-            <summary className="cursor-pointer text-sm font-medium text-gray-700">Raw JSON</summary>
-            <pre className="mt-3 overflow-x-auto rounded-lg bg-gray-950 p-3 text-xs text-gray-100">{JSON.stringify(resource, null, 2)}</pre>
+            <summary className="cursor-pointer text-sm font-medium text-gray-700">
+              Raw JSON
+            </summary>
+            <pre className="mt-3 overflow-x-auto rounded-lg bg-gray-950 p-3 text-xs text-gray-100">
+              {JSON.stringify(resource, null, 2)}
+            </pre>
           </details>
         </>
       ) : null}

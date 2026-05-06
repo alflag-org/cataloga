@@ -45,10 +45,17 @@ export function ResourceTypeEditorPage({ mode }: { mode: "create" | "edit" }) {
   const [value, setValue] = useState<ResourceType>(defaultResourceType());
   const [allTypes, setAllTypes] = useState<ResourceType[]>([]);
   const [error, setError] = useState<string | null>(null);
-  const [advanced, setAdvanced] = useState({ form_layout: "[]", detail_sections: "[]", validation_rules: "[]" });
+  const [advanced, setAdvanced] = useState({
+    form_layout: "[]",
+    detail_sections: "[]",
+    validation_rules: "[]",
+  });
 
   useEffect(() => {
-    api.listResourceTypes().then(setAllTypes).catch((e) => setError(e.message));
+    api
+      .listResourceTypes()
+      .then(setAllTypes)
+      .catch((e) => setError(e.message));
     if (mode === "edit" && type) {
       api
         .getResourceType(type)
@@ -57,7 +64,11 @@ export function ResourceTypeEditorPage({ mode }: { mode: "create" | "edit" }) {
           setAdvanced({
             form_layout: JSON.stringify(rt.form_layout ?? [], null, 2),
             detail_sections: JSON.stringify(rt.detail_sections ?? [], null, 2),
-            validation_rules: JSON.stringify(rt.validation_rules ?? [], null, 2),
+            validation_rules: JSON.stringify(
+              rt.validation_rules ?? [],
+              null,
+              2,
+            ),
           });
         })
         .catch((e) => setError(e.message));
@@ -73,19 +84,25 @@ export function ResourceTypeEditorPage({ mode }: { mode: "create" | "edit" }) {
   const removeField = (idx: number) => {
     const target = value.fields[idx]?.name;
     const fields = value.fields.filter((_, i) => i !== idx);
-    const references = target ? value.references.filter((ref) => ref.field !== target) : value.references;
+    const references = target
+      ? value.references.filter((ref) => ref.field !== target)
+      : value.references;
     setValue({ ...value, fields, references });
   };
 
   const setFieldName = (idx: number, name: string) => {
     const current = value.fields[idx];
     const oldName = current.name;
-    const autoLabel = current.label.trim() === "" || current.label === deriveDisplayLabel(oldName);
+    const autoLabel =
+      current.label.trim() === "" ||
+      current.label === deriveDisplayLabel(oldName);
     const nextLabel = autoLabel ? deriveDisplayLabel(name) : current.label;
     upsertField(idx, { ...current, name, label: nextLabel });
 
     if (oldName && oldName !== name) {
-      const references = value.references.map((ref) => (ref.field === oldName ? { ...ref, field: name } : ref));
+      const references = value.references.map((ref) =>
+        ref.field === oldName ? { ...ref, field: name } : ref,
+      );
       setValue((prev) => ({ ...prev, references }));
     }
   };
@@ -104,11 +121,22 @@ export function ResourceTypeEditorPage({ mode }: { mode: "create" | "edit" }) {
         ...value,
         fields: value.fields.filter((field) => field.name.trim()),
         required_fields: value.required_fields.filter(Boolean),
-        list_columns: normalizeListColumns(value.list_columns).map((col) => ({ path: col.path, label: col.label })),
-        references: value.references.filter((ref) => ref.field && ref.target_type),
-        form_layout: parseJsonArray(advanced.form_layout) as ResourceType["form_layout"],
-        detail_sections: parseJsonArray(advanced.detail_sections) as ResourceType["detail_sections"],
-        validation_rules: parseJsonArray(advanced.validation_rules) as ResourceType["validation_rules"],
+        list_columns: normalizeListColumns(value.list_columns).map((col) => ({
+          path: col.path,
+          label: col.label,
+        })),
+        references: value.references.filter(
+          (ref) => ref.field && ref.target_type,
+        ),
+        form_layout: parseJsonArray(
+          advanced.form_layout,
+        ) as ResourceType["form_layout"],
+        detail_sections: parseJsonArray(
+          advanced.detail_sections,
+        ) as ResourceType["detail_sections"],
+        validation_rules: parseJsonArray(
+          advanced.validation_rules,
+        ) as ResourceType["validation_rules"],
       };
       if (mode === "create") await api.upsertResourceType(payload);
       else await api.updateResourceType(type, payload);
@@ -121,7 +149,11 @@ export function ResourceTypeEditorPage({ mode }: { mode: "create" | "edit" }) {
   return (
     <section className="space-y-5">
       <PageHeader
-        title={mode === "create" ? "Administration / Resource Types / Create Resource Type" : `Administration / Resource Types / ${type} / Edit schema`}
+        title={
+          mode === "create"
+            ? "Administration / Resource Types / Create Resource Type"
+            : `Administration / Resource Types / ${type} / Edit schema`
+        }
       />
       <ErrorBanner message={error} />
 
@@ -129,19 +161,35 @@ export function ResourceTypeEditorPage({ mode }: { mode: "create" | "edit" }) {
         <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
           <label className="block text-sm font-medium text-gray-700">
             ID
-            <TextInput value={value.id} disabled={mode === "edit"} onChange={(e) => setValue({ ...value, id: e.target.value })} />
+            <TextInput
+              value={value.id}
+              disabled={mode === "edit"}
+              onChange={(e) => setValue({ ...value, id: e.target.value })}
+            />
           </label>
           <label className="block text-sm font-medium text-gray-700">
             Title
-            <TextInput value={value.title} onChange={(e) => setValue({ ...value, title: e.target.value })} />
+            <TextInput
+              value={value.title}
+              onChange={(e) => setValue({ ...value, title: e.target.value })}
+            />
           </label>
           <label className="block text-sm font-medium text-gray-700">
             Group
-            <TextInput value={value.group} onChange={(e) => setValue({ ...value, group: e.target.value })} />
+            <TextInput
+              value={value.group}
+              onChange={(e) => setValue({ ...value, group: e.target.value })}
+            />
           </label>
           <label className="block text-sm font-medium text-gray-700 md:col-span-2">
             Description
-            <TextareaInput rows={3} value={value.description} onChange={(e) => setValue({ ...value, description: e.target.value })} />
+            <TextareaInput
+              rows={3}
+              value={value.description}
+              onChange={(e) =>
+                setValue({ ...value, description: e.target.value })
+              }
+            />
           </label>
         </div>
       </DataCard>
@@ -150,7 +198,10 @@ export function ResourceTypeEditorPage({ mode }: { mode: "create" | "edit" }) {
         title="Fields"
         actions={
           <div className="flex items-center gap-3">
-            <Link to="/field-types" className="text-sm font-medium text-blue-700 hover:text-blue-800">
+            <Link
+              to="/field-types"
+              className="text-sm font-medium text-blue-700 hover:text-blue-800"
+            >
               Field Types guide
             </Link>
             <Button
@@ -158,7 +209,10 @@ export function ResourceTypeEditorPage({ mode }: { mode: "create" | "edit" }) {
               onClick={() =>
                 setValue({
                   ...value,
-                  fields: [...value.fields, { name: "", label: "", type: "string", enum_values: [] }],
+                  fields: [
+                    ...value.fields,
+                    { name: "", label: "", type: "string", enum_values: [] },
+                  ],
                 })
               }
             >
@@ -169,21 +223,39 @@ export function ResourceTypeEditorPage({ mode }: { mode: "create" | "edit" }) {
       >
         <div className="space-y-3">
           {value.fields.map((field, idx) => (
-            <div key={`${field.name}-${idx}`} className="rounded-lg border border-gray-200 p-3">
+            <div
+              key={`${field.name}-${idx}`}
+              className="rounded-lg border border-gray-200 p-3"
+            >
               <div className="grid grid-cols-1 gap-3 md:grid-cols-5">
                 <label className="text-sm text-gray-700">
                   Field name
-                  <TextInput value={field.name} onChange={(e) => setFieldName(idx, e.target.value)} placeholder="primary_ip" />
+                  <TextInput
+                    value={field.name}
+                    onChange={(e) => setFieldName(idx, e.target.value)}
+                    placeholder="primary_ip"
+                  />
                 </label>
                 <label className="text-sm text-gray-700">
                   Label
-                  <TextInput value={field.label} onChange={(e) => upsertField(idx, { ...field, label: e.target.value })} placeholder="Primary IP" />
+                  <TextInput
+                    value={field.label}
+                    onChange={(e) =>
+                      upsertField(idx, { ...field, label: e.target.value })
+                    }
+                    placeholder="Primary IP"
+                  />
                 </label>
                 <label className="text-sm text-gray-700">
                   Type
                   <SelectInput
                     value={field.type}
-                    onChange={(e) => upsertField(idx, { ...field, type: e.target.value as FieldDef["type"] })}
+                    onChange={(e) =>
+                      upsertField(idx, {
+                        ...field,
+                        type: e.target.value as FieldDef["type"],
+                      })
+                    }
                   >
                     {fieldTypes.map((item) => (
                       <option key={item} value={item}>
@@ -195,8 +267,12 @@ export function ResourceTypeEditorPage({ mode }: { mode: "create" | "edit" }) {
                 <label className="text-sm text-gray-700">
                   Required
                   <SelectInput
-                    value={value.required_fields.includes(field.name) ? "yes" : "no"}
-                    onChange={(e) => toggleRequired(field.name, e.target.value === "yes")}
+                    value={
+                      value.required_fields.includes(field.name) ? "yes" : "no"
+                    }
+                    onChange={(e) =>
+                      toggleRequired(field.name, e.target.value === "yes")
+                    }
                   >
                     <option value="no">No</option>
                     <option value="yes">Yes</option>
@@ -211,30 +287,51 @@ export function ResourceTypeEditorPage({ mode }: { mode: "create" | "edit" }) {
 
               {field.type === "enum" ? (
                 <div className="mt-3">
-                  <p className="text-sm font-medium text-gray-700">Enum values</p>
+                  <p className="text-sm font-medium text-gray-700">
+                    Enum values
+                  </p>
                   <div className="mt-2 space-y-2">
                     {(field.enum_values ?? []).map((valueText, enumIndex) => (
-                      <div key={`${valueText}-${enumIndex}`} className="flex items-center gap-2">
+                      <div
+                        key={`${valueText}-${enumIndex}`}
+                        className="flex items-center gap-2"
+                      >
                         <TextInput
                           value={valueText}
                           onChange={(e) => {
                             const enumValues = [...field.enum_values];
                             enumValues[enumIndex] = e.target.value;
-                            upsertField(idx, { ...field, enum_values: enumValues.filter(Boolean) });
+                            upsertField(idx, {
+                              ...field,
+                              enum_values: enumValues.filter(Boolean),
+                            });
                           }}
                         />
                         <ActionButton
                           tone="danger"
                           onClick={() => {
-                            const enumValues = field.enum_values.filter((_, i) => i !== enumIndex);
-                            upsertField(idx, { ...field, enum_values: enumValues });
+                            const enumValues = field.enum_values.filter(
+                              (_, i) => i !== enumIndex,
+                            );
+                            upsertField(idx, {
+                              ...field,
+                              enum_values: enumValues,
+                            });
                           }}
                         >
                           Remove
                         </ActionButton>
                       </div>
                     ))}
-                    <Button variant="secondary" onClick={() => upsertField(idx, { ...field, enum_values: [...field.enum_values, ""] })}>
+                    <Button
+                      variant="secondary"
+                      onClick={() =>
+                        upsertField(idx, {
+                          ...field,
+                          enum_values: [...field.enum_values, ""],
+                        })
+                      }
+                    >
                       Add value
                     </Button>
                   </div>
@@ -248,7 +345,10 @@ export function ResourceTypeEditorPage({ mode }: { mode: "create" | "edit" }) {
       <DataCard title="List columns">
         <div className="space-y-3">
           {normalizeListColumns(value.list_columns).map((column, idx) => (
-            <div key={`${column.path}-${idx}`} className="grid grid-cols-1 gap-3 md:grid-cols-[1fr_1fr_auto] md:items-end">
+            <div
+              key={`${column.path}-${idx}`}
+              className="grid grid-cols-1 gap-3 md:grid-cols-[1fr_1fr_auto] md:items-end"
+            >
               <label className="text-sm text-gray-700">
                 Path
                 <TextInput
@@ -274,7 +374,9 @@ export function ResourceTypeEditorPage({ mode }: { mode: "create" | "edit" }) {
               <ActionButton
                 tone="danger"
                 onClick={() => {
-                  const next = normalizeListColumns(value.list_columns).filter((_, i) => i !== idx);
+                  const next = normalizeListColumns(value.list_columns).filter(
+                    (_, i) => i !== idx,
+                  );
                   setValue({ ...value, list_columns: next });
                 }}
               >
@@ -284,7 +386,15 @@ export function ResourceTypeEditorPage({ mode }: { mode: "create" | "edit" }) {
           ))}
           <Button
             variant="secondary"
-            onClick={() => setValue({ ...value, list_columns: [...normalizeListColumns(value.list_columns), { path: "metadata.name", label: "Name" }] })}
+            onClick={() =>
+              setValue({
+                ...value,
+                list_columns: [
+                  ...normalizeListColumns(value.list_columns),
+                  { path: "metadata.name", label: "Name" },
+                ],
+              })
+            }
           >
             Add column
           </Button>
@@ -294,7 +404,10 @@ export function ResourceTypeEditorPage({ mode }: { mode: "create" | "edit" }) {
       <DataCard title="References">
         <div className="space-y-3">
           {value.references.map((reference, idx) => (
-            <div key={`${reference.field}-${idx}`} className="grid grid-cols-1 gap-3 md:grid-cols-4 md:items-end">
+            <div
+              key={`${reference.field}-${idx}`}
+              className="grid grid-cols-1 gap-3 md:grid-cols-4 md:items-end"
+            >
               <label className="text-sm text-gray-700">
                 Field
                 <SelectInput
@@ -308,7 +421,8 @@ export function ResourceTypeEditorPage({ mode }: { mode: "create" | "edit" }) {
                   <option value="">Select field</option>
                   {value.fields.map((field) => (
                     <option key={field.name} value={field.name}>
-                      {field.label || deriveDisplayLabel(field.name)} ({field.name})
+                      {field.label || deriveDisplayLabel(field.name)} (
+                      {field.name})
                     </option>
                   ))}
                 </SelectInput>
@@ -337,7 +451,10 @@ export function ResourceTypeEditorPage({ mode }: { mode: "create" | "edit" }) {
                   value={reference.multiple ? "yes" : "no"}
                   onChange={(e) => {
                     const next = [...value.references];
-                    next[idx] = { ...next[idx], multiple: e.target.value === "yes" };
+                    next[idx] = {
+                      ...next[idx],
+                      multiple: e.target.value === "yes",
+                    };
                     setValue({ ...value, references: next });
                   }}
                 >
@@ -347,7 +464,12 @@ export function ResourceTypeEditorPage({ mode }: { mode: "create" | "edit" }) {
               </label>
               <ActionButton
                 tone="danger"
-                onClick={() => setValue({ ...value, references: value.references.filter((_, i) => i !== idx) })}
+                onClick={() =>
+                  setValue({
+                    ...value,
+                    references: value.references.filter((_, i) => i !== idx),
+                  })
+                }
               >
                 Remove
               </ActionButton>
@@ -355,7 +477,15 @@ export function ResourceTypeEditorPage({ mode }: { mode: "create" | "edit" }) {
           ))}
           <Button
             variant="secondary"
-            onClick={() => setValue({ ...value, references: [...value.references, { field: "", target_type: "", multiple: false }] })}
+            onClick={() =>
+              setValue({
+                ...value,
+                references: [
+                  ...value.references,
+                  { field: "", target_type: "", multiple: false },
+                ],
+              })
+            }
           >
             Add reference
           </Button>
@@ -365,7 +495,13 @@ export function ResourceTypeEditorPage({ mode }: { mode: "create" | "edit" }) {
       <DataCard title="Validation rules">
         <label className="block text-sm font-medium text-gray-700">
           validation_rules
-          <TextareaInput rows={6} value={advanced.validation_rules} onChange={(e) => setAdvanced({ ...advanced, validation_rules: e.target.value })} />
+          <TextareaInput
+            rows={6}
+            value={advanced.validation_rules}
+            onChange={(e) =>
+              setAdvanced({ ...advanced, validation_rules: e.target.value })
+            }
+          />
         </label>
       </DataCard>
 
@@ -373,11 +509,23 @@ export function ResourceTypeEditorPage({ mode }: { mode: "create" | "edit" }) {
         <div className="space-y-4">
           <label className="block text-sm font-medium text-gray-700">
             form_layout
-            <TextareaInput rows={6} value={advanced.form_layout} onChange={(e) => setAdvanced({ ...advanced, form_layout: e.target.value })} />
+            <TextareaInput
+              rows={6}
+              value={advanced.form_layout}
+              onChange={(e) =>
+                setAdvanced({ ...advanced, form_layout: e.target.value })
+              }
+            />
           </label>
           <label className="block text-sm font-medium text-gray-700">
             detail_sections
-            <TextareaInput rows={6} value={advanced.detail_sections} onChange={(e) => setAdvanced({ ...advanced, detail_sections: e.target.value })} />
+            <TextareaInput
+              rows={6}
+              value={advanced.detail_sections}
+              onChange={(e) =>
+                setAdvanced({ ...advanced, detail_sections: e.target.value })
+              }
+            />
           </label>
         </div>
       </DataCard>

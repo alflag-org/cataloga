@@ -13,7 +13,9 @@ type ResourceRow = { group: string; title: string; id: string; count: number };
 
 export function DashboardPage() {
   const [types, setTypes] = useState<ResourceType[]>([]);
-  const [resourceByType, setResourceByType] = useState<Record<string, Resource[]>>({});
+  const [resourceByType, setResourceByType] = useState<
+    Record<string, Resource[]>
+  >({});
   const [query, setQuery] = useState("");
   const [resourceTableQuery, setResourceTableQuery] = useState("");
   const [sortKey, setSortKey] = useState("group");
@@ -25,7 +27,9 @@ export function DashboardPage() {
       try {
         const rt = await api.listResourceTypes();
         setTypes(rt);
-        const resources = await Promise.all(rt.map(async (t) => [t.id, await api.listResources(t.id)] as const));
+        const resources = await Promise.all(
+          rt.map(async (t) => [t.id, await api.listResources(t.id)] as const),
+        );
         setResourceByType(Object.fromEntries(resources));
       } catch (e) {
         setError(e instanceof Error ? e.message : String(e));
@@ -39,7 +43,12 @@ export function DashboardPage() {
     const hits: SearchHit[] = [];
     for (const t of types) {
       for (const r of resourceByType[t.id] ?? []) {
-        const haystack = [r.metadata.id, r.metadata.name, JSON.stringify(r.metadata.tags), JSON.stringify(r.spec)]
+        const haystack = [
+          r.metadata.id,
+          r.metadata.name,
+          JSON.stringify(r.metadata.tags),
+          JSON.stringify(r.spec),
+        ]
           .join(" ")
           .toLowerCase();
         if (haystack.includes(q)) {
@@ -77,9 +86,24 @@ export function DashboardPage() {
   });
 
   const columns: DataTableColumn<ResourceRow>[] = [
-    { key: "group", label: "Group", render: (row) => row.group, sortValue: (row) => row.group },
-    { key: "type", label: "Type", render: (row) => row.title, sortValue: (row) => row.title },
-    { key: "resources", label: "Resources", render: (row) => row.count, sortValue: (row) => row.count },
+    {
+      key: "group",
+      label: "Group",
+      render: (row) => row.group,
+      sortValue: (row) => row.group,
+    },
+    {
+      key: "type",
+      label: "Type",
+      render: (row) => row.title,
+      sortValue: (row) => row.title,
+    },
+    {
+      key: "resources",
+      label: "Resources",
+      render: (row) => row.count,
+      sortValue: (row) => row.count,
+    },
   ];
 
   return (
@@ -107,7 +131,11 @@ export function DashboardPage() {
                 <p className="text-gray-600">No results</p>
               ) : (
                 searchHits.map((hit) => (
-                  <Link key={`${hit.type}/${hit.id}`} to={`/resources/${hit.type}/${hit.id}`} className="block text-blue-700 hover:text-blue-800">
+                  <Link
+                    key={`${hit.type}/${hit.id}`}
+                    to={`/resources/${hit.type}/${hit.id}`}
+                    className="block text-blue-700 hover:text-blue-800"
+                  >
                     {hit.typeTitle} / {hit.name}
                   </Link>
                 ))
@@ -120,7 +148,10 @@ export function DashboardPage() {
       <DataCard
         title="Resources"
         actions={
-          <Link to="/resources" className="text-sm font-medium text-blue-700 hover:text-blue-800">
+          <Link
+            to="/resources"
+            className="text-sm font-medium text-blue-700 hover:text-blue-800"
+          >
             View all resources
           </Link>
         }
@@ -133,7 +164,8 @@ export function DashboardPage() {
           sortKey={sortKey}
           sortDir={sortDir}
           onSort={(key) => {
-            if (sortKey === key) setSortDir((prev) => (prev === "asc" ? "desc" : "asc"));
+            if (sortKey === key)
+              setSortDir((prev) => (prev === "asc" ? "desc" : "asc"));
             else {
               setSortKey(key);
               setSortDir("asc");
