@@ -1,16 +1,18 @@
 import { useEffect, useMemo, useState } from 'react'
 import { api } from '../api/client'
-import { LinkButton } from '../components/Button'
+import { Button, LinkButton } from '../components/Button'
 import { DataCard } from '../components/DataCard'
 import { ErrorBanner } from '../components/ErrorBanner'
 import { PageHeader } from '../components/PageHeader'
 import { StatCard } from '../components/StatCard'
+import { buildHomeLabSampleResources, buildHomeLabTypes } from '../homeLabTemplate'
 import type { ResourceType } from '../types'
 
 export function DashboardPage() {
   const [types, setTypes] = useState<ResourceType[]>([])
   const [counts, setCounts] = useState<Record<string, number>>({})
   const [health, setHealth] = useState('unknown')
+  const [validationStatus, setValidationStatus] = useState<'ok' | 'failed' | 'unknown'>('unknown')
   const [error, setError] = useState<string | null>(null)
 
   useEffect(() => {
@@ -22,6 +24,8 @@ export function DashboardPage() {
         setCounts(Object.fromEntries(entries))
         const h = await api.health()
         setHealth(h.status)
+        const validation = await api.getValidation()
+        setValidationStatus(validation.status)
       } catch (e) {
         setError(e instanceof Error ? e.message : String(e))
       }
@@ -38,6 +42,7 @@ export function DashboardPage() {
         <StatCard label="Health" value={health} />
         <StatCard label="Resource Types" value={types.length} />
         <StatCard label="Total Resources" value={totalResources} />
+        <StatCard label="Validation" value={validationStatus} />
       </div>
       <DataCard title="Resources per type">
         <div className="space-y-2">
@@ -58,6 +63,27 @@ export function DashboardPage() {
           <LinkButton to="/export" variant="secondary">
             Export YAML
           </LinkButton>
+          <LinkButton to="/validation" variant="secondary">
+            View Validation Result
+          </LinkButton>
+          <Button
+            variant="secondary"
+            onClick={async () => {
+              const existing = await api.listResourceTypes()
+              const template = buildHomeLabTypes()
+              const exists = template.some((t) => existing.some((x) => x.id === t.id))
+              if (exists && !window.confirm('Some Resource Types already exist. Overwrite with Home Lab Basic template?')) return
+              for (const rt of template) {
+                await api.upsertResourceType(rt)
+              }
+              for (const r of buildHomeLabSampleResources()) {
+                await api.createResource(r.metadata.type, r)
+              }
+              window.location.reload()
+            }}
+          >
+            Initialize Home Lab Template
+          </Button>
         </div>
       </DataCard>
     </section>

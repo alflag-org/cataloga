@@ -212,6 +212,7 @@ dependencies = [
  "anyhow",
  "cataloga-core",
  "cataloga-store",
+ "serde",
 ]
 
 [[package]]

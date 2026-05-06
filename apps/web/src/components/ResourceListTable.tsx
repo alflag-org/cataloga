@@ -1,11 +1,16 @@
 import { Link } from 'react-router-dom'
 import { readPath, type Resource } from '../types'
 import { Badge } from './Badge'
+import { Button } from './Button'
 
 type Props = {
   type: string
   columns: string[]
   rows: Resource[]
+  sortBy: string
+  sortDir: 'asc' | 'desc'
+  onSort: (column: string) => void
+  onDelete: (resourceId: string) => void
 }
 
 function toCompact(value: unknown): string {
@@ -15,7 +20,7 @@ function toCompact(value: unknown): string {
   return String(value)
 }
 
-export function ResourceListTable({ type, columns, rows }: Props) {
+export function ResourceListTable({ type, columns, rows, sortBy, sortDir, onSort, onDelete }: Props) {
   return (
     <div className="overflow-x-auto">
       <table className="min-w-full divide-y divide-gray-200 text-sm">
@@ -23,7 +28,10 @@ export function ResourceListTable({ type, columns, rows }: Props) {
           <tr>
             {columns.map((c) => (
               <th key={c} className="px-3 py-2 text-left font-semibold text-gray-600">
-                {c}
+                <button className="inline-flex items-center gap-1 hover:text-gray-900" onClick={() => onSort(c)}>
+                  {c}
+                  {sortBy === c ? (sortDir === 'asc' ? '↑' : '↓') : ''}
+                </button>
               </th>
             ))}
             <th className="px-3 py-2 text-left font-semibold text-gray-600">Actions</th>
@@ -46,6 +54,10 @@ export function ResourceListTable({ type, columns, rows }: Props) {
                   <Link className="text-gray-700 hover:text-gray-900" to={`/resource-types/${type}/${r.metadata.id}/edit`}>
                     Edit
                   </Link>
+                  <Badge>•</Badge>
+                  <Button variant="danger" className="px-2 py-1 text-xs" onClick={() => onDelete(r.metadata.id)}>
+                    Delete
+                  </Button>
                 </div>
               </td>
             </tr>

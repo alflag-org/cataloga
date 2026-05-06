@@ -1,4 +1,4 @@
-import type { Resource, ResourceType } from '../types'
+import type { ImportPreviewResult, Resource, ResourceType, ValidationResult } from '../types'
 
 const API = '/api'
 
@@ -45,6 +45,10 @@ export const api = {
       headers: { 'content-type': 'application/json' },
       body: JSON.stringify(payload)
     }),
+  deleteResourceType: (type: string) =>
+    request<void>(`/resource-types/${type}`, {
+      method: 'DELETE'
+    }),
   listResources: (type: string) => request<Resource[]>(`/resources/${type}`),
   getResource: (type: string, id: string) => request<Resource>(`/resources/${type}/${id}`),
   createResource: (type: string, payload: Resource) =>
@@ -59,8 +63,19 @@ export const api = {
       headers: { 'content-type': 'application/json' },
       body: JSON.stringify(payload)
     }),
-  importYaml: (yaml: string) =>
-    request<void>('/import', {
+  deleteResource: (type: string, id: string) =>
+    request<void>(`/resources/${type}/${id}`, {
+      method: 'DELETE'
+    }),
+  getValidation: () => request<ValidationResult>('/validation'),
+  importPreview: (yaml: string) =>
+    request<ImportPreviewResult>('/import/preview', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ yaml })
+    }),
+  importApply: (yaml: string) =>
+    request<void>('/import/apply', {
       method: 'POST',
       headers: { 'content-type': 'application/json' },
       body: JSON.stringify({ yaml })

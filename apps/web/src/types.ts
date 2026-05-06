@@ -48,6 +48,28 @@ export type Resource = {
   dependencies: Record<string, unknown>
 }
 
+export type ValidationIssue = {
+  severity: string
+  resource_type: string
+  resource_id: string
+  field: string
+  message: string
+}
+
+export type ValidationResult = {
+  status: 'ok' | 'failed'
+  errors: ValidationIssue[]
+  warnings: ValidationIssue[]
+}
+
+export type ImportPreviewResult = {
+  resource_types_to_create: string[]
+  resource_types_to_update: string[]
+  resources_to_create: string[]
+  resources_to_update: string[]
+  validation_errors: ValidationIssue[]
+}
+
 export function defaultResourceType(): ResourceType {
   return {
     id: '',

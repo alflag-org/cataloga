@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
-import { useParams } from 'react-router-dom'
+import { useNavigate, useParams } from 'react-router-dom'
 import { api } from '../api/client'
-import { LinkButton } from '../components/Button'
+import { Button, LinkButton } from '../components/Button'
 import { DataCard } from '../components/DataCard'
 import { ErrorBanner } from '../components/ErrorBanner'
 import { PageHeader } from '../components/PageHeader'
@@ -9,6 +9,7 @@ import { compactValue, type Resource } from '../types'
 
 export function ResourceDetailPage() {
   const { type = '', id = '' } = useParams()
+  const navigate = useNavigate()
   const [resource, setResource] = useState<Resource | null>(null)
   const [error, setError] = useState<string | null>(null)
 
@@ -18,7 +19,28 @@ export function ResourceDetailPage() {
 
   return (
     <section className="space-y-5">
-      <PageHeader title={`Resource: ${type}/${id}`} actions={<LinkButton to={`/resource-types/${type}/${id}/edit`}>Edit</LinkButton>} />
+      <PageHeader
+        title={`Resource: ${type}/${id}`}
+        actions={
+          <div className="flex gap-2">
+            <LinkButton to={`/resource-types/${type}/${id}/edit`}>Edit</LinkButton>
+            <Button
+              variant="danger"
+              onClick={async () => {
+                if (!window.confirm(`Delete Resource '${type}/${id}'?`)) return
+                try {
+                  await api.deleteResource(type, id)
+                  navigate(`/resource-types/${type}`)
+                } catch (e) {
+                  setError(e instanceof Error ? e.message : String(e))
+                }
+              }}
+            >
+              Delete
+            </Button>
+          </div>
+        }
+      />
       <ErrorBanner message={error} />
       {resource ? (
         <>

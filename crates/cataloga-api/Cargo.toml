@@ -8,4 +8,4 @@ license.workspace = true
 anyhow.workspace = true
 cataloga-core = { path = "../cataloga-core" }
 cataloga-store = { path = "../cataloga-store" }
-
+serde.workspace = true

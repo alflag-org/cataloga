@@ -13,6 +13,7 @@ import { ResourceTypeCreatePage } from './pages/ResourceTypeCreatePage'
 import { ResourceTypeEditPage } from './pages/ResourceTypeEditPage'
 import { ResourceTypeListPage } from './pages/ResourceTypeListPage'
 import { SettingsPage } from './pages/SettingsPage'
+import { ValidationPage } from './pages/ValidationPage'
 import './styles.css'
 
 function App() {
@@ -31,6 +32,7 @@ function App() {
           <Route path="/import" element={<ImportPage />} />
           <Route path="/export" element={<ExportPage />} />
           <Route path="/settings" element={<SettingsPage />} />
+          <Route path="/validation" element={<ValidationPage />} />
           <Route path="*" element={<Navigate to="/" replace />} />
         </Route>
       </Routes>

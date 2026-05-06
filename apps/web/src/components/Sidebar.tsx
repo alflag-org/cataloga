@@ -5,6 +5,7 @@ const navItems = [
   { to: '/resource-types', label: 'Resource Types' },
   { to: '/import', label: 'Import' },
   { to: '/export', label: 'Export' },
+  { to: '/validation', label: 'Validation' },
   { to: '/settings', label: 'Settings' }
 ]
 

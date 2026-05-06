@@ -122,6 +122,13 @@ pub async fn fetch(mut req: Request, env: Env, _ctx: Context) -> Result<Response
                 .map_err(|e| Error::RustError(e.to_string()))?;
             Response::empty()
         }
+        (Method::Get, ["api", "validation"]) => {
+            let result = api
+                .validation_result(CATALOG_ID)
+                .await
+                .map_err(|e| Error::RustError(e.to_string()))?;
+            json_response(&result)
+        }
         (Method::Get, ["api", "export"]) => {
             let yaml = api
                 .export_catalog_yaml(CATALOG_ID)
@@ -130,6 +137,27 @@ pub async fn fetch(mut req: Request, env: Env, _ctx: Context) -> Result<Response
             Response::ok(yaml)
         }
         (Method::Post, ["api", "import"]) => {
+            let payload: ImportRequest = req
+                .json()
+                .await
+                .map_err(|e| Error::RustError(e.to_string()))?;
+            api.import_catalog_yaml(CATALOG_ID, &payload.yaml)
+                .await
+                .map_err(|e| Error::RustError(e.to_string()))?;
+            Response::empty()
+        }
+        (Method::Post, ["api", "import", "preview"]) => {
+            let payload: ImportRequest = req
+                .json()
+                .await
+                .map_err(|e| Error::RustError(e.to_string()))?;
+            let preview = api
+                .import_catalog_preview(CATALOG_ID, &payload.yaml)
+                .await
+                .map_err(|e| Error::RustError(e.to_string()))?;
+            json_response(&preview)
+        }
+        (Method::Post, ["api", "import", "apply"]) => {
             let payload: ImportRequest = req
                 .json()
                 .await

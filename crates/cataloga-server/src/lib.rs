@@ -5,7 +5,7 @@ use axum::{
     response::IntoResponse,
     routing::{get, post},
 };
-use cataloga_api::ApiService;
+use cataloga_api::{ApiService, ImportPreviewResult, ValidationResult};
 use cataloga_core::{Resource, ResourceType};
 use cataloga_store_sqlite::SqliteStore;
 use serde::Deserialize;
@@ -48,7 +48,10 @@ pub async fn serve(db_url: String, listen: SocketAddr, catalog_id: String) -> an
                 .delete(delete_resource),
         )
         .route("/api/validate", post(validate_catalog))
+        .route("/api/validation", get(validation_result))
         .route("/api/import", post(import_catalog))
+        .route("/api/import/preview", post(import_preview))
+        .route("/api/import/apply", post(import_apply))
         .route("/api/export", get(export_catalog))
         .route("/api/health", get(health))
         .with_state(AppState { store, catalog_id });
@@ -154,6 +157,31 @@ async fn import_catalog(
     let api = build_api(&state);
     api.import_catalog_yaml(&state.catalog_id, &payload.yaml)
         .await?;
+    Ok(StatusCode::NO_CONTENT)
+}
+
+async fn validation_result(State(state): State<AppState>) -> Result<Json<ValidationResult>, AppError> {
+    let api = build_api(&state);
+    Ok(Json(api.validation_result(&state.catalog_id).await?))
+}
+
+async fn import_preview(
+    State(state): State<AppState>,
+    Json(payload): Json<ImportRequest>,
+) -> Result<Json<ImportPreviewResult>, AppError> {
+    let api = build_api(&state);
+    Ok(Json(
+        api.import_catalog_preview(&state.catalog_id, &payload.yaml)
+            .await?,
+    ))
+}
+
+async fn import_apply(
+    State(state): State<AppState>,
+    Json(payload): Json<ImportRequest>,
+) -> Result<StatusCode, AppError> {
+    let api = build_api(&state);
+    api.import_catalog_yaml(&state.catalog_id, &payload.yaml).await?;
     Ok(StatusCode::NO_CONTENT)
 }
 

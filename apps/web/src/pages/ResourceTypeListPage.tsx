@@ -1,25 +1,36 @@
 import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { api } from '../api/client'
-import { LinkButton } from '../components/Button'
+import { Button, LinkButton } from '../components/Button'
 import { DataCard } from '../components/DataCard'
 import { ErrorBanner } from '../components/ErrorBanner'
 import { PageHeader } from '../components/PageHeader'
+import { TextInput } from '../components/TextInput'
 import type { ResourceType } from '../types'
 
 export function ResourceTypeListPage() {
   const [items, setItems] = useState<ResourceType[]>([])
+  const [query, setQuery] = useState('')
   const [error, setError] = useState<string | null>(null)
 
   useEffect(() => {
     api.listResourceTypes().then(setItems).catch((e) => setError(e.message))
   }, [])
 
+  const filtered = items.filter((t) => {
+    const q = query.trim().toLowerCase()
+    if (!q) return true
+    return [t.id, t.title, t.group].join(' ').toLowerCase().includes(q)
+  })
+
   return (
     <section className="space-y-5">
       <PageHeader title="Resource Types" actions={<LinkButton to="/resource-types/new">Create Resource Type</LinkButton>} />
       <ErrorBanner message={error} />
       <DataCard>
+        <div className="mb-4">
+          <TextInput placeholder="Search by id/title/group" value={query} onChange={(e) => setQuery(e.target.value)} />
+        </div>
         <div className="overflow-x-auto">
           <table className="min-w-full divide-y divide-gray-200 text-sm">
             <thead className="bg-gray-50">
@@ -33,7 +44,7 @@ export function ResourceTypeListPage() {
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-100 bg-white">
-              {items.map((t) => (
+              {filtered.map((t) => (
                 <tr key={t.id} className="hover:bg-gray-50">
                   <td className="px-3 py-2 font-medium text-gray-800">{t.title || t.id}</td>
                   <td className="px-3 py-2 text-gray-700">{t.id}</td>
@@ -48,6 +59,21 @@ export function ResourceTypeListPage() {
                       <Link className="text-gray-700 hover:text-gray-900" to={`/resource-types/${t.id}/edit`}>
                         Edit
                       </Link>
+                      <Button
+                        variant="danger"
+                        className="px-2 py-1 text-xs"
+                        onClick={async () => {
+                          if (!window.confirm(`Delete Resource Type '${t.id}'?`)) return
+                          try {
+                            await api.deleteResourceType(t.id)
+                            setItems((prev) => prev.filter((x) => x.id !== t.id))
+                          } catch (e) {
+                            setError(e instanceof Error ? e.message : String(e))
+                          }
+                        }}
+                      >
+                        Delete
+                      </Button>
                     </div>
                   </td>
                 </tr>
