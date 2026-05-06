@@ -10,7 +10,7 @@ import {
 import { Layout } from "./components/Layout";
 import { DashboardPage } from "./pages/DashboardPage";
 import { ExportPage } from "./pages/ExportPage";
-import { GraphViewPage } from "./pages/GraphViewPage";
+import { FieldTypesGuidePage } from "./pages/FieldTypesGuidePage";
 import { ImportPage } from "./pages/ImportPage";
 import { ResourceCreatePage } from "./pages/ResourceCreatePage";
 import { ResourceDetailPage } from "./pages/ResourceDetailPage";
@@ -31,7 +31,7 @@ function App() {
           <Route path="/" element={<DashboardPage />} />
 
           <Route path="/resources" element={<ResourcesIndexPage />} />
-          <Route path="/graph" element={<GraphViewPage />} />
+          <Route path="/graph" element={<Navigate to="/" replace />} />
           <Route path="/resources/:type" element={<ResourceListPage />} />
           <Route path="/resources/:type/new" element={<ResourceCreatePage />} />
           <Route path="/resources/:type/:id" element={<ResourceDetailPage />} />
@@ -70,6 +70,7 @@ function App() {
           <Route path="/import" element={<ImportPage />} />
           <Route path="/export" element={<ExportPage />} />
           <Route path="/validation" element={<ValidationPage />} />
+          <Route path="/field-types" element={<FieldTypesGuidePage />} />
           <Route path="*" element={<Navigate to="/" replace />} />
         </Route>
       </Routes>

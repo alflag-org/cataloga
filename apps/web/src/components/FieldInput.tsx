@@ -92,16 +92,14 @@ export function FieldInput({ field, value, onChange, reference }: Props) {
   }
   if (field.type === "boolean") {
     return (
-      <label className="inline-flex items-center gap-2 text-sm text-gray-700">
-        <input
-          id={base}
-          type="checkbox"
-          className="rounded border-gray-300 text-blue-600"
-          checked={Boolean(value)}
-          onChange={(e) => onChange(e.target.checked)}
-        />
-        Enabled
-      </label>
+      <SelectInput
+        id={base}
+        value={String(Boolean(value))}
+        onChange={(e) => onChange(e.target.value === "true")}
+      >
+        <option value="false">False</option>
+        <option value="true">True</option>
+      </SelectInput>
     );
   }
   if (field.type === "enum") {
@@ -135,6 +133,29 @@ export function FieldInput({ field, value, onChange, reference }: Props) {
       <TextInput
         id={base}
         type="url"
+        placeholder="https://example.com"
+        value={asText(value)}
+        onChange={(e) => onChange(e.target.value)}
+      />
+    );
+  }
+  if (field.type === "ip") {
+    return (
+      <TextInput
+        id={base}
+        type="text"
+        placeholder="10.10.10.20"
+        value={asText(value)}
+        onChange={(e) => onChange(e.target.value)}
+      />
+    );
+  }
+  if (field.type === "cidr") {
+    return (
+      <TextInput
+        id={base}
+        type="text"
+        placeholder="10.10.10.0/24"
         value={asText(value)}
         onChange={(e) => onChange(e.target.value)}
       />

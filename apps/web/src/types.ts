@@ -27,11 +27,16 @@ export type ResourceType = {
   description: string;
   fields: FieldDef[];
   required_fields: string[];
-  list_columns: string[];
+  list_columns: Array<string | { path: string; label?: string }>;
   form_layout: Array<{ title: string; fields: string[] }>;
   detail_sections: Array<{ title: string; fields: string[] }>;
   references: Array<{ field: string; target_type: string; multiple: boolean }>;
   validation_rules: Array<Record<string, unknown>>;
+};
+
+export type NormalizedListColumn = {
+  path: string;
+  label: string;
 };
 
 export type Resource = {
@@ -148,4 +153,53 @@ export function readPath(resource: Resource, path: string): string {
     cur = (cur as Record<string, unknown>)[segment];
   }
   return compactValue(cur);
+}
+
+const ACRONYMS = new Set([
+  "id",
+  "ip",
+  "url",
+  "dns",
+  "vlan",
+  "cidr",
+  "vm",
+  "os",
+  "cpu",
+  "ram",
+]);
+
+export function deriveDisplayLabel(path: string): string {
+  const stripped = path
+    .replace(/^metadata\.tags\./, "")
+    .replace(/^metadata\./, "")
+    .replace(/^spec\./, "")
+    .replace(/^custom_fields\./, "")
+    .replace(/^dependencies\./, "");
+  const words = stripped
+    .split(/[._-]+/)
+    .filter(Boolean)
+    .map((word) => {
+      const lower = word.toLowerCase();
+      if (ACRONYMS.has(lower)) return lower.toUpperCase();
+      return lower.slice(0, 1).toUpperCase() + lower.slice(1);
+    });
+  return words.join(" ") || path;
+}
+
+export function normalizeListColumn(
+  column: string | { path: string; label?: string },
+): NormalizedListColumn {
+  if (typeof column === "string") {
+    return { path: column, label: deriveDisplayLabel(column) };
+  }
+  return {
+    path: column.path,
+    label: column.label?.trim() || deriveDisplayLabel(column.path),
+  };
+}
+
+export function normalizeListColumns(
+  columns: Array<string | { path: string; label?: string }>,
+): NormalizedListColumn[] {
+  return columns.map(normalizeListColumn).filter((c) => Boolean(c.path.trim()));
 }

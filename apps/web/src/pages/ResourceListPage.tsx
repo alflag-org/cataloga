@@ -8,7 +8,12 @@ import { ResourceListTable } from "../components/ResourceListTable";
 import { SelectInput } from "../components/SelectInput";
 import { TextInput } from "../components/TextInput";
 import { api } from "../api/client";
-import { readPath, type Resource, type ResourceType } from "../types";
+import {
+  normalizeListColumns,
+  readPath,
+  type Resource,
+  type ResourceType,
+} from "../types";
 import { useParams } from "react-router-dom";
 
 export function ResourceListPage() {
@@ -35,7 +40,9 @@ export function ResourceListPage() {
     })();
   }, [type]);
 
-  const cols = rt?.list_columns?.length ? rt.list_columns : ["metadata.name"];
+  const cols = normalizeListColumns(
+    rt?.list_columns?.length ? rt.list_columns : ["metadata.name"],
+  );
   const filtered = rows.filter((r) => {
     const q = query.trim().toLowerCase();
     if (!q) return true;
@@ -83,8 +90,8 @@ export function ResourceListPage() {
               onChange={(e) => setSortBy(e.target.value)}
             >
               {cols.map((c) => (
-                <option key={c} value={c}>
-                  {c}
+                <option key={c.path} value={c.path}>
+                  {c.label}
                 </option>
               ))}
             </SelectInput>

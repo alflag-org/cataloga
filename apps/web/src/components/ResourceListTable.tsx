@@ -1,9 +1,9 @@
 import { ActionButton, ActionLink } from "./Action";
-import { readPath, type Resource } from "../types";
+import { readPath, type NormalizedListColumn, type Resource } from "../types";
 
 type Props = {
   type: string;
-  columns: string[];
+  columns: NormalizedListColumn[];
   rows: Resource[];
   sortBy: string;
   sortDir: "asc" | "desc";
@@ -34,15 +34,15 @@ export function ResourceListTable({
           <tr>
             {columns.map((c) => (
               <th
-                key={c}
+                key={c.path}
                 className="px-3 py-2 text-left font-semibold text-gray-600"
               >
                 <button
                   className="inline-flex items-center gap-1 hover:text-gray-900"
-                  onClick={() => onSort(c)}
+                  onClick={() => onSort(c.path)}
                 >
-                  {c}
-                  {sortBy === c ? (sortDir === "asc" ? "↑" : "↓") : ""}
+                  {c.label}
+                  {sortBy === c.path ? (sortDir === "asc" ? "↑" : "↓") : ""}
                 </button>
               </th>
             ))}
@@ -56,11 +56,11 @@ export function ResourceListTable({
             <tr key={r.metadata.id} className="hover:bg-gray-50">
               {columns.map((c) => (
                 <td
-                  key={c}
+                  key={c.path}
                   className="max-w-xs px-3 py-2 align-top text-gray-700"
                 >
                   <span className="line-clamp-2 break-all">
-                    {toCompact(readPath(r, c))}
+                    {toCompact(readPath(r, c.path))}
                   </span>
                 </td>
               ))}

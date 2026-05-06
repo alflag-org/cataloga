@@ -3,13 +3,13 @@ import { NavLink } from "react-router-dom";
 const primaryItems = [
   { to: "/", label: "Dashboard" },
   { to: "/resources", label: "Resources" },
-  { to: "/graph", label: "Graph View" },
 ];
 
 const administrationItems = [
   { to: "/resource-types", label: "Resource Types" },
   { to: "/import", label: "Import" },
   { to: "/export", label: "Export" },
+  { to: "/validation", label: "Validation" },
 ];
 
 function navClass(isActive: boolean): string {

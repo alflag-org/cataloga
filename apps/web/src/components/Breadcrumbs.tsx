@@ -24,8 +24,8 @@ function toLabel(pathname: string): string {
 
   if (pathname === "/import") return "Administration / Import";
   if (pathname === "/export") return "Administration / Export";
-  if (pathname === "/validation") return "Validation";
-  if (pathname === "/graph") return "View / Graph";
+  if (pathname === "/validation") return "Administration / Validation";
+  if (pathname === "/field-types") return "Administration / Field Types";
 
   return "Dashboard";
 }
