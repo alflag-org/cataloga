@@ -7,6 +7,7 @@ import { PageHeader } from '../components/PageHeader'
 import { StatCard } from '../components/StatCard'
 import { buildHomeLabSampleResources, buildHomeLabTypes } from '../homeLabTemplate'
 import type { ResourceType } from '../types'
+import type { Resource } from '../types'
 
 export function DashboardPage() {
   const [types, setTypes] = useState<ResourceType[]>([])
@@ -14,18 +15,35 @@ export function DashboardPage() {
   const [health, setHealth] = useState('unknown')
   const [validationStatus, setValidationStatus] = useState<'ok' | 'failed' | 'unknown'>('unknown')
   const [error, setError] = useState<string | null>(null)
+  const [validationErrors, setValidationErrors] = useState(0)
+  const [validationWarnings, setValidationWarnings] = useState(0)
+  const [missingOwner, setMissingOwner] = useState(0)
+  const [missingSite, setMissingSite] = useState(0)
+  const [brokenReferences, setBrokenReferences] = useState(0)
 
   useEffect(() => {
     ;(async () => {
       try {
         const rt = await api.listResourceTypes()
         setTypes(rt)
-        const entries = await Promise.all(rt.map(async (t) => [t.id, (await api.listResources(t.id)).length] as const))
+        const resourceEntries = await Promise.all(rt.map(async (t) => [t.id, await api.listResources(t.id)] as const))
+        const entries = resourceEntries.map(([typeId, items]) => [typeId, items.length] as const)
         setCounts(Object.fromEntries(entries))
+        const all = resourceEntries.flatMap(([, items]) => items)
+        setMissingOwner(all.filter((r: Resource) => !r.metadata.tags?.owner || !String(r.metadata.tags.owner).trim()).length)
+        setMissingSite(all.filter((r: Resource) => !r.metadata.tags?.site || !String(r.metadata.tags.site).trim()).length)
         const h = await api.health()
         setHealth(h.status)
         const validation = await api.getValidation()
         setValidationStatus(validation.status)
+        setValidationErrors(validation.errors.length)
+        setValidationWarnings(validation.warnings.length)
+        setBrokenReferences(
+          validation.errors.filter((e) => {
+            const msg = e.message.toLowerCase()
+            return msg.includes('reference') && msg.includes('missing')
+          }).length
+        )
       } catch (e) {
         setError(e instanceof Error ? e.message : String(e))
       }
@@ -43,6 +61,16 @@ export function DashboardPage() {
         <StatCard label="Resource Types" value={types.length} />
         <StatCard label="Total Resources" value={totalResources} />
         <StatCard label="Validation" value={validationStatus} />
+        <StatCard label="Validation errors" value={validationErrors} />
+        <StatCard label="Validation warnings" value={validationWarnings} />
+        <StatCard label="Missing owner tag" value={missingOwner} />
+        <StatCard label="Missing site tag" value={missingSite} />
+        <StatCard label="Broken references" value={brokenReferences} />
+      </div>
+      <div className="flex">
+        <LinkButton to="/validation" variant="secondary">
+          Open Validation
+        </LinkButton>
       </div>
       <DataCard title="Resources per type">
         <div className="space-y-2">

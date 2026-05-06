@@ -5,7 +5,7 @@ use axum::{
     response::IntoResponse,
     routing::{get, post},
 };
-use cataloga_api::{ApiService, ImportPreviewResult, ValidationResult};
+use cataloga_api::{ApiService, ImportPreviewResult, ResourceReferences, ValidationResult};
 use cataloga_core::{Resource, ResourceType};
 use cataloga_store_sqlite::SqliteStore;
 use serde::Deserialize;
@@ -46,6 +46,10 @@ pub async fn serve(db_url: String, listen: SocketAddr, catalog_id: String) -> an
             get(get_resource)
                 .put(upsert_resource)
                 .delete(delete_resource),
+        )
+        .route(
+            "/api/resources/{type_id}/{resource_id}/references",
+            get(get_resource_references),
         )
         .route("/api/validate", post(validate_catalog))
         .route("/api/validation", get(validation_result))
@@ -144,6 +148,17 @@ async fn delete_resource(
     Ok(StatusCode::NO_CONTENT)
 }
 
+async fn get_resource_references(
+    State(state): State<AppState>,
+    Path((type_id, resource_id)): Path<(String, String)>,
+) -> Result<Json<ResourceReferences>, AppError> {
+    let api = build_api(&state);
+    Ok(Json(
+        api.resource_references(&state.catalog_id, &type_id, &resource_id)
+            .await?,
+    ))
+}
+
 async fn validate_catalog(State(state): State<AppState>) -> Result<StatusCode, AppError> {
     let api = build_api(&state);
     api.validate_catalog(&state.catalog_id).await?;
@@ -160,7 +175,9 @@ async fn import_catalog(
     Ok(StatusCode::NO_CONTENT)
 }
 
-async fn validation_result(State(state): State<AppState>) -> Result<Json<ValidationResult>, AppError> {
+async fn validation_result(
+    State(state): State<AppState>,
+) -> Result<Json<ValidationResult>, AppError> {
     let api = build_api(&state);
     Ok(Json(api.validation_result(&state.catalog_id).await?))
 }
@@ -181,7 +198,8 @@ async fn import_apply(
     Json(payload): Json<ImportRequest>,
 ) -> Result<StatusCode, AppError> {
     let api = build_api(&state);
-    api.import_catalog_yaml(&state.catalog_id, &payload.yaml).await?;
+    api.import_catalog_yaml(&state.catalog_id, &payload.yaml)
+        .await?;
     Ok(StatusCode::NO_CONTENT)
 }
 

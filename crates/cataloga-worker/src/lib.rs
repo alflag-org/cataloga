@@ -100,6 +100,13 @@ pub async fn fetch(mut req: Request, env: Env, _ctx: Context) -> Result<Response
                 None => Response::error("resource not found", 404),
             }
         }
+        (Method::Get, ["api", "resources", type_id, resource_id, "references"]) => {
+            let refs = api
+                .resource_references(CATALOG_ID, type_id, resource_id)
+                .await
+                .map_err(|e| Error::RustError(e.to_string()))?;
+            json_response(&refs)
+        }
         (Method::Put, ["api", "resources", _type_id, _resource_id]) => {
             let payload: Resource = req
                 .json()

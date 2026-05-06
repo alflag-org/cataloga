@@ -1,4 +1,4 @@
-import type { ImportPreviewResult, Resource, ResourceType, ValidationResult } from '../types'
+import type { ImportPreviewResult, Resource, ResourceReferences, ResourceType, ValidationResult } from '../types'
 
 const API = '/api'
 
@@ -51,6 +51,7 @@ export const api = {
     }),
   listResources: (type: string) => request<Resource[]>(`/resources/${type}`),
   getResource: (type: string, id: string) => request<Resource>(`/resources/${type}/${id}`),
+  getResourceReferences: (type: string, id: string) => request<ResourceReferences>(`/resources/${type}/${id}/references`),
   createResource: (type: string, payload: Resource) =>
     request<void>(`/resources/${type}`, {
       method: 'POST',

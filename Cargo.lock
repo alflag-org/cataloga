@@ -210,9 +210,12 @@ name = "cataloga-api"
 version = "0.2.0"
 dependencies = [
  "anyhow",
+ "async-trait",
  "cataloga-core",
  "cataloga-store",
  "serde",
+ "serde_json",
+ "tokio",
 ]
 
 [[package]]

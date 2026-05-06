@@ -62,6 +62,18 @@ export type ValidationResult = {
   warnings: ValidationIssue[]
 }
 
+export type ResourceRef = {
+  resource_type: string
+  resource_id: string
+  name: string
+  field: string
+}
+
+export type ResourceReferences = {
+  outgoing: ResourceRef[]
+  incoming: ResourceRef[]
+}
+
 export type ImportPreviewResult = {
   resource_types_to_create: string[]
   resource_types_to_update: string[]

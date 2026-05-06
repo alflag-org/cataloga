@@ -1,4 +1,5 @@
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
+import { api } from '../api/client'
 import type { Resource, ResourceType } from '../types'
 import { DataCard } from './DataCard'
 import { ErrorBanner } from './ErrorBanner'
@@ -12,6 +13,10 @@ type Props = {
   initial: Resource
   mode: 'create' | 'edit'
   onSubmit: (resource: Resource) => Promise<void>
+}
+
+function getReferenceForField(resourceType: ResourceType, fieldName: string) {
+  return resourceType.references.find((r) => r.field === fieldName)
 }
 
 function parseFieldValue(type: string, raw: unknown): unknown {
@@ -58,7 +63,29 @@ export function ResourceForm({ resourceType, initial, mode, onSubmit }: Props) {
   const [customFieldsText, setCustomFieldsText] = useState(JSON.stringify(initial.custom_fields ?? {}, null, 2))
   const [dependenciesText, setDependenciesText] = useState(JSON.stringify(initial.dependencies ?? {}, null, 2))
   const [error, setError] = useState<string | null>(null)
+  const [referenceOptions, setReferenceOptions] = useState<Record<string, Array<{ id: string; name: string }>>>({})
   const required = useMemo(() => new Set(resourceType.required_fields), [resourceType.required_fields])
+
+  useEffect(() => {
+    let alive = true
+    ;(async () => {
+      try {
+        const targetTypes = Array.from(new Set(resourceType.references.map((r) => r.target_type)))
+        const entries = await Promise.all(
+          targetTypes.map(async (targetType) => {
+            const items = await api.listResources(targetType)
+            return [targetType, items.map((r) => ({ id: r.metadata.id, name: r.metadata.name }))] as const
+          })
+        )
+        if (alive) setReferenceOptions(Object.fromEntries(entries))
+      } catch (e) {
+        if (alive) setError(e instanceof Error ? e.message : String(e))
+      }
+    })()
+    return () => {
+      alive = false
+    }
+  }, [resourceType.references])
 
   const submit = async () => {
     try {
@@ -105,9 +132,21 @@ export function ResourceForm({ resourceType, initial, mode, onSubmit }: Props) {
           {resourceType.fields.map((field) => (
             <label key={field.name} className="block text-sm font-medium text-gray-700">
               {field.label || field.name}
+              {(() => {
+                const reference = getReferenceForField(resourceType, field.name)
+                const options = reference ? referenceOptions[reference.target_type] ?? [] : []
+                return (
               <FieldInput
                 field={field}
                 value={form.spec[field.name]}
+                reference={
+                  reference
+                    ? {
+                        multiple: reference.multiple,
+                        options
+                      }
+                    : undefined
+                }
                 onChange={(value) =>
                   setForm({
                     ...form,
@@ -118,6 +157,8 @@ export function ResourceForm({ resourceType, initial, mode, onSubmit }: Props) {
                   })
                 }
               />
+                )
+              })()}
             </label>
           ))}
         </div>

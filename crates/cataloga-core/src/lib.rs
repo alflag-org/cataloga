@@ -161,6 +161,14 @@ pub enum ValidationError {
     InvalidNumberRange(String),
 }
 
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+pub struct ResourceValidationIssue {
+    pub resource_type: String,
+    pub resource_id: String,
+    pub field: String,
+    pub message: String,
+}
+
 pub fn validate_resource_type(rt: &ResourceType) -> Result<(), ValidationError> {
     let field_names: HashSet<&str> = rt.fields.iter().map(|f| f.name.as_str()).collect();
 
@@ -224,47 +232,277 @@ pub fn validate_resources(
     types: &[ResourceType],
     resources: &[Resource],
 ) -> Result<(), ValidationError> {
+    let issues = validate_resources_detailed(types, resources);
+    if let Some(issue) = issues.first() {
+        if issue.message.contains("missing required metadata") {
+            return Err(ValidationError::MissingMetadata);
+        }
+        if issue.message.contains("duplicate resource id:") {
+            return Err(ValidationError::DuplicateResourceId(
+                issue.resource_id.clone(),
+            ));
+        }
+        if issue.message.contains("unknown resource type:") {
+            return Err(ValidationError::UnknownResourceType(
+                issue.resource_type.clone(),
+            ));
+        }
+        if issue.message.contains("missing required field:") {
+            return Err(ValidationError::MissingRequiredField(issue.field.clone()));
+        }
+        if issue.message.contains("invalid field type:") {
+            return Err(ValidationError::InvalidFieldType(issue.field.clone()));
+        }
+        if issue.message.contains("invalid enum value:") {
+            return Err(ValidationError::InvalidEnumValue(issue.field.clone()));
+        }
+        if issue.message.contains("duplicate value for unique field:") {
+            return Err(ValidationError::InvalidFieldType(issue.field.clone()));
+        }
+        if issue.message.contains("references missing") {
+            return Err(ValidationError::InvalidReferenceTarget(issue.field.clone()));
+        }
+        if issue.message.contains("must reference") {
+            return Err(ValidationError::InvalidReferenceType(issue.field.clone()));
+        }
+        return Err(ValidationError::InvalidFieldType(issue.field.clone()));
+    }
+
+    Ok(())
+}
+
+pub fn validate_resources_detailed(
+    types: &[ResourceType],
+    resources: &[Resource],
+) -> Vec<ResourceValidationIssue> {
     let type_map: HashMap<_, _> = types.iter().map(|t| (t.id.as_str(), t)).collect();
-    let id_set: HashSet<_> = resources.iter().map(|r| r.metadata.id.as_str()).collect();
+    let mut issues = Vec::new();
     let mut seen = HashSet::new();
+    let mut resource_index: HashMap<(String, String), &Resource> = HashMap::new();
+    let mut id_to_types: HashMap<String, HashSet<String>> = HashMap::new();
 
     for r in resources {
+        let key = (r.metadata.resource_type.clone(), r.metadata.id.clone());
+        if !seen.insert(key.clone()) {
+            issues.push(ResourceValidationIssue {
+                resource_type: r.metadata.resource_type.clone(),
+                resource_id: r.metadata.id.clone(),
+                field: "metadata.id".to_string(),
+                message: format!(
+                    "duplicate resource id: {}/{}",
+                    r.metadata.resource_type, r.metadata.id
+                ),
+            });
+            continue;
+        }
+        id_to_types
+            .entry(r.metadata.id.clone())
+            .or_default()
+            .insert(r.metadata.resource_type.clone());
+        resource_index.insert(key, r);
+    }
+
+    for r in resources {
+        let context = format!("{}/{}", r.metadata.resource_type, r.metadata.id);
         if r.metadata.id.is_empty()
             || r.metadata.resource_type.is_empty()
             || r.metadata.name.is_empty()
         {
-            return Err(ValidationError::MissingMetadata);
+            issues.push(ResourceValidationIssue {
+                resource_type: r.metadata.resource_type.clone(),
+                resource_id: r.metadata.id.clone(),
+                field: "metadata".to_string(),
+                message: format!("{context} missing required metadata"),
+            });
+            continue;
         }
-        if !seen.insert(r.metadata.id.clone()) {
-            return Err(ValidationError::DuplicateResourceId(r.metadata.id.clone()));
-        }
-
         let Some(rt) = type_map.get(r.metadata.resource_type.as_str()) else {
-            return Err(ValidationError::UnknownResourceType(
-                r.metadata.resource_type.clone(),
-            ));
+            issues.push(ResourceValidationIssue {
+                resource_type: r.metadata.resource_type.clone(),
+                resource_id: r.metadata.id.clone(),
+                field: "metadata.type".to_string(),
+                message: format!(
+                    "{context} unknown resource type: {}",
+                    r.metadata.resource_type
+                ),
+            });
+            continue;
         };
 
         for required in &rt.required_fields {
             if !r.spec.contains_key(required) {
-                return Err(ValidationError::MissingRequiredField(required.clone()));
+                issues.push(ResourceValidationIssue {
+                    resource_type: r.metadata.resource_type.clone(),
+                    resource_id: r.metadata.id.clone(),
+                    field: required.clone(),
+                    message: format!("{context} missing required field: {required}"),
+                });
             }
         }
 
         for f in &rt.fields {
-            if let Some(v) = r.spec.get(&f.name) {
-                validate_field_value(f, v)?;
+            if let Some(v) = r.spec.get(&f.name)
+                && let Err(err) = validate_field_value(f, v)
+            {
+                let message = match err {
+                    ValidationError::InvalidEnumValue(_) => {
+                        format!("{context} invalid enum value: {}", f.name)
+                    }
+                    _ => format!("{context} invalid field type: {}", f.name),
+                };
+                issues.push(ResourceValidationIssue {
+                    resource_type: r.metadata.resource_type.clone(),
+                    resource_id: r.metadata.id.clone(),
+                    field: f.name.clone(),
+                    message,
+                });
             }
         }
 
         for rule in &rt.validation_rules {
-            if let Some(v) = r.spec.get(&rule.field) {
-                validate_rule_value(rule, v, &r.metadata.resource_type, &id_set)?;
+            if let Some(v) = r.spec.get(&rule.field)
+                && validate_rule_value(rule, v, &r.metadata.resource_type, &id_to_types).is_err()
+            {
+                issues.push(ResourceValidationIssue {
+                    resource_type: r.metadata.resource_type.clone(),
+                    resource_id: r.metadata.id.clone(),
+                    field: rule.field.clone(),
+                    message: format!("{context} invalid value for field: {}", rule.field),
+                });
+            }
+        }
+
+        for reference in &rt.references {
+            let Some(value) = r.spec.get(&reference.field) else {
+                continue;
+            };
+            if reference.multiple {
+                let Some(items) = value.as_array() else {
+                    issues.push(ResourceValidationIssue {
+                        resource_type: r.metadata.resource_type.clone(),
+                        resource_id: r.metadata.id.clone(),
+                        field: reference.field.clone(),
+                        message: format!("{context} {} must be an array", reference.field),
+                    });
+                    continue;
+                };
+                for item in items {
+                    let Some(target_id) = item.as_str() else {
+                        issues.push(ResourceValidationIssue {
+                            resource_type: r.metadata.resource_type.clone(),
+                            resource_id: r.metadata.id.clone(),
+                            field: reference.field.clone(),
+                            message: format!(
+                                "{context} {} contains non-string value",
+                                reference.field
+                            ),
+                        });
+                        continue;
+                    };
+                    validate_reference_target(
+                        &mut issues,
+                        &resource_index,
+                        &id_to_types,
+                        r,
+                        &reference.field,
+                        &reference.target_type,
+                        target_id,
+                    );
+                }
+            } else {
+                let Some(target_id) = value.as_str() else {
+                    issues.push(ResourceValidationIssue {
+                        resource_type: r.metadata.resource_type.clone(),
+                        resource_id: r.metadata.id.clone(),
+                        field: reference.field.clone(),
+                        message: format!("{context} {} must be a string", reference.field),
+                    });
+                    continue;
+                };
+                validate_reference_target(
+                    &mut issues,
+                    &resource_index,
+                    &id_to_types,
+                    r,
+                    &reference.field,
+                    &reference.target_type,
+                    target_id,
+                );
             }
         }
     }
 
-    Ok(())
+    for rt in types {
+        for rule in rt
+            .validation_rules
+            .iter()
+            .filter(|rule| matches!(rule.rule_type, ValidationRuleType::Unique))
+        {
+            let mut seen_values: HashMap<String, String> = HashMap::new();
+            for r in resources
+                .iter()
+                .filter(|r| r.metadata.resource_type == rt.id)
+            {
+                let Some(value) = r.spec.get(&rule.field) else {
+                    continue;
+                };
+                let stable = serde_json::to_string(value).unwrap_or_default();
+                if let Some(first_id) = seen_values.get(&stable) {
+                    issues.push(ResourceValidationIssue {
+                        resource_type: rt.id.clone(),
+                        resource_id: r.metadata.id.clone(),
+                        field: rule.field.clone(),
+                        message: format!(
+                            "{}/{} duplicate value for unique field: {}.{} (already used by {})",
+                            rt.id, r.metadata.id, rt.id, rule.field, first_id
+                        ),
+                    });
+                } else {
+                    seen_values.insert(stable, r.metadata.id.clone());
+                }
+            }
+        }
+    }
+
+    issues
+}
+
+fn validate_reference_target(
+    issues: &mut Vec<ResourceValidationIssue>,
+    resource_index: &HashMap<(String, String), &Resource>,
+    id_to_types: &HashMap<String, HashSet<String>>,
+    resource: &Resource,
+    field: &str,
+    target_type: &str,
+    target_id: &str,
+) {
+    let context = format!(
+        "{}/{}",
+        resource.metadata.resource_type, resource.metadata.id
+    );
+    let target_key = (target_type.to_string(), target_id.to_string());
+    if resource_index.contains_key(&target_key) {
+        return;
+    }
+    if let Some(types) = id_to_types.get(target_id)
+        && let Some(actual_type) = types.iter().find(|t| t.as_str() != target_type)
+    {
+        issues.push(ResourceValidationIssue {
+            resource_type: resource.metadata.resource_type.clone(),
+            resource_id: resource.metadata.id.clone(),
+            field: field.to_string(),
+            message: format!(
+                "{context} {field} must reference {target_type} but references {actual_type}"
+            ),
+        });
+        return;
+    }
+    issues.push(ResourceValidationIssue {
+        resource_type: resource.metadata.resource_type.clone(),
+        resource_id: resource.metadata.id.clone(),
+        field: field.to_string(),
+        message: format!("{context} {field} references missing {target_type}: {target_id}"),
+    });
 }
 
 fn validate_field_value(f: &FieldDef, v: &Value) -> Result<(), ValidationError> {
@@ -339,7 +577,7 @@ fn validate_rule_value(
     rule: &ValidationRule,
     v: &Value,
     current_type: &str,
-    id_set: &HashSet<&str>,
+    id_to_types: &HashMap<String, HashSet<String>>,
 ) -> Result<(), ValidationError> {
     match rule.rule_type {
         ValidationRuleType::Required => {
@@ -386,7 +624,7 @@ fn validate_rule_value(
             let Some(reference_id) = v.as_str() else {
                 return Err(ValidationError::InvalidReferenceTarget(rule.field.clone()));
             };
-            if !id_set.contains(reference_id) {
+            if !id_to_types.contains_key(reference_id) {
                 return Err(ValidationError::InvalidReferenceTarget(rule.field.clone()));
             }
         }
@@ -541,5 +779,324 @@ mod tests {
         let (types, resources) = import_yaml(&out).unwrap();
         assert_eq!(types[0], rt);
         assert_eq!(resources[0], r);
+    }
+
+    #[test]
+    fn reference_validation_passes_when_target_exists() {
+        let ip_type = ResourceType {
+            id: "ip_address".into(),
+            title: "IP".into(),
+            group: String::new(),
+            description: String::new(),
+            fields: vec![FieldDef {
+                name: "address".into(),
+                label: "address".into(),
+                field_type: FieldType::String,
+                enum_values: vec![],
+            }],
+            required_fields: vec![],
+            list_columns: vec![],
+            form_layout: vec![],
+            detail_sections: vec![],
+            references: vec![],
+            validation_rules: vec![],
+        };
+        let vm_type = ResourceType {
+            id: "vm".into(),
+            title: "VM".into(),
+            group: String::new(),
+            description: String::new(),
+            fields: vec![FieldDef {
+                name: "primary_ip".into(),
+                label: "primary_ip".into(),
+                field_type: FieldType::Reference,
+                enum_values: vec![],
+            }],
+            required_fields: vec![],
+            list_columns: vec![],
+            form_layout: vec![],
+            detail_sections: vec![],
+            references: vec![ReferenceDef {
+                field: "primary_ip".into(),
+                target_type: "ip_address".into(),
+                multiple: false,
+            }],
+            validation_rules: vec![],
+        };
+        let mut ip = sample_resource();
+        ip.metadata.resource_type = "ip_address".into();
+        ip.metadata.id = "10.0.0.1".into();
+        let mut vm = sample_resource();
+        vm.metadata.resource_type = "vm".into();
+        vm.spec = Map::new();
+        vm.spec.insert("primary_ip".into(), json!("10.0.0.1"));
+        let issues = validate_resources_detailed(&[ip_type, vm_type], &[ip, vm]);
+        assert!(issues.is_empty());
+    }
+
+    #[test]
+    fn reference_validation_fails_when_target_missing() {
+        let vm_type = ResourceType {
+            id: "vm".into(),
+            title: "VM".into(),
+            group: String::new(),
+            description: String::new(),
+            fields: vec![FieldDef {
+                name: "primary_ip".into(),
+                label: "primary_ip".into(),
+                field_type: FieldType::Reference,
+                enum_values: vec![],
+            }],
+            required_fields: vec![],
+            list_columns: vec![],
+            form_layout: vec![],
+            detail_sections: vec![],
+            references: vec![ReferenceDef {
+                field: "primary_ip".into(),
+                target_type: "ip_address".into(),
+                multiple: false,
+            }],
+            validation_rules: vec![],
+        };
+        let mut vm = sample_resource();
+        vm.metadata.resource_type = "vm".into();
+        vm.spec = Map::new();
+        vm.spec.insert("primary_ip".into(), json!("10.0.0.999"));
+        let issues = validate_resources_detailed(&[vm_type], &[vm]);
+        assert!(
+            issues
+                .iter()
+                .any(|i| i.message.contains("references missing ip_address"))
+        );
+    }
+
+    #[test]
+    fn reference_validation_fails_when_target_type_wrong() {
+        let device_type = ResourceType {
+            id: "device".into(),
+            title: "Device".into(),
+            group: String::new(),
+            description: String::new(),
+            fields: vec![],
+            required_fields: vec![],
+            list_columns: vec![],
+            form_layout: vec![],
+            detail_sections: vec![],
+            references: vec![],
+            validation_rules: vec![],
+        };
+        let vm_type = ResourceType {
+            id: "vm".into(),
+            title: "VM".into(),
+            group: String::new(),
+            description: String::new(),
+            fields: vec![FieldDef {
+                name: "host".into(),
+                label: "host".into(),
+                field_type: FieldType::Reference,
+                enum_values: vec![],
+            }],
+            required_fields: vec![],
+            list_columns: vec![],
+            form_layout: vec![],
+            detail_sections: vec![],
+            references: vec![ReferenceDef {
+                field: "host".into(),
+                target_type: "ip_address".into(),
+                multiple: false,
+            }],
+            validation_rules: vec![],
+        };
+        let mut target = sample_resource();
+        target.metadata.resource_type = "device".into();
+        target.metadata.id = "node-1".into();
+        let mut vm = sample_resource();
+        vm.metadata.resource_type = "vm".into();
+        vm.spec = Map::new();
+        vm.spec.insert("host".into(), json!("node-1"));
+        let issues = validate_resources_detailed(&[device_type, vm_type], &[target, vm]);
+        assert!(issues.iter().any(|i| {
+            i.message
+                .contains("must reference ip_address but references device")
+        }));
+    }
+
+    #[test]
+    fn reference_array_validation_passes_with_existing_targets() {
+        let service_type = ResourceType {
+            id: "service".into(),
+            title: "Service".into(),
+            group: String::new(),
+            description: String::new(),
+            fields: vec![FieldDef {
+                name: "depends_on".into(),
+                label: "depends_on".into(),
+                field_type: FieldType::ReferenceArray,
+                enum_values: vec![],
+            }],
+            required_fields: vec![],
+            list_columns: vec![],
+            form_layout: vec![],
+            detail_sections: vec![],
+            references: vec![ReferenceDef {
+                field: "depends_on".into(),
+                target_type: "service".into(),
+                multiple: true,
+            }],
+            validation_rules: vec![],
+        };
+        let mut s1 = sample_resource();
+        s1.metadata.resource_type = "service".into();
+        s1.metadata.id = "a".into();
+        s1.spec = Map::new();
+        let mut s2 = sample_resource();
+        s2.metadata.resource_type = "service".into();
+        s2.metadata.id = "b".into();
+        s2.spec = Map::new();
+        s2.spec.insert("depends_on".into(), json!(["a"]));
+        let issues = validate_resources_detailed(&[service_type], &[s1, s2]);
+        assert!(issues.is_empty());
+    }
+
+    #[test]
+    fn reference_array_validation_fails_with_missing_target() {
+        let service_type = ResourceType {
+            id: "service".into(),
+            title: "Service".into(),
+            group: String::new(),
+            description: String::new(),
+            fields: vec![FieldDef {
+                name: "depends_on".into(),
+                label: "depends_on".into(),
+                field_type: FieldType::ReferenceArray,
+                enum_values: vec![],
+            }],
+            required_fields: vec![],
+            list_columns: vec![],
+            form_layout: vec![],
+            detail_sections: vec![],
+            references: vec![ReferenceDef {
+                field: "depends_on".into(),
+                target_type: "service".into(),
+                multiple: true,
+            }],
+            validation_rules: vec![],
+        };
+        let mut s = sample_resource();
+        s.metadata.resource_type = "service".into();
+        s.metadata.id = "b".into();
+        s.spec = Map::new();
+        s.spec.insert("depends_on".into(), json!(["a"]));
+        let issues = validate_resources_detailed(&[service_type], &[s]);
+        assert!(
+            issues
+                .iter()
+                .any(|i| i.message.contains("references missing service: a"))
+        );
+    }
+
+    #[test]
+    fn unique_validation_passes_with_distinct_values() {
+        let mut rt = sample_type();
+        rt.id = "ip_address".into();
+        rt.required_fields = vec![];
+        rt.fields = vec![FieldDef {
+            name: "address".into(),
+            label: "address".into(),
+            field_type: FieldType::String,
+            enum_values: vec![],
+        }];
+        rt.validation_rules = vec![ValidationRule {
+            rule_type: ValidationRuleType::Unique,
+            field: "address".into(),
+            message: String::new(),
+            pattern: String::new(),
+            min: None,
+            max: None,
+            values: vec![],
+            target_type: String::new(),
+        }];
+        let mut a = sample_resource();
+        a.metadata.resource_type = "ip_address".into();
+        a.metadata.id = "ip1".into();
+        a.spec = Map::new();
+        a.spec.insert("address".into(), json!("10.0.0.1"));
+        let mut b = sample_resource();
+        b.metadata.resource_type = "ip_address".into();
+        b.metadata.id = "ip2".into();
+        b.spec = Map::new();
+        b.spec.insert("address".into(), json!("10.0.0.2"));
+        assert!(validate_resources_detailed(&[rt], &[a, b]).is_empty());
+    }
+
+    #[test]
+    fn unique_validation_fails_with_duplicate_values() {
+        let mut rt = sample_type();
+        rt.id = "ip_address".into();
+        rt.required_fields = vec![];
+        rt.fields = vec![FieldDef {
+            name: "address".into(),
+            label: "address".into(),
+            field_type: FieldType::String,
+            enum_values: vec![],
+        }];
+        rt.validation_rules = vec![ValidationRule {
+            rule_type: ValidationRuleType::Unique,
+            field: "address".into(),
+            message: String::new(),
+            pattern: String::new(),
+            min: None,
+            max: None,
+            values: vec![],
+            target_type: String::new(),
+        }];
+        let mut a = sample_resource();
+        a.metadata.resource_type = "ip_address".into();
+        a.metadata.id = "ip1".into();
+        a.spec = Map::new();
+        a.spec.insert("address".into(), json!("10.0.0.1"));
+        let mut b = sample_resource();
+        b.metadata.resource_type = "ip_address".into();
+        b.metadata.id = "ip2".into();
+        b.spec = Map::new();
+        b.spec.insert("address".into(), json!("10.0.0.1"));
+        let issues = validate_resources_detailed(&[rt], &[a, b]);
+        assert!(
+            issues
+                .iter()
+                .any(|i| i.message.contains("duplicate value for unique field"))
+        );
+    }
+
+    #[test]
+    fn unique_validation_ignores_missing_optional_values() {
+        let mut rt = sample_type();
+        rt.id = "ip_address".into();
+        rt.required_fields = vec![];
+        rt.fields = vec![FieldDef {
+            name: "address".into(),
+            label: "address".into(),
+            field_type: FieldType::String,
+            enum_values: vec![],
+        }];
+        rt.validation_rules = vec![ValidationRule {
+            rule_type: ValidationRuleType::Unique,
+            field: "address".into(),
+            message: String::new(),
+            pattern: String::new(),
+            min: None,
+            max: None,
+            values: vec![],
+            target_type: String::new(),
+        }];
+        let mut a = sample_resource();
+        a.metadata.resource_type = "ip_address".into();
+        a.metadata.id = "ip1".into();
+        a.spec = Map::new();
+        let mut b = sample_resource();
+        b.metadata.resource_type = "ip_address".into();
+        b.metadata.id = "ip2".into();
+        b.spec = Map::new();
+        assert!(validate_resources_detailed(&[rt], &[a, b]).is_empty());
     }
 }
