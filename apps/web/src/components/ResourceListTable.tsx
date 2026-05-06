@@ -46,7 +46,7 @@ export function ResourceListTable({ type, columns, rows, sortBy, sortDir, onSort
               <td className="px-3 py-2">
                 <div className="flex items-center gap-3">
                   <Link className="text-blue-600 hover:text-blue-700" to={`/resources/${type}/${r.metadata.id}`}>
-                    View
+                    Show
                   </Link>
                   <Link className="text-gray-700 hover:text-gray-900" to={`/resources/${type}/${r.metadata.id}/edit`}>
                     Edit

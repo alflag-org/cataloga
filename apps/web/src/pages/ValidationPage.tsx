@@ -30,7 +30,7 @@ export function ValidationPage() {
                 <p>Field: {item.field || '-'}</p>
                 <p>Message: {item.message}</p>
                 {item.resource_type && item.resource_id ? (
-                  <Link className="text-xs underline" to={`/resources/${item.resource_type}/${item.resource_id}`}>View</Link>
+                  <Link className="text-xs underline" to={`/resources/${item.resource_type}/${item.resource_id}`}>Show</Link>
                 ) : null}
               </div>
             ))}
