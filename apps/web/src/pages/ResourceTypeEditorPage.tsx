@@ -288,10 +288,7 @@ export function ResourceTypeEditorPage({ mode }: { mode: "create" | "edit" }) {
                   </p>
                   <div className="mt-2 space-y-2">
                     {(field.enum_values ?? []).map((valueText, enumIndex) => (
-                      <div
-                        key={`${valueText}-${enumIndex}`}
-                        className="flex items-center gap-2"
-                      >
+                      <div key={enumIndex} className="flex items-center gap-2">
                         <TextInput
                           value={valueText}
                           onChange={(e) => {
@@ -342,7 +339,7 @@ export function ResourceTypeEditorPage({ mode }: { mode: "create" | "edit" }) {
         <div className="space-y-3">
           {normalizeListColumns(value.list_columns).map((column, idx) => (
             <div
-              key={`${column.path}-${idx}`}
+              key={idx}
               className="grid grid-cols-1 gap-3 md:grid-cols-[1fr_1fr_auto] md:items-end"
             >
               <label className="text-sm text-gray-700">
@@ -401,7 +398,7 @@ export function ResourceTypeEditorPage({ mode }: { mode: "create" | "edit" }) {
         <div className="space-y-3">
           {value.references.map((reference, idx) => (
             <div
-              key={`${reference.field}-${idx}`}
+              key={idx}
               className="grid grid-cols-1 gap-3 md:grid-cols-4 md:items-end"
             >
               <label className="text-sm text-gray-700">

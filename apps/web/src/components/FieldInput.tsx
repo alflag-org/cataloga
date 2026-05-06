@@ -4,13 +4,15 @@ import { SelectInput } from "./SelectInput";
 import { TextInput } from "./TextInput";
 import { TextareaInput } from "./TextareaInput";
 
+type ReferenceOption = { id: string; name: string };
+
 type Props = {
   field: FieldDef;
   value: unknown;
   onChange: (value: unknown) => void;
   reference?: {
     multiple: boolean;
-    options: Array<{ id: string; name: string }>;
+    options: ReferenceOption[];
   };
 };
 
@@ -24,104 +26,158 @@ function asText(value: unknown): string {
   }
 }
 
+function matchesQuery(opt: ReferenceOption, query: string): boolean {
+  const q = query.trim().toLowerCase();
+  if (!q) return true;
+  return opt.id.toLowerCase().includes(q) || opt.name.toLowerCase().includes(q);
+}
+
+function resolveReferenceId(input: string, options: ReferenceOption[]): string {
+  const trimmed = input.trim();
+  if (!trimmed) return "";
+  const exactId = options.find((opt) => opt.id === trimmed);
+  if (exactId) return exactId.id;
+  const exactName = options.find((opt) => opt.name === trimmed);
+  if (exactName) return exactName.id;
+  return trimmed;
+}
+
 export function FieldInput({ field, value, onChange, reference }: Props) {
   const base = `field-${field.name}`;
-  const referenceListId = `${base}-reference-options`;
+  const currentText = asText(value);
+  const [draft, setDraft] = useState("");
+
   if (field.type === "reference" && reference && !reference.multiple) {
+    const suggestions = reference.options
+      .filter((opt) => matchesQuery(opt, currentText))
+      .slice(0, 8);
+    const currentMeta = reference.options.find((opt) => opt.id === currentText);
     return (
-      <>
+      <div className="space-y-2">
         <TextInput
           id={base}
           type="text"
-          list={referenceListId}
-          value={asText(value)}
-          onChange={(e) => onChange(e.target.value)}
+          placeholder="Search by resource id or name"
+          value={currentText}
+          onChange={(e) =>
+            onChange(resolveReferenceId(e.target.value, reference.options))
+          }
         />
-        <datalist id={referenceListId}>
-          {reference.options.map((opt) => (
-            <option key={opt.id} value={opt.id}>
-              {opt.name}
-            </option>
-          ))}
-        </datalist>
-      </>
+        {suggestions.length > 0 ? (
+          <div className="max-h-40 overflow-auto rounded-md border border-gray-200 bg-white">
+            {suggestions.map((opt) => (
+              <button
+                key={opt.id}
+                type="button"
+                className="block w-full px-3 py-2 text-left text-sm text-gray-700 hover:bg-gray-50"
+                onClick={() => onChange(opt.id)}
+              >
+                {opt.name} ({opt.id})
+              </button>
+            ))}
+          </div>
+        ) : null}
+        {currentMeta ? (
+          <p className="text-xs text-gray-500">
+            Selected: {currentMeta.name} ({currentMeta.id})
+          </p>
+        ) : null}
+      </div>
     );
   }
+
   if (field.type === "reference" && !reference) {
     return (
       <TextInput
         id={base}
         type="text"
-        value={asText(value)}
+        value={currentText}
         onChange={(e) => onChange(e.target.value)}
       />
     );
   }
+
   if (field.type === "reference_array" && reference && reference.multiple) {
     const selected = Array.isArray(value) ? value.map(String) : [];
-    const [draft, setDraft] = useState("");
-    const addValue = (raw: string) => {
-      const next = raw.trim();
-      if (!next) return;
-      if (selected.includes(next)) {
+    const suggestions = reference.options
+      .filter((opt) => !selected.includes(opt.id))
+      .filter((opt) => matchesQuery(opt, draft))
+      .slice(0, 8);
+
+    const addReference = (input: string) => {
+      const resolved = resolveReferenceId(input, reference.options);
+      if (!resolved || selected.includes(resolved)) {
         setDraft("");
         return;
       }
-      onChange([...selected, next]);
+      onChange([...selected, resolved]);
       setDraft("");
     };
+
     return (
       <div className="space-y-2 rounded-md border border-gray-200 p-3">
         <div className="flex items-center gap-2">
           <TextInput
             id={base}
             type="text"
-            list={referenceListId}
-            placeholder="Type and press Enter"
+            placeholder="Search by resource id or name"
             value={draft}
             onChange={(e) => setDraft(e.target.value)}
             onKeyDown={(e) => {
               if (e.key === "Enter") {
                 e.preventDefault();
-                addValue(draft);
+                addReference(draft);
               }
             }}
           />
           <button
             type="button"
             className="rounded-md border border-gray-300 px-3 py-2 text-sm text-gray-700 hover:bg-gray-50"
-            onClick={() => addValue(draft)}
+            onClick={() => addReference(draft)}
           >
             Add
           </button>
         </div>
-        <datalist id={referenceListId}>
-          {reference.options.map((opt) => (
-            <option key={opt.id} value={opt.id}>
-              {opt.name}
-            </option>
-          ))}
-        </datalist>
+        {suggestions.length > 0 ? (
+          <div className="max-h-40 overflow-auto rounded-md border border-gray-200 bg-white">
+            {suggestions.map((opt) => (
+              <button
+                key={opt.id}
+                type="button"
+                className="block w-full px-3 py-2 text-left text-sm text-gray-700 hover:bg-gray-50"
+                onClick={() => addReference(opt.id)}
+              >
+                {opt.name} ({opt.id})
+              </button>
+            ))}
+          </div>
+        ) : null}
         {selected.length === 0 ? (
           <p className="text-xs text-gray-500">No selected resources.</p>
         ) : (
           <div className="flex flex-wrap gap-2">
-            {selected.map((id) => (
-              <button
-                key={id}
-                type="button"
-                className="rounded-full border border-gray-300 bg-white px-3 py-1 text-xs text-gray-700 hover:bg-gray-50"
-                onClick={() => onChange(selected.filter((item) => item !== id))}
-                title="Remove"
-              >
-                {id} ×
-              </button>
-            ))}
+            {selected.map((id) => {
+              const meta = reference.options.find((opt) => opt.id === id);
+              return (
+                <button
+                  key={id}
+                  type="button"
+                  className="rounded-full border border-gray-300 bg-white px-3 py-1 text-xs text-gray-700 hover:bg-gray-50"
+                  onClick={() =>
+                    onChange(selected.filter((selectedId) => selectedId !== id))
+                  }
+                  title="Remove"
+                >
+                  {meta ? `${meta.name} (${id})` : id} ×
+                </button>
+              );
+            })}
           </div>
         )}
       </div>
     );
   }
+
   if (
     field.type === "text" ||
     field.type === "json" ||
@@ -131,7 +187,7 @@ export function FieldInput({ field, value, onChange, reference }: Props) {
     return (
       <TextareaInput
         id={base}
-        value={asText(value)}
+        value={currentText}
         onChange={(e) => onChange(e.target.value)}
         rows={4}
       />
@@ -153,7 +209,7 @@ export function FieldInput({ field, value, onChange, reference }: Props) {
     return (
       <SelectInput
         id={base}
-        value={asText(value)}
+        value={currentText}
         onChange={(e) => onChange(e.target.value)}
       >
         <option value="">Select</option>
@@ -170,7 +226,7 @@ export function FieldInput({ field, value, onChange, reference }: Props) {
       <TextInput
         id={base}
         type="number"
-        value={asText(value)}
+        value={currentText}
         onChange={(e) => onChange(e.target.value)}
       />
     );
@@ -181,7 +237,7 @@ export function FieldInput({ field, value, onChange, reference }: Props) {
         id={base}
         type="url"
         placeholder="https://example.com"
-        value={asText(value)}
+        value={currentText}
         onChange={(e) => onChange(e.target.value)}
       />
     );
@@ -192,7 +248,7 @@ export function FieldInput({ field, value, onChange, reference }: Props) {
         id={base}
         type="text"
         placeholder="10.10.10.20"
-        value={asText(value)}
+        value={currentText}
         onChange={(e) => onChange(e.target.value)}
       />
     );
@@ -203,7 +259,7 @@ export function FieldInput({ field, value, onChange, reference }: Props) {
         id={base}
         type="text"
         placeholder="10.10.10.0/24"
-        value={asText(value)}
+        value={currentText}
         onChange={(e) => onChange(e.target.value)}
       />
     );
@@ -212,7 +268,7 @@ export function FieldInput({ field, value, onChange, reference }: Props) {
     <TextInput
       id={base}
       type="text"
-      value={asText(value)}
+      value={currentText}
       onChange={(e) => onChange(e.target.value)}
     />
   );
