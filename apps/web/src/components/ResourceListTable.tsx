@@ -1,4 +1,4 @@
-import { Link } from 'react-router-dom'
+import { ActionButton, ActionLink } from './Action'
 import { readPath, type Resource } from '../types'
 
 type Props = {
@@ -45,15 +45,11 @@ export function ResourceListTable({ type, columns, rows, sortBy, sortDir, onSort
               ))}
               <td className="px-3 py-2">
                 <div className="flex items-center gap-3">
-                  <Link className="text-blue-600 hover:text-blue-700" to={`/resources/${type}/${r.metadata.id}`}>
-                    Show
-                  </Link>
-                  <Link className="text-gray-700 hover:text-gray-900" to={`/resources/${type}/${r.metadata.id}/edit`}>
-                    Edit
-                  </Link>
-                  <button className="text-gray-700 hover:text-red-600" onClick={() => onDelete(r.metadata.id)}>
+                  <ActionLink tone="primary" to={`/resources/${type}/${r.metadata.id}`}>Show</ActionLink>
+                  <ActionLink to={`/resources/${type}/${r.metadata.id}/edit`}>Edit</ActionLink>
+                  <ActionButton tone="danger" onClick={() => onDelete(r.metadata.id)}>
                     Delete
-                  </button>
+                  </ActionButton>
                 </div>
               </td>
             </tr>

@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
 import { api } from '../api/client'
-import { Button, LinkButton } from '../components/Button'
+import { ActionButton, ActionLink } from '../components/Action'
 import { DataCard } from '../components/DataCard'
 import { ErrorBanner } from '../components/ErrorBanner'
 import { PageHeader } from '../components/PageHeader'
@@ -25,10 +25,10 @@ export function ResourceDetailPage() {
       <PageHeader
         title={`Resources / ${type} / ${id}`}
         actions={
-          <div className="flex gap-2">
-            <LinkButton to={`/resources/${type}/${id}/edit`}>Edit</LinkButton>
-            <Button
-              variant="danger"
+          <div className="flex items-center gap-3">
+            <ActionLink to={`/resources/${type}/${id}/edit`}>Edit</ActionLink>
+            <ActionButton
+              tone="danger"
               onClick={async () => {
                 if (!window.confirm(`Delete Resource '${type}/${id}'?`)) return
                 try {
@@ -40,7 +40,7 @@ export function ResourceDetailPage() {
               }}
             >
               Delete
-            </Button>
+            </ActionButton>
           </div>
         }
       />
@@ -54,9 +54,9 @@ export function ResourceDetailPage() {
               {references && references.outgoing.length > 0 ? references.outgoing.map((item, idx) => (
                 <div key={`${item.field}-${item.resource_type}-${item.resource_id}-${idx}`} className="rounded border border-gray-200 px-3 py-2 text-sm">
                   <p>{item.field}</p>
-                  <Link className="text-blue-700 underline" to={`/resources/${item.resource_type}/${item.resource_id}`}>
+                  <ActionLink tone="primary" className="underline underline-offset-2" to={`/resources/${item.resource_type}/${item.resource_id}`}>
                     {item.resource_type} / {item.name} ({item.resource_id})
-                  </Link>
+                  </ActionLink>
                 </div>
               )) : <p className="text-sm text-gray-600">No referenced resources.</p>}
             </div>
@@ -66,9 +66,9 @@ export function ResourceDetailPage() {
               {references && references.incoming.length > 0 ? references.incoming.map((item, idx) => (
                 <div key={`${item.field}-${item.resource_type}-${item.resource_id}-${idx}`} className="rounded border border-gray-200 px-3 py-2 text-sm">
                   <p>{item.field}</p>
-                  <Link className="text-blue-700 underline" to={`/resources/${item.resource_type}/${item.resource_id}`}>
+                  <ActionLink tone="primary" className="underline underline-offset-2" to={`/resources/${item.resource_type}/${item.resource_id}`}>
                     {item.resource_type} / {item.name} ({item.resource_id})
-                  </Link>
+                  </ActionLink>
                 </div>
               )) : <p className="text-sm text-gray-600">No resources reference this resource.</p>}
             </div>

@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
-import { Link } from 'react-router-dom'
 import { api } from '../api/client'
-import { Button, LinkButton } from '../components/Button'
+import { LinkButton } from '../components/Button'
+import { ActionButton, ActionLink } from '../components/Action'
 import { DataCard } from '../components/DataCard'
 import { ErrorBanner } from '../components/ErrorBanner'
 import { PageHeader } from '../components/PageHeader'
@@ -63,15 +63,10 @@ export function ResourceTypeListPage() {
                   <td className="px-3 py-2 text-gray-700">{counts[t.id] ?? 0}</td>
                   <td className="px-3 py-2">
                     <div className="flex items-center gap-3">
-                      <Link className="text-blue-600 hover:text-blue-700" to={`/resources/${t.id}`}>
-                        Show
-                      </Link>
-                      <Link className="text-gray-700 hover:text-gray-900" to={`/resource-types/${t.id}/edit`}>
-                        Edit
-                      </Link>
-                      <Button
-                        variant="ghostDanger"
-                        className="px-0 py-0"
+                      <ActionLink tone="primary" to={`/resources/${t.id}`}>Show</ActionLink>
+                      <ActionLink to={`/resource-types/${t.id}/edit`}>Edit</ActionLink>
+                      <ActionButton
+                        tone="danger"
                         onClick={async () => {
                           if (!window.confirm(`Delete Resource Type '${t.id}'?`)) return
                           try {
@@ -83,7 +78,7 @@ export function ResourceTypeListPage() {
                         }}
                       >
                         Delete
-                      </Button>
+                      </ActionButton>
                     </div>
                   </td>
                 </tr>

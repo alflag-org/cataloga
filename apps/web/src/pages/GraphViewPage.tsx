@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
-import { Link } from 'react-router-dom'
 import { api } from '../api/client'
+import { ActionLink } from '../components/Action'
 import { ErrorBanner } from '../components/ErrorBanner'
 import { PageHeader } from '../components/PageHeader'
 import type { Resource, ResourceType } from '../types'
@@ -289,9 +289,9 @@ export function GraphViewPage() {
                 <p className="text-sm font-semibold text-gray-900">{selectedNode.name}</p>
                 <p className="text-xs text-gray-600">{selectedNode.id}</p>
                 <p className="mt-1 text-xs text-gray-600">Connected edges: {degree.get(selectedNode.id) ?? 0}</p>
-                <Link to={`/resources/${selectedNode.type}/${selectedNode.resourceId}`} className="mt-2 inline-block text-sm text-blue-700 hover:text-blue-900">
+                <ActionLink to={`/resources/${selectedNode.type}/${selectedNode.resourceId}`} tone="primary" className="mt-2 inline-block">
                   Open Resource
-                </Link>
+                </ActionLink>
               </div>
               <div>
                 <h3 className="text-xs font-semibold uppercase tracking-wide text-gray-500">Relations</h3>

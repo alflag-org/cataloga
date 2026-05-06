@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
-import { Link } from 'react-router-dom'
 import { api } from '../api/client'
+import { ActionLink } from '../components/Action'
 import { DataCard } from '../components/DataCard'
 import { ErrorBanner } from '../components/ErrorBanner'
 import { PageHeader } from '../components/PageHeader'
@@ -30,7 +30,7 @@ export function ValidationPage() {
                 <p>Field: {item.field || '-'}</p>
                 <p>Message: {item.message}</p>
                 {item.resource_type && item.resource_id ? (
-                  <Link className="text-xs underline" to={`/resources/${item.resource_type}/${item.resource_id}`}>Show</Link>
+                  <ActionLink tone="primary" className="text-xs underline underline-offset-2" to={`/resources/${item.resource_type}/${item.resource_id}`}>Show</ActionLink>
                 ) : null}
               </div>
             ))}

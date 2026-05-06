@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import { api } from '../api/client'
+import { ActionButton } from '../components/Action'
 import { Button } from '../components/Button'
 import { DataCard } from '../components/DataCard'
 import { ErrorBanner } from '../components/ErrorBanner'
@@ -106,7 +107,7 @@ export function ResourceTypeEditorPage({ mode }: { mode: 'create' | 'edit' }) {
                     </SelectInput>
                   </td>
                   <td className="px-3 py-2"><TextInput value={f.enum_values.join(',')} onChange={(e) => upsertField(i, { ...f, enum_values: e.target.value.split(',').map((s) => s.trim()).filter(Boolean) })} /></td>
-                  <td className="px-3 py-2"><Button variant="danger" onClick={() => removeField(i)}>Remove</Button></td>
+                  <td className="px-3 py-2"><ActionButton tone="danger" onClick={() => removeField(i)}>Remove</ActionButton></td>
                 </tr>
               ))}
             </tbody>
