@@ -64,10 +64,10 @@ export function ResourceTypeListPage() {
                   <td className="px-3 py-2">
                     <div className="flex items-center gap-3">
                       <Link className="text-blue-600 hover:text-blue-700" to={`/resources/${t.id}`}>
-                        Resources
+                        Show
                       </Link>
                       <Link className="text-gray-700 hover:text-gray-900" to={`/resource-types/${t.id}/edit`}>
-                        Edit schema
+                        Edit
                       </Link>
                       <Button
                         variant="ghostDanger"
@@ -82,7 +82,7 @@ export function ResourceTypeListPage() {
                           }
                         }}
                       >
-                        Delete schema
+                        Delete
                       </Button>
                     </div>
                   </td>
