@@ -73,7 +73,7 @@ export function ResourceTypeEditorPage({ mode }: { mode: 'create' | 'edit' }) {
 
   return (
     <section className="space-y-5">
-      <PageHeader title={mode === 'create' ? 'Create Resource Type' : `Edit Resource Type: ${type}`} />
+      <PageHeader title={mode === 'create' ? 'Administration / Resource Types / Create Resource Type' : `Administration / Resource Types / ${type} / Edit schema`} />
       <ErrorBanner message={error} />
       <DataCard title="General">
         <div className="grid grid-cols-1 gap-4 md:grid-cols-2">

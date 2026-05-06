@@ -14,25 +14,34 @@ export function ImportPage() {
 
   return (
     <section className="space-y-5">
-      <PageHeader title="Import" subtitle="Import YAML snapshot to API" />
+      <PageHeader title="Administration / Import" />
       <ErrorBanner message={error} />
-      <DataCard>
+      <DataCard title="YAML">
         <div className="space-y-4">
           <TextareaInput rows={20} value={yaml} onChange={(e) => setYaml(e.target.value)} />
-          <div className="flex gap-2">
-            <Button
-              variant="secondary"
-              onClick={async () => {
-                try {
-                  setError(null)
-                  setPreview(await api.importPreview(yaml))
-                } catch (e) {
-                  setError(e instanceof Error ? e.message : String(e))
-                }
-              }}
-            >
-              Preview Import
-            </Button>
+          <Button
+            variant="secondary"
+            onClick={async () => {
+              try {
+                setError(null)
+                setPreview(await api.importPreview(yaml))
+              } catch (e) {
+                setError(e instanceof Error ? e.message : String(e))
+              }
+            }}
+          >
+            Preview import
+          </Button>
+        </div>
+      </DataCard>
+      {preview ? (
+        <DataCard title="Preview">
+          <div className="space-y-2 text-sm">
+            <p>Resource Types to create: {preview.resource_types_to_create.length}</p>
+            <p>Resource Types to update: {preview.resource_types_to_update.length}</p>
+            <p>Resources to create: {preview.resources_to_create.length}</p>
+            <p>Resources to update: {preview.resources_to_update.length}</p>
+            <p>Validation errors: {preview.validation_errors.length}</p>
             <Button
               onClick={async () => {
                 try {
@@ -42,22 +51,13 @@ export function ImportPage() {
                   setError(e instanceof Error ? e.message : String(e))
                 }
               }}
-              disabled={!preview || preview.validation_errors.length > 0}
+              disabled={preview.validation_errors.length > 0}
             >
-              Apply Import
+              Apply import
             </Button>
           </div>
-          {preview ? (
-            <div className="space-y-2 text-sm">
-              <p>Resource Types to create: {preview.resource_types_to_create.length}</p>
-              <p>Resource Types to update: {preview.resource_types_to_update.length}</p>
-              <p>Resources to create: {preview.resources_to_create.length}</p>
-              <p>Resources to update: {preview.resources_to_update.length}</p>
-              <p>Validation errors: {preview.validation_errors.length}</p>
-            </div>
-          ) : null}
-        </div>
-      </DataCard>
+        </DataCard>
+      ) : null}
     </section>
   )
 }

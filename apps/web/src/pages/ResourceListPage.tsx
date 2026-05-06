@@ -1,14 +1,15 @@
 import { useEffect, useState } from 'react'
-import { useParams } from 'react-router-dom'
-import { api } from '../api/client'
 import { LinkButton } from '../components/Button'
 import { DataCard } from '../components/DataCard'
 import { EmptyState } from '../components/EmptyState'
 import { ErrorBanner } from '../components/ErrorBanner'
 import { PageHeader } from '../components/PageHeader'
 import { ResourceListTable } from '../components/ResourceListTable'
-import { readPath, type Resource, type ResourceType } from '../types'
+import { SelectInput } from '../components/SelectInput'
 import { TextInput } from '../components/TextInput'
+import { api } from '../api/client'
+import { readPath, type Resource, type ResourceType } from '../types'
+import { useParams } from 'react-router-dom'
 
 export function ResourceListPage() {
   const { type = '' } = useParams()
@@ -35,7 +36,7 @@ export function ResourceListPage() {
   const filtered = rows.filter((r) => {
     const q = query.trim().toLowerCase()
     if (!q) return true
-    return [r.metadata.id, r.metadata.name, JSON.stringify(r.spec)].join(' ').toLowerCase().includes(q)
+    return [r.metadata.id, r.metadata.name, r.metadata.type, JSON.stringify(r.metadata.tags), JSON.stringify(r.spec)].join(' ').toLowerCase().includes(q)
   })
   const sorted = [...filtered].sort((a, b) => {
     const av = readPath(a, sortBy).toLowerCase()
@@ -47,14 +48,29 @@ export function ResourceListPage() {
 
   return (
     <section className="space-y-5">
-      <PageHeader
-        title={`Resources: ${type}`}
-        actions={<LinkButton to={`/resource-types/${type}/new`}>Create Resource</LinkButton>}
-      />
+      <PageHeader title={`Resources / ${rt?.title || type}`} actions={<LinkButton to={`/resources/${type}/new`}>Create Resource</LinkButton>} />
       <ErrorBanner message={error} />
       <DataCard>
-        <div className="mb-4">
-          <TextInput placeholder="Search by metadata.id, metadata.name, spec JSON" value={query} onChange={(e) => setQuery(e.target.value)} />
+        <div className="mb-4 grid grid-cols-1 gap-3 md:grid-cols-[1fr_auto_auto] md:items-end">
+          <label className="text-sm text-gray-700">
+            Search
+            <TextInput value={query} onChange={(e) => setQuery(e.target.value)} />
+          </label>
+          <label className="text-sm text-gray-700">
+            Sort by
+            <SelectInput value={sortBy} onChange={(e) => setSortBy(e.target.value)}>
+              {cols.map((c) => (
+                <option key={c} value={c}>{c}</option>
+              ))}
+            </SelectInput>
+          </label>
+          <label className="text-sm text-gray-700">
+            Order
+            <SelectInput value={sortDir} onChange={(e) => setSortDir(e.target.value as 'asc' | 'desc')}>
+              <option value="asc">asc</option>
+              <option value="desc">desc</option>
+            </SelectInput>
+          </label>
         </div>
         {sorted.length ? (
           <ResourceListTable
@@ -81,11 +97,7 @@ export function ResourceListPage() {
             }}
           />
         ) : (
-          <EmptyState
-            title="No resources"
-            description="Create the first resource for this resource type."
-            action={<LinkButton to={`/resource-types/${type}/new`}>Create Resource</LinkButton>}
-          />
+          <EmptyState title="No resources" description="Create Resource" action={<LinkButton to={`/resources/${type}/new`}>Create Resource</LinkButton>} />
         )}
       </DataCard>
     </section>

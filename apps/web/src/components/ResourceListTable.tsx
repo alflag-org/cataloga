@@ -1,7 +1,5 @@
 import { Link } from 'react-router-dom'
 import { readPath, type Resource } from '../types'
-import { Badge } from './Badge'
-import { Button } from './Button'
 
 type Props = {
   type: string
@@ -46,18 +44,16 @@ export function ResourceListTable({ type, columns, rows, sortBy, sortDir, onSort
                 </td>
               ))}
               <td className="px-3 py-2">
-                <div className="flex items-center gap-2">
-                  <Link className="text-blue-600 hover:text-blue-700" to={`/resource-types/${type}/${r.metadata.id}`}>
+                <div className="flex items-center gap-3">
+                  <Link className="text-blue-600 hover:text-blue-700" to={`/resources/${type}/${r.metadata.id}`}>
                     View
                   </Link>
-                  <Badge>•</Badge>
-                  <Link className="text-gray-700 hover:text-gray-900" to={`/resource-types/${type}/${r.metadata.id}/edit`}>
+                  <Link className="text-gray-700 hover:text-gray-900" to={`/resources/${type}/${r.metadata.id}/edit`}>
                     Edit
                   </Link>
-                  <Badge>•</Badge>
-                  <Button variant="danger" className="px-2 py-1 text-xs" onClick={() => onDelete(r.metadata.id)}>
+                  <button className="text-gray-700 hover:text-red-600" onClick={() => onDelete(r.metadata.id)}>
                     Delete
-                  </Button>
+                  </button>
                 </div>
               </td>
             </tr>

@@ -29,14 +29,14 @@ export function ResourceEditPage() {
 
   return (
     <section className="space-y-5">
-      <PageHeader title={`Edit Resource: ${type}/${id}`} />
+      <PageHeader title={`Resources / ${rt.title || type} / ${id} / Edit`} />
       <ResourceForm
         resourceType={rt}
         initial={resource}
         mode="edit"
         onSubmit={async (next) => {
           await api.updateResource(type, id, next)
-          navigate(`/resource-types/${type}/${id}`)
+          navigate(`/resources/${type}/${id}`)
         }}
       />
     </section>

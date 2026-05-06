@@ -10,11 +10,21 @@ import type { ResourceType } from '../types'
 
 export function ResourceTypeListPage() {
   const [items, setItems] = useState<ResourceType[]>([])
+  const [counts, setCounts] = useState<Record<string, number>>({})
   const [query, setQuery] = useState('')
   const [error, setError] = useState<string | null>(null)
 
   useEffect(() => {
-    api.listResourceTypes().then(setItems).catch((e) => setError(e.message))
+    ;(async () => {
+      try {
+        const rt = await api.listResourceTypes()
+        setItems(rt)
+        const entries = await Promise.all(rt.map(async (t) => [t.id, (await api.listResources(t.id)).length] as const))
+        setCounts(Object.fromEntries(entries))
+      } catch (e) {
+        setError(e instanceof Error ? e.message : String(e))
+      }
+    })()
   }, [])
 
   const filtered = items.filter((t) => {
@@ -25,11 +35,11 @@ export function ResourceTypeListPage() {
 
   return (
     <section className="space-y-5">
-      <PageHeader title="Resource Types" actions={<LinkButton to="/resource-types/new">Create Resource Type</LinkButton>} />
+      <PageHeader title="Administration / Resource Types" actions={<LinkButton to="/resource-types/new">Create Resource Type</LinkButton>} />
       <ErrorBanner message={error} />
       <DataCard>
         <div className="mb-4">
-          <TextInput placeholder="Search by id/title/group" value={query} onChange={(e) => setQuery(e.target.value)} />
+          <TextInput placeholder="Search" value={query} onChange={(e) => setQuery(e.target.value)} />
         </div>
         <div className="overflow-x-auto">
           <table className="min-w-full divide-y divide-gray-200 text-sm">
@@ -39,7 +49,7 @@ export function ResourceTypeListPage() {
                 <th className="px-3 py-2 text-left font-semibold text-gray-600">ID</th>
                 <th className="px-3 py-2 text-left font-semibold text-gray-600">Group</th>
                 <th className="px-3 py-2 text-left font-semibold text-gray-600">Fields</th>
-                <th className="px-3 py-2 text-left font-semibold text-gray-600">List columns</th>
+                <th className="px-3 py-2 text-left font-semibold text-gray-600">Resources</th>
                 <th className="px-3 py-2 text-left font-semibold text-gray-600">Actions</th>
               </tr>
             </thead>
@@ -50,18 +60,18 @@ export function ResourceTypeListPage() {
                   <td className="px-3 py-2 text-gray-700">{t.id}</td>
                   <td className="px-3 py-2 text-gray-700">{t.group || '-'}</td>
                   <td className="px-3 py-2 text-gray-700">{t.fields.length}</td>
-                  <td className="px-3 py-2 text-gray-700">{t.list_columns.join(', ') || '-'}</td>
+                  <td className="px-3 py-2 text-gray-700">{counts[t.id] ?? 0}</td>
                   <td className="px-3 py-2">
                     <div className="flex items-center gap-3">
-                      <Link className="text-blue-600 hover:text-blue-700" to={`/resource-types/${t.id}`}>
-                        Open
+                      <Link className="text-blue-600 hover:text-blue-700" to={`/resources/${t.id}`}>
+                        Resources
                       </Link>
                       <Link className="text-gray-700 hover:text-gray-900" to={`/resource-types/${t.id}/edit`}>
-                        Edit
+                        Edit schema
                       </Link>
                       <Button
-                        variant="danger"
-                        className="px-2 py-1 text-xs"
+                        variant="ghostDanger"
+                        className="px-0 py-0"
                         onClick={async () => {
                           if (!window.confirm(`Delete Resource Type '${t.id}'?`)) return
                           try {
@@ -72,7 +82,7 @@ export function ResourceTypeListPage() {
                           }
                         }}
                       >
-                        Delete
+                        Delete schema
                       </Button>
                     </div>
                   </td>
