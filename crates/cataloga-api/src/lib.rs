@@ -220,10 +220,7 @@ impl<S: CatalogStore> ApiService<S> {
     ) -> anyhow::Result<()> {
         let target_type = resource.metadata.resource_type.clone();
         let target_id = resource.metadata.id.clone();
-        let mut all = self
-            .store
-            .list_resources(catalog_id, &target_type)
-            .await?;
+        let mut all = self.store.list_resources(catalog_id, &target_type).await?;
         if let Some(existing_idx) = all
             .iter()
             .position(|r| r.metadata.resource_type == target_type && r.metadata.id == target_id)
@@ -773,6 +770,9 @@ mod tests {
             .unwrap()
             .unwrap();
         assert_eq!(saved.metadata.name, "Punira Updated");
-        assert_eq!(saved.spec.get("description").and_then(|v| v.as_str()), Some("updated"));
+        assert_eq!(
+            saved.spec.get("description").and_then(|v| v.as_str()),
+            Some("updated")
+        );
     }
 }
