@@ -46,6 +46,8 @@ jobs:
           cache-dependency-path: apps/web/pnpm-lock.yaml
       - name: Install web dependencies
         run: mise exec -- pnpm -C apps/web install --frozen-lockfile
+      - name: Format check
+        run: mise run web-fmt-check
       - name: Typecheck
         run: mise exec -- pnpm -C apps/web typecheck
       - name: Test

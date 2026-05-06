@@ -1,4 +1,4 @@
-import { Breadcrumbs } from './Breadcrumbs'
+import { Breadcrumbs } from "./Breadcrumbs";
 
 export function Topbar() {
   return (
@@ -7,5 +7,5 @@ export function Topbar() {
         <Breadcrumbs />
       </div>
     </header>
-  )
+  );
 }

@@ -1,6 +1,10 @@
-import type { SelectHTMLAttributes } from 'react'
+import type { SelectHTMLAttributes } from "react";
 
-export function SelectInput({ className = '', children, ...props }: SelectHTMLAttributes<HTMLSelectElement>) {
+export function SelectInput({
+  className = "",
+  children,
+  ...props
+}: SelectHTMLAttributes<HTMLSelectElement>) {
   return (
     <select
       {...props}
@@ -8,5 +12,5 @@ export function SelectInput({ className = '', children, ...props }: SelectHTMLAt
     >
       {children}
     </select>
-  )
+  );
 }

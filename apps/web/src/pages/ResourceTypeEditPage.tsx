@@ -1,5 +1,5 @@
-import { ResourceTypeEditorPage } from './ResourceTypeEditorPage'
+import { ResourceTypeEditorPage } from "./ResourceTypeEditorPage";
 
 export function ResourceTypeEditPage() {
-  return <ResourceTypeEditorPage mode="edit" />
+  return <ResourceTypeEditorPage mode="edit" />;
 }

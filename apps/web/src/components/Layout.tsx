@@ -1,5 +1,5 @@
-import { AppShell } from './AppShell'
+import { AppShell } from "./AppShell";
 
 export function Layout() {
-  return <AppShell />
+  return <AppShell />;
 }

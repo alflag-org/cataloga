@@ -1,31 +1,34 @@
-import { useEffect, useState } from 'react'
-import { useNavigate, useParams } from 'react-router-dom'
-import { api } from '../api/client'
-import { ErrorBanner } from '../components/ErrorBanner'
-import { PageHeader } from '../components/PageHeader'
-import { ResourceForm } from '../components/ResourceForm'
-import type { Resource, ResourceType } from '../types'
+import { useEffect, useState } from "react";
+import { useNavigate, useParams } from "react-router-dom";
+import { api } from "../api/client";
+import { ErrorBanner } from "../components/ErrorBanner";
+import { PageHeader } from "../components/PageHeader";
+import { ResourceForm } from "../components/ResourceForm";
+import type { Resource, ResourceType } from "../types";
 
 export function ResourceEditPage() {
-  const { type = '', id = '' } = useParams()
-  const navigate = useNavigate()
-  const [rt, setRt] = useState<ResourceType | null>(null)
-  const [resource, setResource] = useState<Resource | null>(null)
-  const [error, setError] = useState<string | null>(null)
+  const { type = "", id = "" } = useParams();
+  const navigate = useNavigate();
+  const [rt, setRt] = useState<ResourceType | null>(null);
+  const [resource, setResource] = useState<Resource | null>(null);
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    ;(async () => {
+    (async () => {
       try {
-        const [resourceType, current] = await Promise.all([api.getResourceType(type), api.getResource(type, id)])
-        setRt(resourceType)
-        setResource(current)
+        const [resourceType, current] = await Promise.all([
+          api.getResourceType(type),
+          api.getResource(type, id),
+        ]);
+        setRt(resourceType);
+        setResource(current);
       } catch (e) {
-        setError(e instanceof Error ? e.message : String(e))
+        setError(e instanceof Error ? e.message : String(e));
       }
-    })()
-  }, [type, id])
+    })();
+  }, [type, id]);
 
-  if (!rt || !resource) return <ErrorBanner message={error || 'loading'} />
+  if (!rt || !resource) return <ErrorBanner message={error || "loading"} />;
 
   return (
     <section className="space-y-5">
@@ -35,10 +38,10 @@ export function ResourceEditPage() {
         initial={resource}
         mode="edit"
         onSubmit={async (next) => {
-          await api.updateResource(type, id, next)
-          navigate(`/resources/${type}/${id}`)
+          await api.updateResource(type, id, next);
+          navigate(`/resources/${type}/${id}`);
         }}
       />
     </section>
-  )
+  );
 }

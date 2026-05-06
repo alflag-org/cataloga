@@ -1,9 +1,9 @@
-import { Link } from 'react-router-dom'
-import type { ResourceType } from '../types'
+import { Link } from "react-router-dom";
+import type { ResourceType } from "../types";
 
 type Props = {
-  types: ResourceType[]
-}
+  types: ResourceType[];
+};
 
 export function ResourceTypeNav({ types }: Props) {
   return (
@@ -14,5 +14,5 @@ export function ResourceTypeNav({ types }: Props) {
         </li>
       ))}
     </ul>
-  )
+  );
 }
