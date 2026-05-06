@@ -1,6 +1,11 @@
 import { useMemo, useState } from 'react'
 import type { Resource, ResourceType } from '../types'
+import { DataCard } from './DataCard'
+import { ErrorBanner } from './ErrorBanner'
 import { FieldInput } from './FieldInput'
+import { Button } from './Button'
+import { TextInput } from './TextInput'
+import { TextareaInput } from './TextareaInput'
 
 type Props = {
   resourceType: ResourceType
@@ -39,7 +44,10 @@ function parseFieldValue(type: string, raw: unknown): unknown {
     try {
       return JSON.parse(s)
     } catch {
-      return s.split('\n').map((x) => x.trim()).filter(Boolean)
+      return s
+        .split('\n')
+        .map((x) => x.trim())
+        .filter(Boolean)
     }
   }
   return String(raw)
@@ -47,6 +55,8 @@ function parseFieldValue(type: string, raw: unknown): unknown {
 
 export function ResourceForm({ resourceType, initial, mode, onSubmit }: Props) {
   const [form, setForm] = useState<Resource>(initial)
+  const [customFieldsText, setCustomFieldsText] = useState(JSON.stringify(initial.custom_fields ?? {}, null, 2))
+  const [dependenciesText, setDependenciesText] = useState(JSON.stringify(initial.dependencies ?? {}, null, 2))
   const [error, setError] = useState<string | null>(null)
   const required = useMemo(() => new Set(resourceType.required_fields), [resourceType.required_fields])
 
@@ -56,7 +66,9 @@ export function ResourceForm({ resourceType, initial, mode, onSubmit }: Props) {
       const next: Resource = {
         ...form,
         metadata: { ...form.metadata, type: resourceType.id },
-        spec: { ...form.spec }
+        spec: { ...form.spec },
+        custom_fields: JSON.parse(customFieldsText || '{}'),
+        dependencies: JSON.parse(dependenciesText || '{}')
       }
       for (const field of resourceType.fields) {
         const raw = next.spec[field.name]
@@ -74,45 +86,56 @@ export function ResourceForm({ resourceType, initial, mode, onSubmit }: Props) {
   }
 
   return (
-    <div>
-      {error ? <div className="error-banner">Error: {error}</div> : null}
-      <div className="form-grid">
-        <label>
-          ID
-          <input
-            value={form.metadata.id}
-            disabled={mode === 'edit'}
-            onChange={(e) => setForm({ ...form, metadata: { ...form.metadata, id: e.target.value } })}
-          />
-        </label>
-        <label>
-          Name
-          <input
-            value={form.metadata.name}
-            onChange={(e) => setForm({ ...form, metadata: { ...form.metadata, name: e.target.value } })}
-          />
-        </label>
-      </div>
-      {resourceType.fields.map((field) => (
-        <label key={field.name}>
-          {field.label || field.name}
-          <FieldInput
-            field={field}
-            value={form.spec[field.name]}
-            onChange={(value) =>
-              setForm({
-                ...form,
-                spec: {
-                  ...form.spec,
-                  [field.name]: value
+    <div className="space-y-5">
+      <ErrorBanner message={error} />
+      <DataCard title="Metadata">
+        <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+          <label className="block text-sm font-medium text-gray-700">
+            ID
+            <TextInput value={form.metadata.id} disabled={mode === 'edit'} onChange={(e) => setForm({ ...form, metadata: { ...form.metadata, id: e.target.value } })} />
+          </label>
+          <label className="block text-sm font-medium text-gray-700">
+            Name
+            <TextInput value={form.metadata.name} onChange={(e) => setForm({ ...form, metadata: { ...form.metadata, name: e.target.value } })} />
+          </label>
+        </div>
+      </DataCard>
+      <DataCard title="Fields">
+        <div className="space-y-4">
+          {resourceType.fields.map((field) => (
+            <label key={field.name} className="block text-sm font-medium text-gray-700">
+              {field.label || field.name}
+              <FieldInput
+                field={field}
+                value={form.spec[field.name]}
+                onChange={(value) =>
+                  setForm({
+                    ...form,
+                    spec: {
+                      ...form.spec,
+                      [field.name]: value
+                    }
+                  })
                 }
-              })
-            }
-          />
-        </label>
-      ))}
-      <div>
-        <button onClick={submit}>Save</button>
+              />
+            </label>
+          ))}
+        </div>
+      </DataCard>
+      <DataCard title="Advanced">
+        <div className="grid grid-cols-1 gap-4">
+          <label className="block text-sm font-medium text-gray-700">
+            custom_fields JSON
+            <TextareaInput rows={5} value={customFieldsText} onChange={(e) => setCustomFieldsText(e.target.value)} />
+          </label>
+          <label className="block text-sm font-medium text-gray-700">
+            dependencies JSON
+            <TextareaInput rows={5} value={dependenciesText} onChange={(e) => setDependenciesText(e.target.value)} />
+          </label>
+        </div>
+      </DataCard>
+      <div className="flex justify-end">
+        <Button onClick={submit}>Save</Button>
       </div>
     </div>
   )

@@ -28,7 +28,7 @@ export function ResourceEditPage() {
   if (!rt || !resource) return <ErrorBanner message={error || 'loading'} />
 
   return (
-    <section>
+    <section className="space-y-5">
       <PageHeader title={`Edit Resource: ${type}/${id}`} />
       <ResourceForm
         resourceType={rt}

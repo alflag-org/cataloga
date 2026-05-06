@@ -19,7 +19,7 @@ export function ResourceCreatePage() {
   if (!rt) return <ErrorBanner message={error || 'loading'} />
 
   return (
-    <section>
+    <section className="space-y-5">
       <PageHeader title={`Create Resource: ${type}`} />
       <ResourceForm
         resourceType={rt}

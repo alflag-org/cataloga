@@ -1,6 +1,9 @@
 import { useEffect, useState } from 'react'
-import { Link, useParams } from 'react-router-dom'
+import { useParams } from 'react-router-dom'
 import { api } from '../api/client'
+import { LinkButton } from '../components/Button'
+import { DataCard } from '../components/DataCard'
+import { EmptyState } from '../components/EmptyState'
 import { ErrorBanner } from '../components/ErrorBanner'
 import { PageHeader } from '../components/PageHeader'
 import { ResourceListTable } from '../components/ResourceListTable'
@@ -27,10 +30,23 @@ export function ResourceListPage() {
   const cols = rt?.list_columns?.length ? rt.list_columns : ['metadata.name']
 
   return (
-    <section>
-      <PageHeader title={`Resources: ${type}`} actions={<Link to={`/resource-types/${type}/new`}>Create Resource</Link>} />
+    <section className="space-y-5">
+      <PageHeader
+        title={`Resources: ${type}`}
+        actions={<LinkButton to={`/resource-types/${type}/new`}>Create Resource</LinkButton>}
+      />
       <ErrorBanner message={error} />
-      <ResourceListTable type={type} columns={cols} rows={rows} />
+      <DataCard>
+        {rows.length ? (
+          <ResourceListTable type={type} columns={cols} rows={rows} />
+        ) : (
+          <EmptyState
+            title="No resources"
+            description="Create the first resource for this resource type."
+            action={<LinkButton to={`/resource-types/${type}/new`}>Create Resource</LinkButton>}
+          />
+        )}
+      </DataCard>
     </section>
   )
 }
