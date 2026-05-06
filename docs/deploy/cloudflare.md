@@ -51,6 +51,17 @@ Cloudflare authentication in CI must use:
 - `CLOUDFLARE_API_TOKEN`
 - `CLOUDFLARE_ACCOUNT_ID`
 
+## Observability
+
+Workers Logs, traces, and source maps are enabled in `wrangler.toml`.
+
+```bash
+cd crates/cataloga-worker
+wrangler tail
+```
+
+Use this to watch real-time logs after deployment.
+
 ## Manual smoke test
 
 ```bash
