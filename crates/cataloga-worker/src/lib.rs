@@ -1,4 +1,4 @@
-use cataloga_api::ApiService;
+use cataloga_api::{ApiError as ServiceError, ApiService};
 #[cfg(test)]
 use cataloga_api::{ApiMethod, CANONICAL_API_ROUTES};
 use cataloga_core::{Resource, ResourceType};
@@ -19,6 +19,7 @@ enum ErrorKind {
     BadRequest,
     NotFound,
     Validation,
+    Conflict,
     Internal,
 }
 
@@ -28,6 +29,7 @@ impl ErrorKind {
             Self::BadRequest => "bad_request",
             Self::NotFound => "not_found",
             Self::Validation => "validation",
+            Self::Conflict => "conflict",
             Self::Internal => "internal",
         }
     }
@@ -37,6 +39,7 @@ impl ErrorKind {
             Self::BadRequest => 400,
             Self::NotFound => 404,
             Self::Validation => 422,
+            Self::Conflict => 409,
             Self::Internal => 500,
         }
     }
@@ -75,12 +78,36 @@ impl ApiError {
         }
     }
 
-    fn from_service_error(err: impl std::fmt::Display) -> Self {
+    fn from_service_error(err: anyhow::Error) -> Self {
+        if let Some(service_err) = err.downcast_ref::<ServiceError>() {
+            return match service_err {
+                ServiceError::Validation(msg) => Self {
+                    kind: ErrorKind::Validation,
+                    message: msg.clone(),
+                    log_message: msg.clone(),
+                },
+                ServiceError::Conflict(msg) => Self {
+                    kind: ErrorKind::Conflict,
+                    message: msg.clone(),
+                    log_message: msg.clone(),
+                },
+                ServiceError::NotFound(msg) => Self::not_found(msg.clone()),
+                ServiceError::BadRequest(msg) => Self::bad_request(msg.clone()),
+                ServiceError::Internal(msg) => Self::internal(msg.clone()),
+            };
+        }
+
         let msg = err.to_string();
         let lower = msg.to_ascii_lowercase();
         if lower.contains("validation") {
             Self {
                 kind: ErrorKind::Validation,
+                message: msg.clone(),
+                log_message: msg,
+            }
+        } else if lower.contains("conflict") {
+            Self {
+                kind: ErrorKind::Conflict,
                 message: msg.clone(),
                 log_message: msg,
             }
@@ -660,7 +687,9 @@ pub async fn fetch(mut req: Request, env: Env, _ctx: Context) -> Result<Response
         let event = match err.kind {
             ErrorKind::BadRequest => "api_request_bad_input",
             ErrorKind::NotFound => "api_request_not_found",
-            ErrorKind::Validation | ErrorKind::Internal => "api_request_failed",
+            ErrorKind::Validation | ErrorKind::Conflict | ErrorKind::Internal => {
+                "api_request_failed"
+            }
         };
         emit_request_log(RequestLog {
             event,
@@ -697,6 +726,7 @@ pub async fn fetch(mut req: Request, env: Env, _ctx: Context) -> Result<Response
 #[cfg(test)]
 mod tests {
     use super::*;
+    use anyhow::anyhow;
     use std::collections::HashSet;
 
     fn worker_route_set() -> HashSet<(ApiMethod, &'static str)> {
@@ -732,5 +762,15 @@ mod tests {
             .map(|route| (route.method, route.path))
             .collect();
         assert_eq!(worker_route_set(), canonical);
+    }
+
+    #[test]
+    fn service_conflict_maps_to_conflict_error_kind() {
+        let err = anyhow!(ServiceError::Conflict(
+            "resource type has existing resources and cannot be deleted".to_string()
+        ));
+        let api_err = ApiError::from_service_error(err);
+        assert_eq!(api_err.kind.as_str(), "conflict");
+        assert_eq!(api_err.kind.status(), 409);
     }
 }
