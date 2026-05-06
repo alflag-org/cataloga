@@ -5,7 +5,11 @@ use axum::{
     response::IntoResponse,
     routing::{get, post},
 };
-use cataloga_api::{ApiService, ImportPreviewResult, ResourceReferences, ValidationResult};
+use cataloga_api::{
+    ApiError as ServiceError, ApiService, ImportPreviewResult, ResourceReferences, ValidationResult,
+};
+#[cfg(test)]
+use cataloga_api::{ApiMethod, CANONICAL_API_ROUTES};
 use cataloga_core::{Resource, ResourceType};
 use cataloga_store_sqlite::SqliteStore;
 use serde::Deserialize;
@@ -229,8 +233,18 @@ impl AppError {
 
 impl From<anyhow::Error> for AppError {
     fn from(value: anyhow::Error) -> Self {
+        if let Some(service_error) = value.downcast_ref::<ServiceError>() {
+            let (code, message) = match service_error {
+                ServiceError::NotFound(msg) => (StatusCode::NOT_FOUND, msg.clone()),
+                ServiceError::Validation(msg) => (StatusCode::BAD_REQUEST, msg.clone()),
+                ServiceError::Conflict(msg) => (StatusCode::CONFLICT, msg.clone()),
+                ServiceError::BadRequest(msg) => (StatusCode::BAD_REQUEST, msg.clone()),
+                ServiceError::Internal(msg) => (StatusCode::INTERNAL_SERVER_ERROR, msg.clone()),
+            };
+            return Self { code, message };
+        }
         Self {
-            code: StatusCode::BAD_REQUEST,
+            code: StatusCode::INTERNAL_SERVER_ERROR,
             message: value.to_string(),
         }
     }
@@ -239,5 +253,46 @@ impl From<anyhow::Error> for AppError {
 impl IntoResponse for AppError {
     fn into_response(self) -> axum::response::Response {
         (self.code, Json(json!({ "error": self.message }))).into_response()
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::collections::HashSet;
+
+    fn server_route_set() -> HashSet<(ApiMethod, &'static str)> {
+        HashSet::from([
+            (ApiMethod::Get, "/api/health"),
+            (ApiMethod::Get, "/api/resource-types"),
+            (ApiMethod::Post, "/api/resource-types"),
+            (ApiMethod::Get, "/api/resource-types/{type_id}"),
+            (ApiMethod::Put, "/api/resource-types/{type_id}"),
+            (ApiMethod::Delete, "/api/resource-types/{type_id}"),
+            (ApiMethod::Get, "/api/resources/{type_id}"),
+            (ApiMethod::Post, "/api/resources/{type_id}"),
+            (ApiMethod::Get, "/api/resources/{type_id}/{resource_id}"),
+            (ApiMethod::Put, "/api/resources/{type_id}/{resource_id}"),
+            (ApiMethod::Delete, "/api/resources/{type_id}/{resource_id}"),
+            (
+                ApiMethod::Get,
+                "/api/resources/{type_id}/{resource_id}/references",
+            ),
+            (ApiMethod::Post, "/api/validate"),
+            (ApiMethod::Get, "/api/validation"),
+            (ApiMethod::Post, "/api/import"),
+            (ApiMethod::Post, "/api/import/preview"),
+            (ApiMethod::Post, "/api/import/apply"),
+            (ApiMethod::Get, "/api/export"),
+        ])
+    }
+
+    #[test]
+    fn server_routes_match_canonical_api_routes() {
+        let canonical: HashSet<(ApiMethod, &'static str)> = CANONICAL_API_ROUTES
+            .iter()
+            .map(|route| (route.method, route.path))
+            .collect();
+        assert_eq!(server_route_set(), canonical);
     }
 }

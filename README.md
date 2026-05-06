@@ -19,7 +19,7 @@ Cataloga is a schema-driven infrastructure catalog built for local-first operati
 ```bash
 mise install
 mise exec -- pnpm -C apps/web install
-mise run build
+mise run ci
 mise run serve
 ```
 
@@ -28,6 +28,17 @@ mise run serve
 mise run worker-dev
 mise run worker-deploy
 ```
+
+## CI/CD
+- Pull Request: run checks only (`rust`, `web`, `worker`)
+- `master` push: run checks, then deploy to Cloudflare (`deploy` job)
+- Production deploy uses GitHub Environment `production`
+- Production deploy flow:
+  1. Build web assets
+  2. Build worker
+  3. Apply D1 remote migrations
+  4. Deploy worker
+  5. Run read-only smoke test (`/api/health`) when `CATALOGA_PROD_URL` is set
 
 ## Core concepts
 - Resource Type: schema for Resources
@@ -47,9 +58,16 @@ mise run worker-deploy
 
 ## Development tasks
 - `mise run fmt`
+- `mise run fmt-check`
+- `mise run web-fmt`
+- `mise run web-fmt-check`
 - `mise run lint`
 - `mise run test`
+- `mise run build-rust`
+- `mise run build-web`
 - `mise run build`
+- `mise run worker-build`
+- `mise run ci`
 - `mise run dev`
 - `mise run serve`
 - `mise run worker-dev`

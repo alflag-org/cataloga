@@ -8,14 +8,29 @@ node = "24"
 [tasks.fmt]
 run = ["cargo fmt --all"]
 
+[tasks.fmt-check]
+run = "cargo fmt --all -- --check"
+
 [tasks.lint]
 run = ["cargo clippy --all-targets --all-features -- -D warnings", "mise exec -- pnpm -C apps/web typecheck"]
 
 [tasks.test]
 run = ["cargo test --all", "mise exec -- pnpm -C apps/web test"]
 
+[tasks.web-fmt]
+run = "mise exec -- prettier --write apps/web/src"
+
+[tasks.web-fmt-check]
+run = "mise exec -- prettier --check apps/web/src"
+
+[tasks.build-rust]
+run = "cargo build --workspace"
+
+[tasks.build-web]
+run = "mise exec -- pnpm -C apps/web build"
+
 [tasks.build]
-run = ["cargo build --workspace", "mise exec -- pnpm -C apps/web build"]
+run = ["mise run build-rust", "mise run build-web"]
 
 [tasks.dev]
 run = "mise exec -- pnpm -C apps/web dev"
@@ -28,6 +43,17 @@ run = "cd crates/cataloga-worker && wrangler dev"
 
 [tasks.worker-deploy]
 run = "cd crates/cataloga-worker && wrangler deploy"
+
+[tasks.worker-build]
+run = "cd crates/cataloga-worker && worker-build --release"
+
+[tasks.ci]
+run = [
+  "mise run fmt-check",
+  "mise run lint",
+  "mise run test",
+  "mise run build",
+]
 
 [tasks.db-migrate]
 run = "cargo run -p cataloga-cli -- migrate --db sqlite://./cataloga.db"

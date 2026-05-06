@@ -38,6 +38,19 @@ mise run worker-dev
 mise run worker-deploy
 ```
 
+CI deploy uses the same ordering with explicit checks:
+
+1. `mise run build-web`
+2. `mise run worker-build`
+3. `wrangler d1 migrations apply cataloga-prod --remote`
+4. `wrangler deploy`
+5. `curl -fsS "${CATALOGA_PROD_URL}/api/health"` (read-only smoke, when configured)
+
+Cloudflare authentication in CI must use:
+
+- `CLOUDFLARE_API_TOKEN`
+- `CLOUDFLARE_ACCOUNT_ID`
+
 ## Manual smoke test
 
 ```bash
@@ -95,6 +108,8 @@ Optional scripted smoke tests:
 scripts/smoke-worker.sh
 BASE_URL=http://127.0.0.1:8080 scripts/smoke-local.sh
 ```
+
+Production smoke in GitHub Actions should call only read-only endpoints (currently `/api/health`).
 
 ## SPA routing behavior
 

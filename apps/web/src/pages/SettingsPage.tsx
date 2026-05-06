@@ -3,8 +3,11 @@ import { Button } from '../components/Button'
 import { DataCard } from '../components/DataCard'
 import { PageHeader } from '../components/PageHeader'
 import { buildHomeLabSampleResources, buildHomeLabTypes } from '../homeLabTemplate'
+import { useNavigate } from 'react-router-dom'
 
 export function SettingsPage() {
+  const navigate = useNavigate()
+
   return (
     <section className="space-y-5">
       <PageHeader title="Settings" subtitle="Worker and storage settings are configured by environment bindings." />
@@ -24,7 +27,7 @@ export function SettingsPage() {
               for (const r of buildHomeLabSampleResources()) {
                 await api.createResource(r.metadata.type, r)
               }
-              window.location.reload()
+              navigate('/resources', { replace: true })
             }}
           >
             Apply Home Lab Basic Template

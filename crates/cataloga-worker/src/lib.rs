@@ -1,9 +1,12 @@
 use cataloga_api::ApiService;
+#[cfg(test)]
+use cataloga_api::{ApiMethod, CANONICAL_API_ROUTES};
 use cataloga_core::{Resource, ResourceType};
 use cataloga_store_d1::D1Store;
 use serde::Deserialize;
 use worker::*;
 
+// Current product scope is a single catalog. Multi-catalog support is out of scope.
 const CATALOG_ID: &str = "default";
 
 #[derive(Deserialize)]
@@ -175,5 +178,46 @@ pub async fn fetch(mut req: Request, env: Env, _ctx: Context) -> Result<Response
             Response::empty()
         }
         _ => Response::error("not found", 404),
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::collections::HashSet;
+
+    fn worker_route_set() -> HashSet<(ApiMethod, &'static str)> {
+        HashSet::from([
+            (ApiMethod::Get, "/api/health"),
+            (ApiMethod::Get, "/api/resource-types"),
+            (ApiMethod::Post, "/api/resource-types"),
+            (ApiMethod::Get, "/api/resource-types/{type_id}"),
+            (ApiMethod::Put, "/api/resource-types/{type_id}"),
+            (ApiMethod::Delete, "/api/resource-types/{type_id}"),
+            (ApiMethod::Get, "/api/resources/{type_id}"),
+            (ApiMethod::Post, "/api/resources/{type_id}"),
+            (ApiMethod::Get, "/api/resources/{type_id}/{resource_id}"),
+            (ApiMethod::Put, "/api/resources/{type_id}/{resource_id}"),
+            (ApiMethod::Delete, "/api/resources/{type_id}/{resource_id}"),
+            (
+                ApiMethod::Get,
+                "/api/resources/{type_id}/{resource_id}/references",
+            ),
+            (ApiMethod::Post, "/api/validate"),
+            (ApiMethod::Get, "/api/validation"),
+            (ApiMethod::Post, "/api/import"),
+            (ApiMethod::Post, "/api/import/preview"),
+            (ApiMethod::Post, "/api/import/apply"),
+            (ApiMethod::Get, "/api/export"),
+        ])
+    }
+
+    #[test]
+    fn worker_routes_match_canonical_api_routes() {
+        let canonical: HashSet<(ApiMethod, &'static str)> = CANONICAL_API_ROUTES
+            .iter()
+            .map(|route| (route.method, route.path))
+            .collect();
+        assert_eq!(worker_route_set(), canonical);
     }
 }

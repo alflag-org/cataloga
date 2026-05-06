@@ -5,6 +5,110 @@ use cataloga_core::{
 use cataloga_store::CatalogStore;
 use serde::Serialize;
 use std::collections::HashMap;
+use thiserror::Error;
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+pub enum ApiMethod {
+    Get,
+    Post,
+    Put,
+    Delete,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct ApiRoute {
+    pub method: ApiMethod,
+    pub path: &'static str,
+}
+
+pub const CANONICAL_API_ROUTES: &[ApiRoute] = &[
+    ApiRoute {
+        method: ApiMethod::Get,
+        path: "/api/health",
+    },
+    ApiRoute {
+        method: ApiMethod::Get,
+        path: "/api/resource-types",
+    },
+    ApiRoute {
+        method: ApiMethod::Post,
+        path: "/api/resource-types",
+    },
+    ApiRoute {
+        method: ApiMethod::Get,
+        path: "/api/resource-types/{type_id}",
+    },
+    ApiRoute {
+        method: ApiMethod::Put,
+        path: "/api/resource-types/{type_id}",
+    },
+    ApiRoute {
+        method: ApiMethod::Delete,
+        path: "/api/resource-types/{type_id}",
+    },
+    ApiRoute {
+        method: ApiMethod::Get,
+        path: "/api/resources/{type_id}",
+    },
+    ApiRoute {
+        method: ApiMethod::Post,
+        path: "/api/resources/{type_id}",
+    },
+    ApiRoute {
+        method: ApiMethod::Get,
+        path: "/api/resources/{type_id}/{resource_id}",
+    },
+    ApiRoute {
+        method: ApiMethod::Put,
+        path: "/api/resources/{type_id}/{resource_id}",
+    },
+    ApiRoute {
+        method: ApiMethod::Delete,
+        path: "/api/resources/{type_id}/{resource_id}",
+    },
+    ApiRoute {
+        method: ApiMethod::Get,
+        path: "/api/resources/{type_id}/{resource_id}/references",
+    },
+    ApiRoute {
+        method: ApiMethod::Post,
+        path: "/api/validate",
+    },
+    ApiRoute {
+        method: ApiMethod::Get,
+        path: "/api/validation",
+    },
+    ApiRoute {
+        method: ApiMethod::Post,
+        path: "/api/import",
+    },
+    ApiRoute {
+        method: ApiMethod::Post,
+        path: "/api/import/preview",
+    },
+    ApiRoute {
+        method: ApiMethod::Post,
+        path: "/api/import/apply",
+    },
+    ApiRoute {
+        method: ApiMethod::Get,
+        path: "/api/export",
+    },
+];
+
+#[derive(Debug, Error)]
+pub enum ApiError {
+    #[error("{0}")]
+    NotFound(String),
+    #[error("{0}")]
+    Validation(String),
+    #[error("{0}")]
+    Conflict(String),
+    #[error("{0}")]
+    BadRequest(String),
+    #[error("{0}")]
+    Internal(String),
+}
 
 #[derive(Debug, Clone, Serialize)]
 pub struct ValidationIssue {
@@ -71,7 +175,7 @@ impl<S: CatalogStore> ApiService<S> {
         catalog_id: &str,
         rt: ResourceType,
     ) -> anyhow::Result<()> {
-        validate_resource_type(&rt)?;
+        validate_resource_type(&rt).map_err(|e| ApiError::Validation(e.to_string()))?;
         self.store.upsert_resource_type(catalog_id, rt).await
     }
 
@@ -82,7 +186,10 @@ impl<S: CatalogStore> ApiService<S> {
     ) -> anyhow::Result<()> {
         let existing = self.store.list_resources(catalog_id, type_id).await?;
         if !existing.is_empty() {
-            anyhow::bail!("resource type has existing resources and cannot be deleted");
+            return Err(ApiError::Conflict(
+                "resource type has existing resources and cannot be deleted".to_string(),
+            )
+            .into());
         }
         self.store.delete_resource_type(catalog_id, type_id).await
     }
@@ -117,7 +224,7 @@ impl<S: CatalogStore> ApiService<S> {
             .await?;
         all.push(resource.clone());
         let types = self.store.list_resource_types(catalog_id).await?;
-        validate_resources(&types, &all)?;
+        validate_resources(&types, &all).map_err(|e| ApiError::Validation(e.to_string()))?;
         self.store.upsert_resource(catalog_id, resource).await
     }
 
@@ -140,24 +247,34 @@ impl<S: CatalogStore> ApiService<S> {
     ) -> anyhow::Result<ResourceReferences> {
         let types = self.store.list_resource_types(catalog_id).await?;
         let mut by_type: HashMap<String, Vec<Resource>> = HashMap::new();
+        let mut resource_index: HashMap<(String, String), Resource> = HashMap::new();
         for rt in &types {
-            by_type.insert(
-                rt.id.clone(),
-                self.store.list_resources(catalog_id, &rt.id).await?,
-            );
+            let resources = self.store.list_resources(catalog_id, &rt.id).await?;
+            for resource in &resources {
+                resource_index.insert(
+                    (
+                        resource.metadata.resource_type.clone(),
+                        resource.metadata.id.clone(),
+                    ),
+                    resource.clone(),
+                );
+            }
+            by_type.insert(rt.id.clone(), resources);
         }
 
-        let current = by_type
+        let _current = by_type
             .get(type_id)
             .and_then(|items| items.iter().find(|r| r.metadata.id == resource_id))
-            .ok_or_else(|| anyhow::anyhow!("resource not found"))?;
+            .ok_or_else(|| ApiError::NotFound("resource not found".to_string()))?;
 
         let mut outgoing = Vec::new();
         let mut incoming = Vec::new();
 
         for rt in &types {
-            let resources = by_type.get(&rt.id).cloned().unwrap_or_default();
+            let resources = by_type.get(&rt.id).map_or(&[][..], Vec::as_slice);
             for resource in resources {
+                let is_current = resource.metadata.resource_type == type_id
+                    && resource.metadata.id == resource_id;
                 for reference in &rt.references {
                     let Some(value) = resource.spec.get(&reference.field) else {
                         continue;
@@ -170,32 +287,16 @@ impl<S: CatalogStore> ApiService<S> {
                             let Some(target_id) = item.as_str() else {
                                 continue;
                             };
-                            if resource.metadata.resource_type == type_id
-                                && resource.metadata.id == resource_id
+                            if is_current
+                                && let Some(target) = resource_index
+                                    .get(&(reference.target_type.clone(), target_id.to_string()))
                             {
-                                if reference.target_type == type_id {
-                                    if let Some(target) = by_type
-                                        .get(type_id)
-                                        .and_then(|x| x.iter().find(|r| r.metadata.id == target_id))
-                                    {
-                                        outgoing.push(ResourceRef {
-                                            resource_type: type_id.to_string(),
-                                            resource_id: target.metadata.id.clone(),
-                                            name: target.metadata.name.clone(),
-                                            field: reference.field.clone(),
-                                        });
-                                    }
-                                } else if let Some(target) = by_type
-                                    .get(&reference.target_type)
-                                    .and_then(|x| x.iter().find(|r| r.metadata.id == target_id))
-                                {
-                                    outgoing.push(ResourceRef {
-                                        resource_type: reference.target_type.clone(),
-                                        resource_id: target.metadata.id.clone(),
-                                        name: target.metadata.name.clone(),
-                                        field: reference.field.clone(),
-                                    });
-                                }
+                                outgoing.push(ResourceRef {
+                                    resource_type: reference.target_type.clone(),
+                                    resource_id: target.metadata.id.clone(),
+                                    name: target.metadata.name.clone(),
+                                    field: reference.field.clone(),
+                                });
                             }
                             if reference.target_type == type_id
                                 && target_id == resource_id
@@ -214,32 +315,16 @@ impl<S: CatalogStore> ApiService<S> {
                         let Some(target_id) = value.as_str() else {
                             continue;
                         };
-                        if resource.metadata.resource_type == type_id
-                            && resource.metadata.id == resource_id
+                        if is_current
+                            && let Some(target) = resource_index
+                                .get(&(reference.target_type.clone(), target_id.to_string()))
                         {
-                            if reference.target_type == type_id {
-                                if let Some(target) = by_type
-                                    .get(type_id)
-                                    .and_then(|x| x.iter().find(|r| r.metadata.id == target_id))
-                                {
-                                    outgoing.push(ResourceRef {
-                                        resource_type: type_id.to_string(),
-                                        resource_id: target.metadata.id.clone(),
-                                        name: target.metadata.name.clone(),
-                                        field: reference.field.clone(),
-                                    });
-                                }
-                            } else if let Some(target) = by_type
-                                .get(&reference.target_type)
-                                .and_then(|x| x.iter().find(|r| r.metadata.id == target_id))
-                            {
-                                outgoing.push(ResourceRef {
-                                    resource_type: reference.target_type.clone(),
-                                    resource_id: target.metadata.id.clone(),
-                                    name: target.metadata.name.clone(),
-                                    field: reference.field.clone(),
-                                });
-                            }
+                            outgoing.push(ResourceRef {
+                                resource_type: reference.target_type.clone(),
+                                resource_id: target.metadata.id.clone(),
+                                name: target.metadata.name.clone(),
+                                field: reference.field.clone(),
+                            });
                         }
                         if reference.target_type == type_id
                             && target_id == resource_id
@@ -258,14 +343,13 @@ impl<S: CatalogStore> ApiService<S> {
             }
         }
 
-        let _ = current;
         Ok(ResourceReferences { outgoing, incoming })
     }
 
     pub async fn validate_catalog(&self, catalog_id: &str) -> anyhow::Result<()> {
         let report = self.validation_result(catalog_id).await?;
         if report.status == "failed" {
-            anyhow::bail!("catalog validation failed");
+            return Err(ApiError::Validation("catalog validation failed".to_string()).into());
         }
         Ok(())
     }
@@ -291,7 +375,9 @@ impl<S: CatalogStore> ApiService<S> {
     pub async fn import_catalog_yaml(&self, catalog_id: &str, input: &str) -> anyhow::Result<()> {
         let preview = self.import_catalog_preview(catalog_id, input).await?;
         if !preview.validation_errors.is_empty() {
-            anyhow::bail!("import preview failed validation");
+            return Err(
+                ApiError::Validation("import preview failed validation".to_string()).into(),
+            );
         }
 
         let (types, resources) = import_yaml(input)?;

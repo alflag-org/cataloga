@@ -9,6 +9,7 @@ anyhow.workspace = true
 cataloga-core = { path = "../cataloga-core" }
 cataloga-store = { path = "../cataloga-store" }
 serde.workspace = true
+thiserror.workspace = true
 
 [dev-dependencies]
 async-trait.workspace = true
