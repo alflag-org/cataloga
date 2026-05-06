@@ -1,3 +1,4 @@
+import { useState } from "react";
 import type { FieldDef } from "../types";
 import { SelectInput } from "./SelectInput";
 import { TextInput } from "./TextInput";
@@ -25,52 +26,98 @@ function asText(value: unknown): string {
 
 export function FieldInput({ field, value, onChange, reference }: Props) {
   const base = `field-${field.name}`;
+  const referenceListId = `${base}-reference-options`;
   if (field.type === "reference" && reference && !reference.multiple) {
     return (
-      <SelectInput
+      <>
+        <TextInput
+          id={base}
+          type="text"
+          list={referenceListId}
+          value={asText(value)}
+          onChange={(e) => onChange(e.target.value)}
+        />
+        <datalist id={referenceListId}>
+          {reference.options.map((opt) => (
+            <option key={opt.id} value={opt.id}>
+              {opt.name}
+            </option>
+          ))}
+        </datalist>
+      </>
+    );
+  }
+  if (field.type === "reference" && !reference) {
+    return (
+      <TextInput
         id={base}
+        type="text"
         value={asText(value)}
         onChange={(e) => onChange(e.target.value)}
-      >
-        <option value="">Select</option>
-        {reference.options.map((opt) => (
-          <option key={opt.id} value={opt.id}>
-            {opt.name} ({opt.id})
-          </option>
-        ))}
-      </SelectInput>
+      />
     );
   }
   if (field.type === "reference_array" && reference && reference.multiple) {
     const selected = Array.isArray(value) ? value.map(String) : [];
+    const [draft, setDraft] = useState("");
+    const addValue = (raw: string) => {
+      const next = raw.trim();
+      if (!next) return;
+      if (selected.includes(next)) {
+        setDraft("");
+        return;
+      }
+      onChange([...selected, next]);
+      setDraft("");
+    };
     return (
       <div className="space-y-2 rounded-md border border-gray-200 p-3">
-        {reference.options.length === 0 ? (
-          <p className="text-xs text-gray-500">
-            No available target resources.
-          </p>
+        <div className="flex items-center gap-2">
+          <TextInput
+            id={base}
+            type="text"
+            list={referenceListId}
+            placeholder="Type and press Enter"
+            value={draft}
+            onChange={(e) => setDraft(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === "Enter") {
+                e.preventDefault();
+                addValue(draft);
+              }
+            }}
+          />
+          <button
+            type="button"
+            className="rounded-md border border-gray-300 px-3 py-2 text-sm text-gray-700 hover:bg-gray-50"
+            onClick={() => addValue(draft)}
+          >
+            Add
+          </button>
+        </div>
+        <datalist id={referenceListId}>
+          {reference.options.map((opt) => (
+            <option key={opt.id} value={opt.id}>
+              {opt.name}
+            </option>
+          ))}
+        </datalist>
+        {selected.length === 0 ? (
+          <p className="text-xs text-gray-500">No selected resources.</p>
         ) : (
-          reference.options.map((opt) => (
-            <label
-              key={opt.id}
-              className="flex items-center gap-2 text-sm text-gray-700"
-            >
-              <input
-                type="checkbox"
-                checked={selected.includes(opt.id)}
-                onChange={(e) => {
-                  if (e.target.checked) {
-                    onChange([...selected, opt.id]);
-                  } else {
-                    onChange(selected.filter((id) => id !== opt.id));
-                  }
-                }}
-              />
-              <span>
-                {opt.name} ({opt.id})
-              </span>
-            </label>
-          ))
+          <div className="flex flex-wrap gap-2">
+            {selected.map((id) => (
+              <button
+                key={id}
+                type="button"
+                className="rounded-full border border-gray-300 bg-white px-3 py-1 text-xs text-gray-700 hover:bg-gray-50"
+                onClick={() => onChange(selected.filter((item) => item !== id))}
+                title="Remove"
+              >
+                {id} ×
+              </button>
+            ))}
+          </div>
         )}
       </div>
     );

@@ -222,10 +222,7 @@ export function ResourceTypeEditorPage({ mode }: { mode: "create" | "edit" }) {
       >
         <div className="space-y-3">
           {value.fields.map((field, idx) => (
-            <div
-              key={`${field.name}-${idx}`}
-              className="rounded-lg border border-gray-200 p-3"
-            >
+            <div key={idx} className="rounded-lg border border-gray-200 p-3">
               <div className="grid grid-cols-1 gap-3 md:grid-cols-5">
                 <label className="text-sm text-gray-700">
                   Field name

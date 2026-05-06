@@ -218,11 +218,20 @@ impl<S: CatalogStore> ApiService<S> {
         catalog_id: &str,
         resource: Resource,
     ) -> anyhow::Result<()> {
+        let target_type = resource.metadata.resource_type.clone();
+        let target_id = resource.metadata.id.clone();
         let mut all = self
             .store
-            .list_resources(catalog_id, &resource.metadata.resource_type)
+            .list_resources(catalog_id, &target_type)
             .await?;
-        all.push(resource.clone());
+        if let Some(existing_idx) = all
+            .iter()
+            .position(|r| r.metadata.resource_type == target_type && r.metadata.id == target_id)
+        {
+            all[existing_idx] = resource.clone();
+        } else {
+            all.push(resource.clone());
+        }
         let types = self.store.list_resource_types(catalog_id).await?;
         validate_resources(&types, &all).map_err(|e| ApiError::Validation(e.to_string()))?;
         self.store.upsert_resource(catalog_id, resource).await
@@ -483,7 +492,7 @@ fn build_validation_result(types: &[ResourceType], resources: &[Resource]) -> Va
 mod tests {
     use super::*;
     use async_trait::async_trait;
-    use cataloga_core::{Metadata, ReferenceDef};
+    use cataloga_core::{FieldDef, FieldType, Metadata, ReferenceDef};
     use serde_json::json;
     use std::sync::{Arc, Mutex};
 
@@ -711,5 +720,59 @@ mod tests {
             .unwrap();
         assert!(refs.outgoing.is_empty());
         assert!(refs.incoming.is_empty());
+    }
+
+    #[tokio::test]
+    async fn create_or_update_resource_allows_updating_same_id() {
+        let store = MemoryStore::default();
+        let api = ApiService::new(store.clone());
+        store
+            .upsert_resource_type(
+                "default",
+                ResourceType {
+                    id: "device".into(),
+                    title: "Device".into(),
+                    group: String::new(),
+                    description: String::new(),
+                    fields: vec![FieldDef {
+                        name: "description".into(),
+                        label: "Description".into(),
+                        field_type: FieldType::String,
+                        enum_values: vec![],
+                    }],
+                    required_fields: vec![],
+                    list_columns: vec!["metadata.name".into()],
+                    form_layout: vec![],
+                    detail_sections: vec![],
+                    references: vec![],
+                    validation_rules: vec![],
+                },
+            )
+            .await
+            .unwrap();
+        store
+            .upsert_resource(
+                "default",
+                resource("device", "punira", "Punira", serde_json::Map::new()),
+            )
+            .await
+            .unwrap();
+
+        let mut updated_spec = serde_json::Map::new();
+        updated_spec.insert("description".into(), json!("updated"));
+        api.create_or_update_resource(
+            "default",
+            resource("device", "punira", "Punira Updated", updated_spec),
+        )
+        .await
+        .unwrap();
+
+        let saved = store
+            .get_resource("default", "device", "punira")
+            .await
+            .unwrap()
+            .unwrap();
+        assert_eq!(saved.metadata.name, "Punira Updated");
+        assert_eq!(saved.spec.get("description").and_then(|v| v.as_str()), Some("updated"));
     }
 }
