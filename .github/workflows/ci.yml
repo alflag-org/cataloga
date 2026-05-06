@@ -1,27 +1,30 @@
 name: CI
 
 on:
-  push:
-    branches: ["**"]
   pull_request:
+  push:
+    branches:
+      - master
 
 jobs:
   ci:
     runs-on: ubuntu-latest
+    timeout-minutes: 30
+
     steps:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Setup mise
+      - name: Install mise
         uses: jdx/mise-action@v2
 
       - name: Install tools
         run: mise install
 
-      - name: Install web deps
-        run: mise exec -- pnpm -C apps/web install
+      - name: Install web dependencies
+        run: mise exec -- pnpm -C apps/web install --frozen-lockfile
 
-      - name: Format
+      - name: Format check
         run: mise run fmt
 
       - name: Lint
