@@ -2,7 +2,8 @@ import { NavLink } from 'react-router-dom'
 
 const primaryItems = [
   { to: '/', label: 'Dashboard' },
-  { to: '/resources', label: 'Resources' }
+  { to: '/resources', label: 'Resources' },
+  { to: '/graph', label: 'Graph View' }
 ]
 
 const administrationItems = [

@@ -4,6 +4,7 @@ import { BrowserRouter, Navigate, Route, Routes, useParams } from 'react-router-
 import { Layout } from './components/Layout'
 import { DashboardPage } from './pages/DashboardPage'
 import { ExportPage } from './pages/ExportPage'
+import { GraphViewPage } from './pages/GraphViewPage'
 import { ImportPage } from './pages/ImportPage'
 import { ResourceCreatePage } from './pages/ResourceCreatePage'
 import { ResourceDetailPage } from './pages/ResourceDetailPage'
@@ -24,6 +25,7 @@ function App() {
           <Route path="/" element={<DashboardPage />} />
 
           <Route path="/resources" element={<ResourcesIndexPage />} />
+          <Route path="/graph" element={<GraphViewPage />} />
           <Route path="/resources/:type" element={<ResourceListPage />} />
           <Route path="/resources/:type/new" element={<ResourceCreatePage />} />
           <Route path="/resources/:type/:id" element={<ResourceDetailPage />} />
