@@ -74,7 +74,9 @@ where
         type_id: &str,
         resource_id: &str,
     ) -> anyhow::Result<Option<Resource>> {
-        (**self).get_resource(catalog_id, type_id, resource_id).await
+        (**self)
+            .get_resource(catalog_id, type_id, resource_id)
+            .await
     }
 
     async fn upsert_resource(&self, catalog_id: &str, resource: Resource) -> anyhow::Result<()> {

@@ -31,4 +31,4 @@ uuid = { version = "1", features = ["v4", "serde"] }
 url = "2"
 ipnet = "2"
 sqlx = { version = "0.8", features = ["runtime-tokio-rustls", "sqlite", "macros", "uuid", "json"] }
-worker = "0.6"
+worker = "0.8.1"

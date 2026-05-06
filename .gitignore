@@ -26,3 +26,6 @@ output/playwright/
 # Codex
 .codex
 .agents
+
+#
+.mise*

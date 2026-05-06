@@ -12,24 +12,22 @@ mise run build
 
 ```bash
 cd crates/cataloga-worker
-wrangler d1 create cataloga
-wrangler r2 bucket create cataloga-snapshots
-# copy database_id into wrangler.toml
+wrangler d1 create cataloga-prod
+wrangler r2 bucket create cataloga-prod-snapshots
 ```
 
-Update `crates/cataloga-worker/wrangler.toml`:
+`crates/cataloga-worker/wrangler.toml` currently tracks the production D1 `database_id`.
 
-- `database_id = "replace-me"` is a placeholder.
-- Replace it with your real D1 database ID before remote operations.
-- Keep placeholder values out of production deploy pipelines.
+- If you deploy to a different Cloudflare account, update `database_id` in `wrangler.toml`.
+- Keep `database_name = "cataloga-prod"` and `bucket_name = "cataloga-prod-snapshots"` aligned with created resources.
 
 D1 migrations path is configured as `../../migrations/d1` from `crates/cataloga-worker/wrangler.toml`.
 
 Apply migrations:
 
 ```bash
-wrangler d1 migrations apply cataloga --local
-wrangler d1 migrations apply cataloga --remote
+wrangler d1 migrations apply cataloga-prod --local
+wrangler d1 migrations apply cataloga-prod --remote
 ```
 
 ## Run and deploy
@@ -44,7 +42,13 @@ mise run worker-deploy
 
 ```bash
 curl http://localhost:8787/api/health
+curl http://localhost:8787/api/resource-types
+curl http://localhost:8787/api/export
+```
 
+Create a Resource Type:
+
+```bash
 curl -X POST http://localhost:8787/api/resource-types \
   -H 'content-type: application/json' \
   --data '{
@@ -62,8 +66,34 @@ curl -X POST http://localhost:8787/api/resource-types \
     "references":[],
     "validation_rules":[]
   }'
+```
 
-curl http://localhost:8787/api/resource-types
+Create a Resource:
+
+```bash
+curl -X POST http://localhost:8787/api/resources/site \
+  -H 'content-type: application/json' \
+  --data '{
+    "api_version":"cataloga.io/v1",
+    "kind":"Resource",
+    "metadata":{"id":"site-1","type":"site","name":"Site 1","tags":{}},
+    "spec":{"code":"S1"},
+    "custom_fields":{},
+    "dependencies":{}
+  }'
+```
+
+List resources:
+
+```bash
+curl http://localhost:8787/api/resources/site
+```
+
+Optional scripted smoke tests:
+
+```bash
+scripts/smoke-worker.sh
+BASE_URL=http://127.0.0.1:8080 scripts/smoke-local.sh
 ```
 
 ## SPA routing behavior
