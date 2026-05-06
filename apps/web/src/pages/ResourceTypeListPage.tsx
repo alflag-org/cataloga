@@ -94,7 +94,7 @@ export function ResourceTypeListPage() {
                   <td className="px-3 py-2">
                     <div className="flex items-center gap-3">
                       <ActionLink tone="primary" to={`/resources/${t.id}`}>
-                        Resources
+                        Show
                       </ActionLink>
                       <ActionLink to={`/resource-types/${t.id}/edit`}>
                         Edit
