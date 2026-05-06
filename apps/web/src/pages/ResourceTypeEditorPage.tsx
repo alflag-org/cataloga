@@ -121,10 +121,9 @@ export function ResourceTypeEditorPage({ mode }: { mode: "create" | "edit" }) {
         ...value,
         fields: value.fields.filter((field) => field.name.trim()),
         required_fields: value.required_fields.filter(Boolean),
-        list_columns: normalizeListColumns(value.list_columns).map((col) => ({
-          path: col.path,
-          label: col.label,
-        })),
+        list_columns: normalizeListColumns(value.list_columns).map(
+          (col) => col.path,
+        ),
         references: value.references.filter(
           (ref) => ref.field && ref.target_type,
         ),
