@@ -23,8 +23,17 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
     const text = await res.text();
     let msg = text || `Request failed: ${res.status}`;
     try {
-      const json = JSON.parse(text);
-      msg = json.error || json.message || msg;
+      const json = JSON.parse(text) as {
+        error?: { message?: string; kind?: string } | string;
+        message?: string;
+      };
+      if (typeof json.error === "string") {
+        msg = json.error;
+      } else if (json.error?.message) {
+        msg = json.error.message;
+      } else if (json.message) {
+        msg = json.message;
+      }
     } catch {
       // keep text fallback
     }
