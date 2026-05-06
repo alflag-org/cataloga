@@ -81,6 +81,40 @@ export function ResourceTypeEditorPage({ mode }: { mode: "create" | "edit" }) {
     setValue({ ...value, fields });
   };
 
+  const upsertReferenceForField = (
+    fieldName: string,
+    multiple: boolean,
+    targetType?: string,
+  ) => {
+    if (!fieldName.trim()) return;
+    setValue((prev) => {
+      const index = prev.references.findIndex((ref) => ref.field === fieldName);
+      if (index >= 0) {
+        const next = [...prev.references];
+        next[index] = {
+          ...next[index],
+          multiple,
+          target_type: targetType ?? next[index].target_type,
+        };
+        return { ...prev, references: next };
+      }
+      return {
+        ...prev,
+        references: [
+          ...prev.references,
+          { field: fieldName, target_type: targetType ?? "", multiple },
+        ],
+      };
+    });
+  };
+
+  const removeReferenceForField = (fieldName: string) => {
+    setValue((prev) => ({
+      ...prev,
+      references: prev.references.filter((ref) => ref.field !== fieldName),
+    }));
+  };
+
   const removeField = (idx: number) => {
     const target = value.fields[idx]?.name;
     const fields = value.fields.filter((_, i) => i !== idx);
@@ -91,20 +125,34 @@ export function ResourceTypeEditorPage({ mode }: { mode: "create" | "edit" }) {
   };
 
   const setFieldName = (idx: number, name: string) => {
-    const current = value.fields[idx];
-    const oldName = current.name;
-    const autoLabel =
-      current.label.trim() === "" ||
-      current.label === deriveDisplayLabel(oldName);
-    const nextLabel = autoLabel ? deriveDisplayLabel(name) : current.label;
-    upsertField(idx, { ...current, name, label: nextLabel });
+    setValue((prev) => {
+      const current = prev.fields[idx];
+      if (!current) return prev;
+      const oldName = current.name;
+      const autoLabel =
+        current.label.trim() === "" ||
+        current.label === deriveDisplayLabel(oldName);
+      const nextLabel = autoLabel ? deriveDisplayLabel(name) : current.label;
+      const fields = [...prev.fields];
+      fields[idx] = { ...current, name, label: nextLabel };
+      const references =
+        oldName && oldName !== name
+          ? prev.references.map((ref) =>
+              ref.field === oldName ? { ...ref, field: name } : ref,
+            )
+          : prev.references;
+      return { ...prev, fields, references };
+    });
+  };
 
-    if (oldName && oldName !== name) {
-      const references = value.references.map((ref) =>
-        ref.field === oldName ? { ...ref, field: name } : ref,
-      );
-      setValue((prev) => ({ ...prev, references }));
-    }
+  const setFieldType = (idx: number, type: FieldDef["type"]) => {
+    const field = value.fields[idx];
+    if (!field) return;
+    upsertField(idx, { ...field, type });
+    if (type === "reference") upsertReferenceForField(field.name, false);
+    else if (type === "reference_array")
+      upsertReferenceForField(field.name, true);
+    else removeReferenceForField(field.name);
   };
 
   const toggleRequired = (fieldName: string, checked: boolean) => {
@@ -247,10 +295,7 @@ export function ResourceTypeEditorPage({ mode }: { mode: "create" | "edit" }) {
                   <SelectInput
                     value={field.type}
                     onChange={(e) =>
-                      upsertField(idx, {
-                        ...field,
-                        type: e.target.value as FieldDef["type"],
-                      })
+                      setFieldType(idx, e.target.value as FieldDef["type"])
                     }
                   >
                     {fieldTypes.map((item) => (
@@ -330,6 +375,40 @@ export function ResourceTypeEditorPage({ mode }: { mode: "create" | "edit" }) {
                   </div>
                 </div>
               ) : null}
+
+              {field.type === "reference" ||
+              field.type === "reference_array" ? (
+                <div className="mt-3 grid grid-cols-1 gap-3 md:grid-cols-2">
+                  <label className="text-sm text-gray-700">
+                    Target Resource Type
+                    <SelectInput
+                      value={
+                        value.references.find((ref) => ref.field === field.name)
+                          ?.target_type ?? ""
+                      }
+                      onChange={(e) =>
+                        upsertReferenceForField(
+                          field.name,
+                          field.type === "reference_array",
+                          e.target.value,
+                        )
+                      }
+                    >
+                      <option value="">Select type</option>
+                      {allTypes.map((typeDef) => (
+                        <option key={typeDef.id} value={typeDef.id}>
+                          {typeDef.title || typeDef.id}
+                        </option>
+                      ))}
+                    </SelectInput>
+                  </label>
+                  <div className="text-xs text-gray-500 md:self-end md:pb-2">
+                    {field.type === "reference_array"
+                      ? "Multiple is derived from field type: reference_array => yes."
+                      : "Multiple is derived from field type: reference => no."}
+                  </div>
+                </div>
+              ) : null}
             </div>
           ))}
         </div>
@@ -395,94 +474,18 @@ export function ResourceTypeEditorPage({ mode }: { mode: "create" | "edit" }) {
       </DataCard>
 
       <DataCard title="References">
-        <div className="space-y-3">
-          {value.references.map((reference, idx) => (
-            <div
-              key={idx}
-              className="grid grid-cols-1 gap-3 md:grid-cols-4 md:items-end"
-            >
-              <label className="text-sm text-gray-700">
-                Field
-                <SelectInput
-                  value={reference.field}
-                  onChange={(e) => {
-                    const next = [...value.references];
-                    next[idx] = { ...next[idx], field: e.target.value };
-                    setValue({ ...value, references: next });
-                  }}
-                >
-                  <option value="">Select field</option>
-                  {value.fields.map((field) => (
-                    <option key={field.name} value={field.name}>
-                      {field.label || deriveDisplayLabel(field.name)} (
-                      {field.name})
-                    </option>
-                  ))}
-                </SelectInput>
-              </label>
-              <label className="text-sm text-gray-700">
-                Target Resource Type
-                <SelectInput
-                  value={reference.target_type}
-                  onChange={(e) => {
-                    const next = [...value.references];
-                    next[idx] = { ...next[idx], target_type: e.target.value };
-                    setValue({ ...value, references: next });
-                  }}
-                >
-                  <option value="">Select type</option>
-                  {allTypes.map((typeDef) => (
-                    <option key={typeDef.id} value={typeDef.id}>
-                      {typeDef.title || typeDef.id}
-                    </option>
-                  ))}
-                </SelectInput>
-              </label>
-              <label className="text-sm text-gray-700">
-                Multiple
-                <SelectInput
-                  value={reference.multiple ? "yes" : "no"}
-                  onChange={(e) => {
-                    const next = [...value.references];
-                    next[idx] = {
-                      ...next[idx],
-                      multiple: e.target.value === "yes",
-                    };
-                    setValue({ ...value, references: next });
-                  }}
-                >
-                  <option value="no">No</option>
-                  <option value="yes">Yes</option>
-                </SelectInput>
-              </label>
-              <ActionButton
-                tone="danger"
-                onClick={() =>
-                  setValue({
-                    ...value,
-                    references: value.references.filter((_, i) => i !== idx),
-                  })
-                }
-              >
-                Remove
-              </ActionButton>
-            </div>
-          ))}
-          <Button
-            variant="secondary"
-            onClick={() =>
-              setValue({
-                ...value,
-                references: [
-                  ...value.references,
-                  { field: "", target_type: "", multiple: false },
-                ],
-              })
-            }
-          >
-            Add reference
-          </Button>
-        </div>
+        {value.references.length === 0 ? (
+          <p className="text-sm text-gray-600">No references configured.</p>
+        ) : (
+          <ul className="space-y-2 text-sm text-gray-700">
+            {value.references.map((reference) => (
+              <li key={`${reference.field}-${reference.target_type}`}>
+                {reference.field} -&gt; {reference.target_type}
+                {reference.multiple ? "[]" : ""}
+              </li>
+            ))}
+          </ul>
+        )}
       </DataCard>
 
       <DataCard title="Validation rules">

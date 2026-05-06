@@ -10,13 +10,22 @@ export function ResourceCreatePage() {
   const { type = "" } = useParams();
   const navigate = useNavigate();
   const [rt, setRt] = useState<ResourceType | null>(null);
+  const [allTypes, setAllTypes] = useState<ResourceType[]>([]);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    api
-      .getResourceType(type)
-      .then(setRt)
-      .catch((e) => setError(e.message));
+    (async () => {
+      try {
+        const [resourceType, resourceTypes] = await Promise.all([
+          api.getResourceType(type),
+          api.listResourceTypes(),
+        ]);
+        setRt(resourceType);
+        setAllTypes(resourceTypes);
+      } catch (e) {
+        setError(e instanceof Error ? e.message : String(e));
+      }
+    })();
   }, [type]);
 
   if (!rt) return <ErrorBanner message={error || "loading"} />;
@@ -26,6 +35,7 @@ export function ResourceCreatePage() {
       <PageHeader title={`Resources / ${rt.title || type} / Create`} />
       <ResourceForm
         resourceType={rt}
+        allTypes={allTypes}
         initial={defaultResource(type)}
         mode="create"
         onSubmit={async (resource) => {

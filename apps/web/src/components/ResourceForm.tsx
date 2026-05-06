@@ -1,15 +1,17 @@
 import { useEffect, useMemo, useState } from "react";
 import { api } from "../api/client";
 import type { Resource, ResourceType } from "../types";
+import { Button } from "./Button";
 import { DataCard } from "./DataCard";
 import { ErrorBanner } from "./ErrorBanner";
 import { FieldInput } from "./FieldInput";
-import { Button } from "./Button";
+import type { ReferenceOption } from "./ReferencePicker";
 import { TextInput } from "./TextInput";
 import { TextareaInput } from "./TextareaInput";
 
 type Props = {
   resourceType: ResourceType;
+  allTypes: ResourceType[];
   initial: Resource;
   mode: "create" | "edit";
   onSubmit: (resource: Resource) => Promise<void>;
@@ -58,7 +60,13 @@ function parseFieldValue(type: string, raw: unknown): unknown {
   return String(raw);
 }
 
-export function ResourceForm({ resourceType, initial, mode, onSubmit }: Props) {
+export function ResourceForm({
+  resourceType,
+  allTypes,
+  initial,
+  mode,
+  onSubmit,
+}: Props) {
   const [form, setForm] = useState<Resource>(initial);
   const [customFieldsText, setCustomFieldsText] = useState(
     JSON.stringify(initial.custom_fields ?? {}, null, 2),
@@ -68,7 +76,13 @@ export function ResourceForm({ resourceType, initial, mode, onSubmit }: Props) {
   );
   const [error, setError] = useState<string | null>(null);
   const [referenceOptions, setReferenceOptions] = useState<
-    Record<string, Array<{ id: string; name: string }>>
+    Record<string, ReferenceOption[]>
+  >({});
+  const [referenceLoading, setReferenceLoading] = useState<
+    Record<string, boolean>
+  >({});
+  const [referenceErrors, setReferenceErrors] = useState<
+    Record<string, string>
   >({});
   const required = useMemo(
     () => new Set(resourceType.required_fields),
@@ -78,28 +92,81 @@ export function ResourceForm({ resourceType, initial, mode, onSubmit }: Props) {
   useEffect(() => {
     let alive = true;
     (async () => {
-      try {
-        const targetTypes = Array.from(
-          new Set(resourceType.references.map((r) => r.target_type)),
-        );
-        const entries = await Promise.all(
-          targetTypes.map(async (targetType) => {
-            const items = await api.listResources(targetType);
-            return [
-              targetType,
-              items.map((r) => ({ id: r.metadata.id, name: r.metadata.name })),
-            ] as const;
-          }),
-        );
-        if (alive) setReferenceOptions(Object.fromEntries(entries));
-      } catch (e) {
-        if (alive) setError(e instanceof Error ? e.message : String(e));
+      const targetTypes = Array.from(
+        new Set(
+          resourceType.references
+            .map((reference) => reference.target_type)
+            .filter(Boolean),
+        ),
+      );
+      const typeById = new Map(
+        allTypes.map((typeDef) => [typeDef.id, typeDef]),
+      );
+
+      if (alive) {
+        setReferenceLoading((prev) => ({
+          ...prev,
+          ...Object.fromEntries(
+            targetTypes.map((targetType) => [targetType, true]),
+          ),
+        }));
       }
+
+      const results = await Promise.all(
+        targetTypes.map(async (targetType) => {
+          try {
+            const items = await api.listResources(targetType);
+            const options: ReferenceOption[] = items.map((resource) => ({
+              id: resource.metadata.id,
+              name: resource.metadata.name || resource.metadata.id,
+              typeId: targetType,
+              typeTitle: typeById.get(targetType)?.title || targetType,
+              description:
+                typeof resource.spec.description === "string"
+                  ? resource.spec.description
+                  : undefined,
+            }));
+            return { targetType, options, error: null } as const;
+          } catch (e) {
+            return {
+              targetType,
+              options: [] as ReferenceOption[],
+              error: e instanceof Error ? e.message : String(e),
+            } as const;
+          }
+        }),
+      );
+
+      if (!alive) return;
+
+      setReferenceOptions((prev) => {
+        const next = { ...prev };
+        for (const result of results) {
+          next[result.targetType] = result.options;
+        }
+        return next;
+      });
+      setReferenceErrors((prev) => {
+        const next = { ...prev };
+        for (const result of results) {
+          if (result.error) next[result.targetType] = result.error;
+          else delete next[result.targetType];
+        }
+        return next;
+      });
+      setReferenceLoading((prev) => {
+        const next = { ...prev };
+        for (const result of results) {
+          next[result.targetType] = false;
+        }
+        return next;
+      });
     })();
+
     return () => {
       alive = false;
     };
-  }, [resourceType.references]);
+  }, [allTypes, resourceType.references]);
 
   const submit = async () => {
     try {
@@ -175,6 +242,11 @@ export function ResourceForm({ resourceType, initial, mode, onSubmit }: Props) {
                 const options = reference
                   ? (referenceOptions[reference.target_type] ?? [])
                   : [];
+                const targetTypeTitle = reference
+                  ? allTypes.find(
+                      (typeDef) => typeDef.id === reference.target_type,
+                    )?.title || reference.target_type
+                  : undefined;
                 return (
                   <FieldInput
                     field={field}
@@ -183,16 +255,22 @@ export function ResourceForm({ resourceType, initial, mode, onSubmit }: Props) {
                       reference
                         ? {
                             multiple: reference.multiple,
+                            targetType: reference.target_type,
+                            targetTypeTitle,
                             options,
+                            loading:
+                              referenceLoading[reference.target_type] ?? false,
+                            error:
+                              referenceErrors[reference.target_type] ?? null,
                           }
                         : undefined
                     }
-                    onChange={(value) =>
+                    onChange={(nextValue) =>
                       setForm({
                         ...form,
                         spec: {
                           ...form.spec,
-                          [field.name]: value,
+                          [field.name]: nextValue,
                         },
                       })
                     }

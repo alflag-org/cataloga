@@ -10,18 +10,21 @@ export function ResourceEditPage() {
   const { type = "", id = "" } = useParams();
   const navigate = useNavigate();
   const [rt, setRt] = useState<ResourceType | null>(null);
+  const [allTypes, setAllTypes] = useState<ResourceType[]>([]);
   const [resource, setResource] = useState<Resource | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     (async () => {
       try {
-        const [resourceType, current] = await Promise.all([
+        const [resourceType, current, resourceTypes] = await Promise.all([
           api.getResourceType(type),
           api.getResource(type, id),
+          api.listResourceTypes(),
         ]);
         setRt(resourceType);
         setResource(current);
+        setAllTypes(resourceTypes);
       } catch (e) {
         setError(e instanceof Error ? e.message : String(e));
       }
@@ -35,6 +38,7 @@ export function ResourceEditPage() {
       <PageHeader title={`Resources / ${rt.title || type} / ${id} / Edit`} />
       <ResourceForm
         resourceType={rt}
+        allTypes={allTypes}
         initial={resource}
         mode="edit"
         onSubmit={async (next) => {
