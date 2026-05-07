@@ -11,28 +11,37 @@ importers:
       d3-force:
         specifier: ^3.0.0
         version: 3.0.0
+      jquery:
+        specifier: 3.7.1
+        version: 3.7.1
       preline:
-        specifier: ^3.2.3
-        version: 3.2.3
+        specifier: ^4.1.3
+        version: 4.1.3
       react:
-        specifier: ^19.2.5
-        version: 19.2.5
+        specifier: ^19.2.6
+        version: 19.2.6
       react-dom:
-        specifier: ^19.2.5
-        version: 19.2.5(react@19.2.5)
+        specifier: ^19.2.6
+        version: 19.2.6(react@19.2.6)
       react-router-dom:
         specifier: ^7.15.0
-        version: 7.15.0(react-dom@19.2.5(react@19.2.5))(react@19.2.5)
+        version: 7.15.0(react-dom@19.2.6(react@19.2.6))(react@19.2.6)
     devDependencies:
       '@tailwindcss/forms':
-        specifier: ^0.5.10
+        specifier: ^0.5.11
         version: 0.5.11(tailwindcss@4.2.4)
       '@tailwindcss/vite':
-        specifier: ^4.1.13
+        specifier: ^4.2.4
         version: 4.2.4(vite@8.0.10(jiti@2.7.0))
       '@types/d3-force':
         specifier: ^3.0.10
         version: 3.0.10
+      '@types/dropzone':
+        specifier: ^5.7.9
+        version: 5.7.9
+      '@types/jquery':
+        specifier: 3.5.33
+        version: 3.5.33
       '@types/react':
         specifier: ^19.2.14
         version: 19.2.14
@@ -43,7 +52,7 @@ importers:
         specifier: ^6.0.1
         version: 6.0.1(vite@8.0.10(jiti@2.7.0))
       tailwindcss:
-        specifier: ^4.1.13
+        specifier: ^4.2.4
         version: 4.2.4
       typescript:
         specifier: ~6.0.3
@@ -337,14 +346,23 @@ packages:
   '@types/chai@5.2.3':
     resolution: {integrity: sha512-Mw558oeA9fFbv65/y4mHtXDs9bPnFMZAL/jxdPFUpOHHIXX91mcgEHbS5Lahr+pwZFR8A7GQleRWeI6cGFC2UA==}
 
+  '@types/culori@4.0.1':
+    resolution: {integrity: sha512-43M51r/22CjhbOXyGT361GZ9vncSVQ39u62x5eJdBQFviI8zWp2X5jzqg7k4M6PVgDQAClpy2bUe2dtwEgEDVQ==}
+
   '@types/d3-force@3.0.10':
     resolution: {integrity: sha512-ZYeSaCF3p73RdOKcjj+swRlZfnYpK1EbaDiYICEEp5Q6sUiqFaFQ9qgoshp5CzIyyb/yD09kD9o2zEltCexlgw==}
 
   '@types/deep-eql@4.0.2':
     resolution: {integrity: sha512-c9h9dVVMigMPc4bwTvC5dxqtqJZwQPePsWjPlpSOnojbor6pGqdk541lfA7AqFQr5pB1BRdq0juY9db81BwyFw==}
 
-  '@types/estree@1.0.8':
-    resolution: {integrity: sha512-dWHzHa2WqEXI/O1E9OjrocMTKJl2mSrEolh1Iomrv6U+JuNwaHXsXx9bLu5gG7BUWFIN0skIQJQ/L1rIex4X6w==}
+  '@types/dropzone@5.7.9':
+    resolution: {integrity: sha512-c6IlUz+DeQ4gANzJKn8fdP5rO6UyDNOyWLjfPbDRUHCNsXaAVKQOpuOv6LWEyvaK7pLqmoIpvSIlvBgGsk1vGw==}
+
+  '@types/estree@1.0.9':
+    resolution: {integrity: sha512-GhdPgy1el4/ImP05X05Uw4cw2/M93BCUmnEvWZNStlCzEKME4Fkk+YpoA5OiHNQmoS7Cafb8Xa3Pya8m1Qrzeg==}
+
+  '@types/jquery@3.5.33':
+    resolution: {integrity: sha512-SeyVJXlCZpEki5F0ghuYe+L+PprQta6nRZqhONt9F13dWBtR/ftoaIbdRQ7cis7womE+X2LKhsDdDtkkDhJS6g==}
 
   '@types/react-dom@19.2.3':
     resolution: {integrity: sha512-jp2L/eY6fn+KgVVQAOqYItbF0VY/YApe5Mz2F0aykSO8gx31bYCZyvSeYxCHKvzHG5eZjc+zyaS5BrBWya2+kQ==}
@@ -353,6 +371,9 @@ packages:
 
   '@types/react@19.2.14':
     resolution: {integrity: sha512-ilcTH/UniCkMdtexkoCN0bI7pMcJDvmQFPvuPvmEaYA/NSfFTAgdUSLAoVjaRJm7+6PvcM+q1zYOwS4wTYMF9w==}
+
+  '@types/sizzle@2.3.10':
+    resolution: {integrity: sha512-TC0dmN0K8YcWEAEfiPi5gJP14eJe30TTGjkvek3iM/1NdHHsdCA/Td6GvNndMOo/iSnIsZ4HuuhrYPDAmbxzww==}
 
   '@vitejs/plugin-react@6.0.1':
     resolution: {integrity: sha512-l9X/E3cDb+xY3SWzlG1MOGt2usfEHGMNIaegaUGFsLkb3RCn/k8/TOXBcab+OndDI4TBtktT8/9BwwW8Vi9KUQ==}
@@ -420,6 +441,10 @@ packages:
   csstype@3.2.3:
     resolution: {integrity: sha512-z1HGKcYy2xA8AGQfwrn0PAy+PB7X/GSj3UVJW9qKyn43xWa+gl5nXmU4qqLMRzWVLFC8KusUX8T/0kCiOYpAIQ==}
 
+  culori@4.0.2:
+    resolution: {integrity: sha512-1+BhOB8ahCn4O0cep0Sh2l9KCOfOdY+BXJnKMHFFzDEouSr/el18QwXEMRlOj9UY5nCeA8UN3a/82rUWRBeyBw==}
+    engines: {node: ^12.20.0 || ^14.13.1 || >=16.0.0}
+
   d3-dispatch@3.0.1:
     resolution: {integrity: sha512-rzUyPU/S7rwUflMyLc1ETDeBj0NRuHKKAcvukozwhshr6g6c5d8zh4c2gQjY2bZ0dXeGLWc1PF174P2tVvKhfg==}
     engines: {node: '>=12'}
@@ -484,8 +509,8 @@ packages:
     resolution: {integrity: sha512-AC/7JofJvZGrrneWNaEnJeOLUx+JlGt7tNa0wZiRPT4MY1wmfKjt2+6O2p2uz2+skll8OZZmJMNqeke7kKbNgQ==}
     hasBin: true
 
-  jquery@4.0.0:
-    resolution: {integrity: sha512-TXCHVR3Lb6TZdtw1l3RTLf8RBWVGexdxL6AC8/e0xZKEpBflBsjh9/8LXw+dkNFuOyW9B7iB3O1sP7hS0Kiacg==}
+  jquery@3.7.1:
+    resolution: {integrity: sha512-m4avr8yL8kmFN8psrbFFFmB/If14iN5o9nw/NgnnM+kybDJpRsAynV2BsfpTYrTRysYUdADVD7CkUUizgkpLfg==}
 
   just-extend@5.1.1:
     resolution: {integrity: sha512-b+z6yF1d4EOyDgylzQo5IminlUmzSeqR1hs/bzjBNjuGras4FXq/6TrzjxfN0j+TmI0ltJzTNlqXUMCniciwKQ==}
@@ -596,13 +621,14 @@ packages:
     resolution: {integrity: sha512-SoSL4+OSEtR99LHFZQiJLkT59C5B1amGO1NzTwj7TT1qCUgUO6hxOvzkOYxD+vMrXBM3XJIKzokoERdqQq/Zmg==}
     engines: {node: ^10 || ^12 || >=14}
 
-  preline@3.2.3:
-    resolution: {integrity: sha512-S13MFdC/1FWFz3S+oW1PlyZ6Alo0SZxJ9HwaZRg5IQZjcbKqCFIOXAbAhQeX0izauqWJXIQdKofhfCWBizwleQ==}
+  preline@4.1.3:
+    resolution: {integrity: sha512-M2Rg4J7mZqINfVX0RlWAG1zT+hhUE66PmLoRrq6xIumhID3vONBvbAIYixdTYVsNdv4UWeyr2jatWlJl23q05Q==}
+    hasBin: true
 
-  react-dom@19.2.5:
-    resolution: {integrity: sha512-J5bAZz+DXMMwW/wV3xzKke59Af6CHY7G4uYLN1OvBcKEsWOs4pQExj86BBKamxl/Ik5bx9whOrvBlSDfWzgSag==}
+  react-dom@19.2.6:
+    resolution: {integrity: sha512-0prMI+hvBbPjsWnxDLxlCGyM8PN6UuWjEUCYmZhO67xIV9Xasa/r/vDnq+Xyq4Lo27g8QSbO5YzARu0D1Sps3g==}
     peerDependencies:
-      react: ^19.2.5
+      react: ^19.2.6
 
   react-router-dom@7.15.0:
     resolution: {integrity: sha512-VcrVg64Fo8nwBvDscajG8gRTLIuTC6N50nb22l2HOOV4PTOHgoGp8mUjy9wLiHYoYTSYI36tUnXZgasSRFZorQ==}
@@ -621,8 +647,8 @@ packages:
       react-dom:
         optional: true
 
-  react@19.2.5:
-    resolution: {integrity: sha512-llUJLzz1zTUBrskt2pwZgLq59AemifIftw4aB7JxOqf1HY2FDaGDxgwpAPVzHU1kdWabH7FauP4i1oEeer2WCA==}
+  react@19.2.6:
+    resolution: {integrity: sha512-sfWGGfavi0xr8Pg0sVsyHMAOziVYKgPLNrS7ig+ivMNb3wbCBw3KxtflsGBAwD3gYQlE/AEZsTLgToRrSCjb0Q==}
     engines: {node: '>=0.10.0'}
 
   rolldown@1.0.0-rc.17:
@@ -987,11 +1013,21 @@ snapshots:
       '@types/deep-eql': 4.0.2
       assertion-error: 2.0.1
 
+  '@types/culori@4.0.1': {}
+
   '@types/d3-force@3.0.10': {}
 
   '@types/deep-eql@4.0.2': {}
 
-  '@types/estree@1.0.8': {}
+  '@types/dropzone@5.7.9':
+    dependencies:
+      '@types/jquery': 3.5.33
+
+  '@types/estree@1.0.9': {}
+
+  '@types/jquery@3.5.33':
+    dependencies:
+      '@types/sizzle': 2.3.10
 
   '@types/react-dom@19.2.3(@types/react@19.2.14)':
     dependencies:
@@ -1000,6 +1036,8 @@ snapshots:
   '@types/react@19.2.14':
     dependencies:
       csstype: 3.2.3
+
+  '@types/sizzle@2.3.10': {}
 
   '@vitejs/plugin-react@6.0.1(vite@8.0.10(jiti@2.7.0))':
     dependencies:
@@ -1068,6 +1106,8 @@ snapshots:
 
   csstype@3.2.3: {}
 
+  culori@4.0.2: {}
+
   d3-dispatch@3.0.1: {}
 
   d3-force@3.0.0:
@@ -1083,11 +1123,11 @@ snapshots:
   datatables.net-dt@2.3.8:
     dependencies:
       datatables.net: 2.3.8
-      jquery: 4.0.0
+      jquery: 3.7.1
 
   datatables.net@2.3.8:
     dependencies:
-      jquery: 4.0.0
+      jquery: 3.7.1
 
   detect-libc@2.1.2: {}
 
@@ -1105,7 +1145,7 @@ snapshots:
 
   estree-walker@3.0.3:
     dependencies:
-      '@types/estree': 1.0.8
+      '@types/estree': 1.0.9
 
   expect-type@1.3.0: {}
 
@@ -1120,7 +1160,7 @@ snapshots:
 
   jiti@2.7.0: {}
 
-  jquery@4.0.0: {}
+  jquery@3.7.1: {}
 
   just-extend@5.1.1: {}
 
@@ -1197,35 +1237,37 @@ snapshots:
       picocolors: 1.1.1
       source-map-js: 1.2.1
 
-  preline@3.2.3:
+  preline@4.1.3:
     dependencies:
       '@floating-ui/dom': 1.7.6
+      '@types/culori': 4.0.1
       apexcharts: 4.7.0
+      culori: 4.0.2
       datatables.net-dt: 2.3.8
       dropzone: 6.0.0-beta.2
       nouislider: 15.8.1
       vanilla-calendar-pro: 3.1.0
 
-  react-dom@19.2.5(react@19.2.5):
+  react-dom@19.2.6(react@19.2.6):
     dependencies:
-      react: 19.2.5
+      react: 19.2.6
       scheduler: 0.27.0
 
-  react-router-dom@7.15.0(react-dom@19.2.5(react@19.2.5))(react@19.2.5):
+  react-router-dom@7.15.0(react-dom@19.2.6(react@19.2.6))(react@19.2.6):
     dependencies:
-      react: 19.2.5
-      react-dom: 19.2.5(react@19.2.5)
-      react-router: 7.15.0(react-dom@19.2.5(react@19.2.5))(react@19.2.5)
+      react: 19.2.6
+      react-dom: 19.2.6(react@19.2.6)
+      react-router: 7.15.0(react-dom@19.2.6(react@19.2.6))(react@19.2.6)
 
-  react-router@7.15.0(react-dom@19.2.5(react@19.2.5))(react@19.2.5):
+  react-router@7.15.0(react-dom@19.2.6(react@19.2.6))(react@19.2.6):
     dependencies:
       cookie: 1.1.1
-      react: 19.2.5
+      react: 19.2.6
       set-cookie-parser: 2.7.2
     optionalDependencies:
-      react-dom: 19.2.5(react@19.2.5)
+      react-dom: 19.2.6(react@19.2.6)
 
-  react@19.2.5: {}
+  react@19.2.6: {}
 
   rolldown@1.0.0-rc.17:
     dependencies:

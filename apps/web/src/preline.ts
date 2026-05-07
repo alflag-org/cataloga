@@ -1,16 +1,8 @@
 import { useEffect } from "react";
 import { useLocation } from "react-router-dom";
 
-declare global {
-  interface Window {
-    HSStaticMethods?: {
-      autoInit: () => void;
-    };
-  }
-}
-
 async function loadPreline() {
-  await import("preline/dist/index.js");
+  await import("preline");
 }
 
 export function usePreline() {
