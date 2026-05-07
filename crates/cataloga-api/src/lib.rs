@@ -1,6 +1,6 @@
 use cataloga_core::{
-    Resource, ResourceType, export_yaml, import_yaml, validate_resource_type, validate_resources,
-    validate_resources_detailed,
+    Resource, ResourceType, export_yaml, import_yaml, validate_resource_type_with_known_types,
+    validate_resources, validate_resources_detailed,
 };
 use cataloga_store::CatalogStore;
 use serde::Serialize;
@@ -175,7 +175,10 @@ impl<S: CatalogStore> ApiService<S> {
         catalog_id: &str,
         rt: ResourceType,
     ) -> anyhow::Result<()> {
-        validate_resource_type(&rt).map_err(|e| ApiError::Validation(e.to_string()))?;
+        let existing_types = self.store.list_resource_types(catalog_id).await?;
+        let all_types = merge_resource_types(existing_types, std::slice::from_ref(&rt));
+        validate_resource_type_with_known_types(&rt, &all_types)
+            .map_err(|e| ApiError::Validation(e.to_string()))?;
         self.store.upsert_resource_type(catalog_id, rt).await
     }
 
@@ -218,19 +221,24 @@ impl<S: CatalogStore> ApiService<S> {
         catalog_id: &str,
         resource: Resource,
     ) -> anyhow::Result<()> {
-        let target_type = resource.resource_type.clone();
-        let target_id = resource.id.clone();
-        let mut all = self.store.list_resources(catalog_id, &target_type).await?;
-        if let Some(existing_idx) = all
-            .iter()
-            .position(|r| r.resource_type == target_type && r.id == target_id)
-        {
-            all[existing_idx] = resource.clone();
-        } else {
-            all.push(resource.clone());
-        }
         let types = self.store.list_resource_types(catalog_id).await?;
-        validate_resources(&types, &all).map_err(|e| ApiError::Validation(e.to_string()))?;
+        let mut all_resources = self.load_all_resources(catalog_id, &types).await?;
+        if let Some(existing_idx) = all_resources
+            .iter()
+            .position(|r| r.resource_type == resource.resource_type && r.id == resource.id)
+        {
+            all_resources[existing_idx] = resource.clone();
+        } else {
+            all_resources.push(resource.clone());
+        }
+        let issues = validate_resources_detailed(&types, &all_resources);
+        if let Some(issue) = issues.iter().find(|issue| {
+            issue.resource_type == resource.resource_type && issue.resource_id == resource.id
+        }) {
+            return Err(ApiError::Validation(issue.message.clone()).into());
+        }
+        validate_resources(&types, &all_resources)
+            .map_err(|e| ApiError::Validation(e.to_string()))?;
         self.store.upsert_resource(catalog_id, resource).await
     }
 
@@ -357,19 +365,13 @@ impl<S: CatalogStore> ApiService<S> {
 
     pub async fn validation_result(&self, catalog_id: &str) -> anyhow::Result<ValidationResult> {
         let types = self.store.list_resource_types(catalog_id).await?;
-        let mut all_resources = Vec::new();
-        for rt in &types {
-            all_resources.extend(self.store.list_resources(catalog_id, &rt.id).await?);
-        }
+        let all_resources = self.load_all_resources(catalog_id, &types).await?;
         Ok(build_validation_result(&types, &all_resources))
     }
 
     pub async fn export_catalog_yaml(&self, catalog_id: &str) -> anyhow::Result<String> {
         let types = self.store.list_resource_types(catalog_id).await?;
-        let mut all_resources = Vec::new();
-        for rt in &types {
-            all_resources.extend(self.store.list_resources(catalog_id, &rt.id).await?);
-        }
+        let all_resources = self.load_all_resources(catalog_id, &types).await?;
         export_yaml(&types, &all_resources)
     }
 
@@ -381,13 +383,13 @@ impl<S: CatalogStore> ApiService<S> {
             );
         }
 
-        let (types, resources) = parse_import_yaml(input)?;
+        let (imported_types, imported_resources) = parse_import_yaml(input)?;
 
-        for rt in types {
-            self.create_or_update_resource_type(catalog_id, rt).await?;
+        for rt in imported_types {
+            self.store.upsert_resource_type(catalog_id, rt).await?;
         }
-        for resource in resources {
-            self.create_or_update_resource(catalog_id, resource).await?;
+        for resource in imported_resources {
+            self.store.upsert_resource(catalog_id, resource).await?;
         }
 
         Ok(())
@@ -398,7 +400,7 @@ impl<S: CatalogStore> ApiService<S> {
         catalog_id: &str,
         input: &str,
     ) -> anyhow::Result<ImportPreviewResult> {
-        let (types, resources) = parse_import_yaml(input)?;
+        let (imported_types, imported_resources) = parse_import_yaml(input)?;
         let existing_types = self.store.list_resource_types(catalog_id).await?;
 
         let mut existing_type_ids = std::collections::HashSet::new();
@@ -413,7 +415,7 @@ impl<S: CatalogStore> ApiService<S> {
 
         let mut resource_types_to_create = Vec::new();
         let mut resource_types_to_update = Vec::new();
-        for rt in &types {
+        for rt in &imported_types {
             if existing_type_ids.contains(&rt.id) {
                 resource_types_to_update.push(rt.id.clone());
             } else {
@@ -423,7 +425,7 @@ impl<S: CatalogStore> ApiService<S> {
 
         let mut resources_to_create = Vec::new();
         let mut resources_to_update = Vec::new();
-        for r in &resources {
+        for r in &imported_resources {
             let key = format!("{}/{}", r.resource_type, r.id);
             if existing_resource_ids.contains(&key) {
                 resources_to_update.push(key);
@@ -432,7 +434,10 @@ impl<S: CatalogStore> ApiService<S> {
             }
         }
 
-        let validation_errors = build_validation_result(&types, &resources).errors;
+        let merged_types = merge_resource_types(existing_types, &imported_types);
+        let existing_resources = self.load_all_resources(catalog_id, &merged_types).await?;
+        let merged_resources = merge_resources(existing_resources, &imported_resources);
+        let validation_errors = build_validation_result(&merged_types, &merged_resources).errors;
         Ok(ImportPreviewResult {
             resource_types_to_create,
             resource_types_to_update,
@@ -440,6 +445,18 @@ impl<S: CatalogStore> ApiService<S> {
             resources_to_update,
             validation_errors,
         })
+    }
+
+    async fn load_all_resources(
+        &self,
+        catalog_id: &str,
+        types: &[ResourceType],
+    ) -> anyhow::Result<Vec<Resource>> {
+        let mut all_resources = Vec::new();
+        for rt in types {
+            all_resources.extend(self.store.list_resources(catalog_id, &rt.id).await?);
+        }
+        Ok(all_resources)
     }
 }
 
@@ -456,7 +473,7 @@ fn build_validation_result(types: &[ResourceType], resources: &[Resource]) -> Va
     let mut errors = Vec::new();
 
     for rt in types {
-        if let Err(e) = validate_resource_type(rt) {
+        if let Err(e) = validate_resource_type_with_known_types(rt, types) {
             errors.push(ValidationIssue {
                 severity: "error".to_string(),
                 resource_type: rt.id.clone(),
@@ -486,6 +503,35 @@ fn build_validation_result(types: &[ResourceType], resources: &[Resource]) -> Va
         errors,
         warnings: Vec::new(),
     }
+}
+
+fn merge_resource_types(
+    existing: Vec<ResourceType>,
+    imported: &[ResourceType],
+) -> Vec<ResourceType> {
+    let mut merged = existing;
+    for rt in imported {
+        if let Some(idx) = merged.iter().position(|current| current.id == rt.id) {
+            merged[idx] = rt.clone();
+        } else {
+            merged.push(rt.clone());
+        }
+    }
+    merged
+}
+
+fn merge_resources(existing: Vec<Resource>, imported: &[Resource]) -> Vec<Resource> {
+    let mut merged = existing;
+    for resource in imported {
+        if let Some(idx) = merged.iter().position(|current| {
+            current.resource_type == resource.resource_type && current.id == resource.id
+        }) {
+            merged[idx] = resource.clone();
+        } else {
+            merged.push(resource.clone());
+        }
+    }
+    merged
 }
 
 #[cfg(test)]
@@ -798,5 +844,279 @@ resources:
             }
             other => panic!("unexpected error: {other:?}"),
         }
+    }
+
+    #[tokio::test]
+    async fn create_or_update_resource_validates_cross_type_references_using_whole_catalog() {
+        let store = MemoryStore::default();
+        let api = ApiService::new(store.clone());
+
+        for rt in [
+            ResourceType {
+                id: "site".into(),
+                title: "Site".into(),
+                group: String::new(),
+                description: String::new(),
+                fields: vec![],
+                required_fields: vec![],
+                list_columns: vec![],
+                form_layout: vec![],
+                detail_sections: vec![],
+                references: vec![],
+                validation_rules: vec![],
+            },
+            ResourceType {
+                id: "zone".into(),
+                title: "Zone".into(),
+                group: String::new(),
+                description: String::new(),
+                fields: vec![],
+                required_fields: vec![],
+                list_columns: vec![],
+                form_layout: vec![],
+                detail_sections: vec![],
+                references: vec![],
+                validation_rules: vec![],
+            },
+            ResourceType {
+                id: "network".into(),
+                title: "Network".into(),
+                group: String::new(),
+                description: String::new(),
+                fields: vec![
+                    FieldDef {
+                        name: "site".into(),
+                        label: "Site".into(),
+                        field_type: FieldType::Reference,
+                        enum_values: vec![],
+                    },
+                    FieldDef {
+                        name: "zone".into(),
+                        label: "Zone".into(),
+                        field_type: FieldType::Reference,
+                        enum_values: vec![],
+                    },
+                ],
+                required_fields: vec![],
+                list_columns: vec![],
+                form_layout: vec![],
+                detail_sections: vec![],
+                references: vec![
+                    ReferenceDef {
+                        field: "site".into(),
+                        target_type: "site".into(),
+                        multiple: false,
+                    },
+                    ReferenceDef {
+                        field: "zone".into(),
+                        target_type: "zone".into(),
+                        multiple: false,
+                    },
+                ],
+                validation_rules: vec![],
+            },
+        ] {
+            store.upsert_resource_type("default", rt).await.unwrap();
+        }
+
+        store
+            .upsert_resource(
+                "default",
+                resource("site", "ONP-JP-KNG-01", "Site 1", serde_json::Map::new()),
+            )
+            .await
+            .unwrap();
+        store
+            .upsert_resource(
+                "default",
+                resource("zone", "client", "Client Zone", serde_json::Map::new()),
+            )
+            .await
+            .unwrap();
+
+        let mut spec = serde_json::Map::new();
+        spec.insert("site".into(), json!("ONP-JP-KNG-01"));
+        spec.insert("zone".into(), json!("client"));
+        api.create_or_update_resource(
+            "default",
+            resource("network", "ONP-JP-KNG-01-CLIENT-V100", "Network 1", spec),
+        )
+        .await
+        .unwrap();
+    }
+
+    #[tokio::test]
+    async fn create_or_update_resource_fails_when_reference_target_missing() {
+        let store = MemoryStore::default();
+        let api = ApiService::new(store.clone());
+        store
+            .upsert_resource_type(
+                "default",
+                ResourceType {
+                    id: "site".into(),
+                    title: "Site".into(),
+                    group: String::new(),
+                    description: String::new(),
+                    fields: vec![],
+                    required_fields: vec![],
+                    list_columns: vec![],
+                    form_layout: vec![],
+                    detail_sections: vec![],
+                    references: vec![],
+                    validation_rules: vec![],
+                },
+            )
+            .await
+            .unwrap();
+        store
+            .upsert_resource_type(
+                "default",
+                ResourceType {
+                    id: "network".into(),
+                    title: "Network".into(),
+                    group: String::new(),
+                    description: String::new(),
+                    fields: vec![FieldDef {
+                        name: "site".into(),
+                        label: "Site".into(),
+                        field_type: FieldType::Reference,
+                        enum_values: vec![],
+                    }],
+                    required_fields: vec![],
+                    list_columns: vec![],
+                    form_layout: vec![],
+                    detail_sections: vec![],
+                    references: vec![ReferenceDef {
+                        field: "site".into(),
+                        target_type: "site".into(),
+                        multiple: false,
+                    }],
+                    validation_rules: vec![],
+                },
+            )
+            .await
+            .unwrap();
+
+        let mut spec = serde_json::Map::new();
+        spec.insert("site".into(), json!("UNKNOWN"));
+        let err = api
+            .create_or_update_resource("default", resource("network", "net1", "Network 1", spec))
+            .await
+            .expect_err("expected validation error");
+        let api_err = err.downcast_ref::<ApiError>().expect("api error");
+        match api_err {
+            ApiError::Validation(msg) => assert!(msg.contains("references missing site: UNKNOWN")),
+            other => panic!("unexpected error: {other:?}"),
+        }
+    }
+
+    #[tokio::test]
+    async fn import_preview_supports_resource_only_import_with_existing_types() {
+        let store = MemoryStore::default();
+        let api = ApiService::new(store.clone());
+        store
+            .upsert_resource_type(
+                "default",
+                ResourceType {
+                    id: "provider".into(),
+                    title: "Provider".into(),
+                    group: String::new(),
+                    description: String::new(),
+                    fields: vec![],
+                    required_fields: vec![],
+                    list_columns: vec![],
+                    form_layout: vec![],
+                    detail_sections: vec![],
+                    references: vec![],
+                    validation_rules: vec![],
+                },
+            )
+            .await
+            .unwrap();
+
+        let yaml = r#"
+version: 1
+resource_types: []
+resources:
+  - id: oci
+    type: provider
+    name: OCI
+    spec:
+      status: active
+"#;
+        let preview = api.import_catalog_preview("default", yaml).await.unwrap();
+        assert!(preview.validation_errors.is_empty());
+        assert_eq!(
+            preview.resources_to_create,
+            vec!["provider/oci".to_string()]
+        );
+    }
+
+    #[tokio::test]
+    async fn import_apply_supports_cross_type_references_in_same_import() {
+        let store = MemoryStore::default();
+        let api = ApiService::new(store.clone());
+
+        let yaml = r#"
+version: 1
+resource_types:
+  - id: site
+    title: Site
+    fields: []
+    required_fields: []
+    list_columns: []
+    form_layout: []
+    detail_sections: []
+    references: []
+    validation_rules: []
+  - id: zone
+    title: Zone
+    fields: []
+    required_fields: []
+    list_columns: []
+    form_layout: []
+    detail_sections: []
+    references: []
+    validation_rules: []
+  - id: network
+    title: Network
+    fields:
+      - name: site
+        label: Site
+        type: reference
+      - name: zone
+        label: Zone
+        type: reference
+    required_fields: []
+    list_columns: []
+    form_layout: []
+    detail_sections: []
+    references:
+      - field: site
+        target_type: site
+      - field: zone
+        target_type: zone
+    validation_rules: []
+resources:
+  - id: ONP-JP-KNG-01
+    type: site
+    name: Site 1
+    spec: {}
+  - id: client
+    type: zone
+    name: Client
+    spec: {}
+  - id: ONP-JP-KNG-01-CLIENT-V100
+    type: network
+    name: Net 1
+    spec:
+      site: ONP-JP-KNG-01
+      zone: client
+"#;
+
+        let preview = api.import_catalog_preview("default", yaml).await.unwrap();
+        assert!(preview.validation_errors.is_empty());
+        api.import_catalog_yaml("default", yaml).await.unwrap();
+        api.validate_catalog("default").await.unwrap();
     }
 }

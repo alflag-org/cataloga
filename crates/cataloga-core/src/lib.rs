@@ -208,8 +208,12 @@ pub enum ValidationError {
     InvalidFieldType(String),
     #[error("invalid enum value: {0}")]
     InvalidEnumValue(String),
+    #[error("invalid reference field: {0} is not defined in fields")]
+    InvalidReferenceField(String),
     #[error("invalid reference target: {0}")]
     InvalidReferenceTarget(String),
+    #[error("invalid reference target type: {0} does not exist")]
+    InvalidReferenceTargetType(String),
     #[error("invalid reference type: {0}")]
     InvalidReferenceType(String),
     #[error("invalid list column path: {0}")]
@@ -265,7 +269,7 @@ pub fn validate_resource_type(rt: &ResourceType) -> Result<(), ValidationError> 
 
     for reference in &rt.references {
         if !field_names.contains(reference.field.as_str()) {
-            return Err(ValidationError::InvalidReferenceTarget(
+            return Err(ValidationError::InvalidReferenceField(
                 reference.field.clone(),
             ));
         }
@@ -288,6 +292,22 @@ pub fn validate_resource_type(rt: &ResourceType) -> Result<(), ValidationError> 
         }
     }
 
+    Ok(())
+}
+
+pub fn validate_resource_type_with_known_types(
+    rt: &ResourceType,
+    all_types: &[ResourceType],
+) -> Result<(), ValidationError> {
+    validate_resource_type(rt)?;
+    let type_ids: HashSet<&str> = all_types.iter().map(|t| t.id.as_str()).collect();
+    for reference in &rt.references {
+        if !type_ids.contains(reference.target_type.as_str()) {
+            return Err(ValidationError::InvalidReferenceTargetType(
+                reference.target_type.clone(),
+            ));
+        }
+    }
     Ok(())
 }
 
@@ -1232,5 +1252,66 @@ resources:
         b.id = "ip2".into();
         b.spec = Map::new();
         assert!(validate_resources_detailed(&[rt], &[a, b]).is_empty());
+    }
+
+    #[test]
+    fn resource_type_reference_field_typo_returns_invalid_reference_field() {
+        let rt = ResourceType {
+            id: "network".into(),
+            title: "Network".into(),
+            group: String::new(),
+            description: String::new(),
+            fields: vec![FieldDef {
+                name: "site_id".into(),
+                label: "Site ID".into(),
+                field_type: FieldType::Reference,
+                enum_values: vec![],
+            }],
+            required_fields: vec![],
+            list_columns: vec![],
+            form_layout: vec![],
+            detail_sections: vec![],
+            references: vec![ReferenceDef {
+                field: "site".into(),
+                target_type: "site".into(),
+                multiple: false,
+            }],
+            validation_rules: vec![],
+        };
+        assert!(matches!(
+            validate_resource_type(&rt),
+            Err(ValidationError::InvalidReferenceField(field)) if field == "site"
+        ));
+    }
+
+    #[test]
+    fn resource_type_reference_unknown_target_type_returns_clear_error() {
+        let rt = ResourceType {
+            id: "network".into(),
+            title: "Network".into(),
+            group: String::new(),
+            description: String::new(),
+            fields: vec![FieldDef {
+                name: "site".into(),
+                label: "Site".into(),
+                field_type: FieldType::Reference,
+                enum_values: vec![],
+            }],
+            required_fields: vec![],
+            list_columns: vec![],
+            form_layout: vec![],
+            detail_sections: vec![],
+            references: vec![ReferenceDef {
+                field: "site".into(),
+                target_type: "site".into(),
+                multiple: false,
+            }],
+            validation_rules: vec![],
+        };
+        let all_types = vec![rt.clone()];
+        assert!(matches!(
+            validate_resource_type_with_known_types(&rt, &all_types),
+            Err(ValidationError::InvalidReferenceTargetType(target)) if target == "site"
+        ));
     }
 }
