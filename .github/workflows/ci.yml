@@ -22,11 +22,11 @@ jobs:
       - name: Cache Rust
         uses: Swatinem/rust-cache@v2
       - name: Format check
-        run: mise run fmt-check
+        run: mise run fmt-rust-check
       - name: Clippy
-        run: cargo clippy --all-targets --all-features -- -D warnings
+        run: mise run lint-rust
       - name: Test
-        run: cargo test --all
+        run: mise run test-rust
       - name: Build
         run: mise run build-rust
 
@@ -45,13 +45,13 @@ jobs:
           cache: pnpm
           cache-dependency-path: apps/web/pnpm-lock.yaml
       - name: Install web dependencies
-        run: mise exec -- pnpm -C apps/web install --frozen-lockfile
+        run: mise run install-web
       - name: Format check
-        run: mise run web-fmt-check
+        run: mise run fmt-web-check
       - name: Typecheck
-        run: mise exec -- pnpm -C apps/web typecheck
+        run: mise run lint-web
       - name: Test
-        run: mise exec -- pnpm -C apps/web test
+        run: mise run test-web
       - name: Build
         run: mise run build-web
 
@@ -75,13 +75,13 @@ jobs:
           cache: pnpm
           cache-dependency-path: apps/web/pnpm-lock.yaml
       - name: Install web dependencies
-        run: mise exec -- pnpm -C apps/web install --frozen-lockfile
+        run: mise run install-web
       - name: Build web assets
         run: mise run build-web
       - name: Install worker-build
         run: cargo install worker-build
       - name: Build Worker
-        run: mise run worker-build
+        run: mise run build-worker
 
   deploy:
     runs-on: ubuntu-latest
@@ -112,13 +112,13 @@ jobs:
           cache: pnpm
           cache-dependency-path: apps/web/pnpm-lock.yaml
       - name: Install web dependencies
-        run: mise exec -- pnpm -C apps/web install --frozen-lockfile
+        run: mise run install-web
       - name: Build web assets
         run: mise run build-web
       - name: Install worker-build
         run: cargo install worker-build
       - name: Build Worker
-        run: mise run worker-build
+        run: mise run build-worker
       - name: Apply D1 migrations
         working-directory: crates/cataloga-worker
         run: wrangler d1 migrations apply cataloga-prod --remote
