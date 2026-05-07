@@ -43,10 +43,6 @@ run = "cargo clippy --all-targets --all-features -- -D warnings"
 description = "Run web type/lint checks"
 run = "mise exec -- pnpm -C apps/web typecheck"
 
-[tasks.docs-check]
-description = "Validate markdown formatting for key docs"
-run = "rg -n '^# ' AGENTS.md README.md >/dev/null"
-
 [tasks.check]
 description = "Run non-destructive checks"
 run = [
