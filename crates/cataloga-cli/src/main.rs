@@ -70,8 +70,9 @@ async fn main() -> anyhow::Result<()> {
         Command::Seed { db, catalog } => {
             let store = cataloga_store_sqlite::SqliteStore::connect(&db).await?;
             let api = cataloga_api::ApiService::new(store);
-            let input = fs::read_to_string("examples/home-lab/registry/export.yaml")?;
-            api.import_catalog_yaml(&catalog, &input).await?;
+            // Keep seed command available for workflow compatibility,
+            // but do not inject bundled sample data.
+            let _ = api.export_catalog_yaml(&catalog).await?;
             println!("seeded");
         }
         Command::Import { path, db, catalog } => {
