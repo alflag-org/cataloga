@@ -1,11 +1,8 @@
 import { Outlet } from "react-router-dom";
-import { usePreline } from "../preline";
 import { Sidebar } from "./Sidebar";
 import { Topbar } from "./Topbar";
 
 export function AppShell() {
-  usePreline();
-
   return (
     <div className="min-h-screen bg-gray-50 text-gray-800">
       <div className="flex min-h-screen">

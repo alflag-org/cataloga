@@ -23,20 +23,6 @@ import { ResourcesIndexPage } from "./pages/ResourcesIndexPage";
 import { ValidationPage } from "./pages/ValidationPage";
 import { I18nProvider } from "./i18n";
 import "./styles.css";
-import DataTable from "datatables.net";
-import Dropzone from "dropzone";
-import $ from "jquery";
-import _ from "lodash";
-import noUiSlider from "nouislider";
-import { Calendar } from "vanilla-calendar-pro";
-
-window.$ = $;
-window.jQuery = $;
-window._ = _;
-window.Dropzone = Dropzone;
-window.noUiSlider = noUiSlider;
-window.DataTable = DataTable;
-window.VanillaCalendarPro = Calendar;
 
 function App() {
   return (
