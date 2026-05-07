@@ -46,9 +46,9 @@ export function DashboardPage() {
     for (const t of types) {
       for (const r of resourceByType[t.id] ?? []) {
         const haystack = [
-          r.metadata.id,
-          r.metadata.name,
-          JSON.stringify(r.metadata.tags),
+          r.id,
+          r.name,
+          JSON.stringify(r.tags),
           JSON.stringify(r.spec),
         ]
           .join(" ")
@@ -57,8 +57,8 @@ export function DashboardPage() {
           hits.push({
             type: t.id,
             typeTitle: t.title || t.id,
-            id: r.metadata.id,
-            name: r.metadata.name || r.metadata.id,
+            id: r.id,
+            name: r.name || r.id,
           });
         }
       }

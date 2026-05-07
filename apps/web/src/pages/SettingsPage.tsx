@@ -47,7 +47,7 @@ export function SettingsPage() {
                 await api.upsertResourceType(rt);
               }
               for (const r of buildHomeLabSampleResources()) {
-                await api.createResource(r.metadata.type, r);
+                await api.createResource(r.type, r);
               }
               navigate("/resources", { replace: true });
             }}

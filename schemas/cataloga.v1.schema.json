@@ -1,0 +1,176 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://cataloga.dev/schemas/cataloga.v1.schema.json",
+  "title": "Cataloga Catalog",
+  "description": "Cataloga YAML Import/Export and Snapshot dataset format.",
+  "type": "object",
+  "required": ["version", "resource_types", "resources"],
+  "additionalProperties": false,
+  "properties": {
+    "version": {
+      "description": "Cataloga catalog dataset format version.",
+      "const": 1
+    },
+    "resource_types": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/resourceType" }
+    },
+    "resources": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/resource" }
+    }
+  },
+  "$defs": {
+    "resourceType": {
+      "type": "object",
+      "required": ["id", "title", "fields"],
+      "additionalProperties": false,
+      "properties": {
+        "id": { "type": "string", "pattern": "^[a-z][a-z0-9_-]*$" },
+        "title": { "type": "string" },
+        "group": { "type": "string" },
+        "description": { "type": "string" },
+        "fields": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/field" }
+        },
+        "required_fields": {
+          "type": "array",
+          "items": { "type": "string" }
+        },
+        "list_columns": {
+          "type": "array",
+          "items": { "type": "string" }
+        },
+        "form_layout": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/section" }
+        },
+        "detail_sections": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/section" }
+        },
+        "references": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/reference" }
+        },
+        "validation_rules": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/validationRule" }
+        }
+      }
+    },
+    "field": {
+      "type": "object",
+      "required": ["name", "label", "type"],
+      "additionalProperties": false,
+      "properties": {
+        "name": { "type": "string", "pattern": "^[a-z][a-z0-9_]*$" },
+        "label": { "type": "string" },
+        "type": {
+          "enum": [
+            "string",
+            "text",
+            "integer",
+            "number",
+            "boolean",
+            "enum",
+            "array",
+            "json",
+            "reference",
+            "reference_array",
+            "ip",
+            "cidr",
+            "url"
+          ]
+        },
+        "description": { "type": "string" },
+        "placeholder": { "type": "string" },
+        "enum_values": {
+          "type": "array",
+          "items": { "type": "string" }
+        },
+        "target_type": { "type": "string" }
+      }
+    },
+    "section": {
+      "type": "object",
+      "required": ["title", "fields"],
+      "additionalProperties": false,
+      "properties": {
+        "title": { "type": "string" },
+        "fields": {
+          "type": "array",
+          "items": { "type": "string" }
+        }
+      }
+    },
+    "reference": {
+      "type": "object",
+      "required": ["field", "target_type"],
+      "additionalProperties": false,
+      "properties": {
+        "field": { "type": "string" },
+        "target_type": { "type": "string" },
+        "multiple": { "type": "boolean" }
+      }
+    },
+    "validationRule": {
+      "type": "object",
+      "required": ["type", "field"],
+      "additionalProperties": false,
+      "properties": {
+        "type": {
+          "enum": [
+            "required",
+            "enum",
+            "regex",
+            "number_range",
+            "reference_exists",
+            "reference_type",
+            "unique",
+            "ip",
+            "cidr",
+            "url"
+          ]
+        },
+        "field": { "type": "string" },
+        "message": { "type": "string" },
+        "pattern": { "type": "string" },
+        "min": { "type": "number" },
+        "max": { "type": "number" },
+        "values": {
+          "type": "array",
+          "items": { "type": "string" }
+        },
+        "target_type": { "type": "string" }
+      }
+    },
+    "resource": {
+      "type": "object",
+      "required": ["id", "type", "name", "spec"],
+      "additionalProperties": false,
+      "properties": {
+        "id": { "type": "string", "pattern": "^[a-zA-Z0-9_.:-]+$" },
+        "type": { "type": "string" },
+        "name": { "type": "string" },
+        "tags": {
+          "type": "object",
+          "additionalProperties": { "type": "string" }
+        },
+        "spec": {
+          "type": "object",
+          "additionalProperties": true
+        },
+        "custom_fields": {
+          "type": "object",
+          "additionalProperties": true
+        },
+        "dependencies": {
+          "type": "object",
+          "additionalProperties": true
+        }
+      }
+    }
+  }
+}

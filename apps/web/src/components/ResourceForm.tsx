@@ -119,8 +119,8 @@ export function ResourceForm({
           try {
             const items = await api.listResources(targetType);
             const options: ReferenceOption[] = items.map((resource) => ({
-              id: resource.metadata.id,
-              name: resource.metadata.name || resource.metadata.id,
+              id: resource.id,
+              name: resource.name || resource.id,
               typeId: targetType,
               typeTitle: typeById.get(targetType)?.title || targetType,
               description:
@@ -175,7 +175,7 @@ export function ResourceForm({
       setError(null);
       const next: Resource = {
         ...form,
-        metadata: { ...form.metadata, type: resourceType.id },
+        type: resourceType.id,
         spec: { ...form.spec },
         custom_fields: JSON.parse(customFieldsText || "{}"),
         dependencies: JSON.parse(dependenciesText || "{}"),
@@ -199,17 +199,17 @@ export function ResourceForm({
   return (
     <div className="space-y-5">
       <ErrorBanner message={error} />
-      <DataCard title={t("Metadata")}>
+      <DataCard title={t("Resource")}>
         <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
           <label className="block text-sm font-medium text-gray-700">
             {t("ID")}
             <TextInput
-              value={form.metadata.id}
+              value={form.id}
               disabled={mode === "edit"}
               onChange={(e) =>
                 setForm({
                   ...form,
-                  metadata: { ...form.metadata, id: e.target.value },
+                  id: e.target.value,
                 })
               }
             />
@@ -217,11 +217,11 @@ export function ResourceForm({
           <label className="block text-sm font-medium text-gray-700">
             {t("Name")}
             <TextInput
-              value={form.metadata.name}
+              value={form.name}
               onChange={(e) =>
                 setForm({
                   ...form,
-                  metadata: { ...form.metadata, name: e.target.value },
+                  name: e.target.value,
                 })
               }
             />

@@ -222,8 +222,8 @@ impl CatalogStore for SqliteStore {
     }
 
     async fn upsert_resource(&self, catalog_id: &str, resource: Resource) -> anyhow::Result<()> {
-        let type_id = resource.metadata.resource_type.clone();
-        let resource_id = resource.metadata.id.clone();
+        let type_id = resource.resource_type.clone();
+        let resource_id = resource.id.clone();
 
         sqlx::query(
             "INSERT INTO resources (catalog_id, type_id, resource_id, body)
@@ -261,7 +261,7 @@ impl CatalogStore for SqliteStore {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use cataloga_core::{FieldDef, FieldType, Metadata, Resource, ResourceType};
+    use cataloga_core::{FieldDef, FieldType, Resource, ResourceType};
     use serde_json::Map;
     use std::collections::HashMap;
 
@@ -281,7 +281,7 @@ mod tests {
                 enum_values: vec![],
             }],
             required_fields: vec![],
-            list_columns: vec!["metadata.name".into()],
+            list_columns: vec!["name".into()],
             form_layout: vec![],
             detail_sections: vec![],
             references: vec![],
@@ -292,14 +292,10 @@ mod tests {
         assert_eq!(list.len(), 1);
 
         let resource = Resource {
-            api_version: "cataloga.io/v1".into(),
-            kind: "Resource".into(),
-            metadata: Metadata {
-                id: "tokyo".into(),
-                resource_type: "site".into(),
-                name: "Tokyo".into(),
-                tags: HashMap::new(),
-            },
+            id: "tokyo".into(),
+            resource_type: "site".into(),
+            name: "Tokyo".into(),
+            tags: HashMap::new(),
             spec: Map::new(),
             custom_fields: Map::new(),
             dependencies: Map::new(),

@@ -40,14 +40,10 @@ export type NormalizedListColumn = {
 };
 
 export type Resource = {
-  api_version: string;
-  kind: string;
-  metadata: {
-    id: string;
-    type: string;
-    name: string;
-    tags: Record<string, string>;
-  };
+  id: string;
+  type: string;
+  name: string;
+  tags: Record<string, string>;
   spec: Record<string, unknown>;
   custom_fields: Record<string, unknown>;
   dependencies: Record<string, unknown>;
@@ -95,7 +91,7 @@ export function defaultResourceType(): ResourceType {
     description: "",
     fields: [],
     required_fields: [],
-    list_columns: ["metadata.name"],
+    list_columns: ["name"],
     form_layout: [],
     detail_sections: [],
     references: [],
@@ -105,14 +101,10 @@ export function defaultResourceType(): ResourceType {
 
 export function defaultResource(type: string): Resource {
   return {
-    api_version: "cataloga.io/v1",
-    kind: "Resource",
-    metadata: {
-      id: "",
-      type,
-      name: "",
-      tags: {},
-    },
+    id: "",
+    type,
+    name: "",
+    tags: {},
     spec: {},
     custom_fields: {},
     dependencies: {},
@@ -133,18 +125,20 @@ export function compactValue(value: unknown): string {
 
 export function readPath(resource: Resource, path: string): string {
   const [head, ...rest] = path.split(".");
-  const root =
-    head === "metadata"
-      ? resource.metadata
-      : head === "spec"
-        ? resource.spec
-        : head === "custom_fields"
-          ? resource.custom_fields
-          : head === "dependencies"
-            ? resource.dependencies
-            : undefined;
-  if (!root) return "";
-  let cur: unknown = root;
+  let cur: unknown;
+  if (head === "id" || head === "type" || head === "name") {
+    cur = resource[head];
+  } else if (head === "tags") {
+    cur = resource.tags;
+  } else if (head === "spec") {
+    cur = resource.spec;
+  } else if (head === "custom_fields") {
+    cur = resource.custom_fields;
+  } else if (head === "dependencies") {
+    cur = resource.dependencies;
+  } else {
+    return "";
+  }
   for (const segment of rest) {
     if (segment === "*") {
       return compactValue(cur);
@@ -170,8 +164,7 @@ const ACRONYMS = new Set([
 
 export function deriveDisplayLabel(path: string): string {
   const stripped = path
-    .replace(/^metadata\.tags\./, "")
-    .replace(/^metadata\./, "")
+    .replace(/^tags\./, "")
     .replace(/^spec\./, "")
     .replace(/^custom_fields\./, "")
     .replace(/^dependencies\./, "");

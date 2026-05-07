@@ -77,23 +77,21 @@ export function buildGraphData(
 
   for (const type of sortedTypes) {
     const resources = [...(resourcesByType[type.id] ?? [])].sort((a, b) => {
-      const nameCompare = (a.metadata.name || "").localeCompare(
-        b.metadata.name || "",
-      );
+      const nameCompare = (a.name || "").localeCompare(b.name || "");
       if (nameCompare !== 0) return nameCompare;
-      return a.metadata.id.localeCompare(b.metadata.id);
+      return a.id.localeCompare(b.id);
     });
 
     for (const resource of resources) {
-      const key = nodeKey(type.id, resource.metadata.id);
+      const key = nodeKey(type.id, resource.id);
       if (seenNodes.has(key)) continue;
       seenNodes.add(key);
       nodes.push({
         key,
         typeId: type.id,
         typeTitle: type.title || type.id,
-        resourceId: resource.metadata.id,
-        name: resource.metadata.name || resource.metadata.id,
+        resourceId: resource.id,
+        name: resource.name || resource.id,
         group: normalizeGroupName(type.group),
         degree: 0,
         x: (hashString(key) % 600) - 300,
@@ -107,7 +105,7 @@ export function buildGraphData(
     const resources = resourcesByType[type.id] ?? [];
 
     for (const resource of resources) {
-      const sourceKey = nodeKey(type.id, resource.metadata.id);
+      const sourceKey = nodeKey(type.id, resource.id);
 
       for (const reference of type.references ?? []) {
         const rawValue = resource.spec[reference.field];

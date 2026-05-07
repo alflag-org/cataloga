@@ -126,17 +126,17 @@ export function ResourceDetailPage() {
 
       {resource ? (
         <>
-          <DataCard title={t("Metadata")}>
+          <DataCard title={t("Resource")}>
             <dl className="grid grid-cols-[140px_1fr] gap-y-2 text-sm">
               <dt className="font-medium text-gray-600">{t("ID")}</dt>
-              <dd>{resource.metadata.id}</dd>
+              <dd>{resource.id}</dd>
               <dt className="font-medium text-gray-600">{t("Type")}</dt>
-              <dd>{resource.metadata.type}</dd>
+              <dd>{resource.type}</dd>
               <dt className="font-medium text-gray-600">{t("Name")}</dt>
-              <dd>{resource.metadata.name}</dd>
+              <dd>{resource.name}</dd>
               <dt className="font-medium text-gray-600">{t("Tags")}</dt>
               <dd>
-                {Object.entries(resource.metadata.tags || {})
+                {Object.entries(resource.tags || {})
                   .map(([k, v]) => `${k}=${v}`)
                   .join(", ") || "-"}
               </dd>

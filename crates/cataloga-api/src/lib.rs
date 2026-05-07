@@ -218,12 +218,12 @@ impl<S: CatalogStore> ApiService<S> {
         catalog_id: &str,
         resource: Resource,
     ) -> anyhow::Result<()> {
-        let target_type = resource.metadata.resource_type.clone();
-        let target_id = resource.metadata.id.clone();
+        let target_type = resource.resource_type.clone();
+        let target_id = resource.id.clone();
         let mut all = self.store.list_resources(catalog_id, &target_type).await?;
         if let Some(existing_idx) = all
             .iter()
-            .position(|r| r.metadata.resource_type == target_type && r.metadata.id == target_id)
+            .position(|r| r.resource_type == target_type && r.id == target_id)
         {
             all[existing_idx] = resource.clone();
         } else {
@@ -258,10 +258,7 @@ impl<S: CatalogStore> ApiService<S> {
             let resources = self.store.list_resources(catalog_id, &rt.id).await?;
             for resource in &resources {
                 resource_index.insert(
-                    (
-                        resource.metadata.resource_type.clone(),
-                        resource.metadata.id.clone(),
-                    ),
+                    (resource.resource_type.clone(), resource.id.clone()),
                     resource.clone(),
                 );
             }
@@ -270,7 +267,7 @@ impl<S: CatalogStore> ApiService<S> {
 
         let _current = by_type
             .get(type_id)
-            .and_then(|items| items.iter().find(|r| r.metadata.id == resource_id))
+            .and_then(|items| items.iter().find(|r| r.id == resource_id))
             .ok_or_else(|| ApiError::NotFound("resource not found".to_string()))?;
 
         let mut outgoing = Vec::new();
@@ -279,8 +276,7 @@ impl<S: CatalogStore> ApiService<S> {
         for rt in &types {
             let resources = by_type.get(&rt.id).map_or(&[][..], Vec::as_slice);
             for resource in resources {
-                let is_current = resource.metadata.resource_type == type_id
-                    && resource.metadata.id == resource_id;
+                let is_current = resource.resource_type == type_id && resource.id == resource_id;
                 for reference in &rt.references {
                     let Some(value) = resource.spec.get(&reference.field) else {
                         continue;
@@ -299,20 +295,20 @@ impl<S: CatalogStore> ApiService<S> {
                             {
                                 outgoing.push(ResourceRef {
                                     resource_type: reference.target_type.clone(),
-                                    resource_id: target.metadata.id.clone(),
-                                    name: target.metadata.name.clone(),
+                                    resource_id: target.id.clone(),
+                                    name: target.name.clone(),
                                     field: reference.field.clone(),
                                 });
                             }
                             if reference.target_type == type_id
                                 && target_id == resource_id
-                                && !(resource.metadata.resource_type == type_id
-                                    && resource.metadata.id == resource_id)
+                                && !(resource.resource_type == type_id
+                                    && resource.id == resource_id)
                             {
                                 incoming.push(ResourceRef {
-                                    resource_type: resource.metadata.resource_type.clone(),
-                                    resource_id: resource.metadata.id.clone(),
-                                    name: resource.metadata.name.clone(),
+                                    resource_type: resource.resource_type.clone(),
+                                    resource_id: resource.id.clone(),
+                                    name: resource.name.clone(),
                                     field: reference.field.clone(),
                                 });
                             }
@@ -327,20 +323,19 @@ impl<S: CatalogStore> ApiService<S> {
                         {
                             outgoing.push(ResourceRef {
                                 resource_type: reference.target_type.clone(),
-                                resource_id: target.metadata.id.clone(),
-                                name: target.metadata.name.clone(),
+                                resource_id: target.id.clone(),
+                                name: target.name.clone(),
                                 field: reference.field.clone(),
                             });
                         }
                         if reference.target_type == type_id
                             && target_id == resource_id
-                            && !(resource.metadata.resource_type == type_id
-                                && resource.metadata.id == resource_id)
+                            && !(resource.resource_type == type_id && resource.id == resource_id)
                         {
                             incoming.push(ResourceRef {
-                                resource_type: resource.metadata.resource_type.clone(),
-                                resource_id: resource.metadata.id.clone(),
-                                name: resource.metadata.name.clone(),
+                                resource_type: resource.resource_type.clone(),
+                                resource_id: resource.id.clone(),
+                                name: resource.name.clone(),
                                 field: reference.field.clone(),
                             });
                         }
@@ -412,8 +407,7 @@ impl<S: CatalogStore> ApiService<S> {
             existing_type_ids.insert(t.id.clone());
             let current = self.store.list_resources(catalog_id, &t.id).await?;
             for r in current {
-                existing_resource_ids
-                    .insert(format!("{}/{}", r.metadata.resource_type, r.metadata.id));
+                existing_resource_ids.insert(format!("{}/{}", r.resource_type, r.id));
             }
         }
 
@@ -430,7 +424,7 @@ impl<S: CatalogStore> ApiService<S> {
         let mut resources_to_create = Vec::new();
         let mut resources_to_update = Vec::new();
         for r in &resources {
-            let key = format!("{}/{}", r.metadata.resource_type, r.metadata.id);
+            let key = format!("{}/{}", r.resource_type, r.id);
             if existing_resource_ids.contains(&key) {
                 resources_to_update.push(key);
             } else {
@@ -452,7 +446,7 @@ impl<S: CatalogStore> ApiService<S> {
 fn parse_import_yaml(input: &str) -> anyhow::Result<(Vec<ResourceType>, Vec<Resource>)> {
     import_yaml(input).map_err(|e| {
         ApiError::BadRequest(format!(
-            "invalid import YAML format: {e}. expected top-level keys `resource_types` and `resources`, and each resource must include `api_version`, `kind`, `metadata.id`, `metadata.type`, and `metadata.name`"
+            "invalid import YAML format: {e}. expected top-level keys `version`, `resource_types`, and `resources`; `version` must be 1, and each resource must include `id`, `type`, `name`, and `spec`"
         ))
         .into()
     })
@@ -498,7 +492,7 @@ fn build_validation_result(types: &[ResourceType], resources: &[Resource]) -> Va
 mod tests {
     use super::*;
     use async_trait::async_trait;
-    use cataloga_core::{FieldDef, FieldType, Metadata, ReferenceDef};
+    use cataloga_core::{FieldDef, FieldType, ReferenceDef};
     use serde_json::json;
     use std::sync::{Arc, Mutex};
 
@@ -549,7 +543,7 @@ mod tests {
                 .lock()
                 .unwrap()
                 .values()
-                .filter(|r| r.metadata.resource_type == type_id)
+                .filter(|r| r.resource_type == type_id)
                 .cloned()
                 .collect())
         }
@@ -572,10 +566,7 @@ mod tests {
             resource: Resource,
         ) -> anyhow::Result<()> {
             self.resources.lock().unwrap().insert(
-                (
-                    resource.metadata.resource_type.clone(),
-                    resource.metadata.id.clone(),
-                ),
+                (resource.resource_type.clone(), resource.id.clone()),
                 resource,
             );
             Ok(())
@@ -601,14 +592,10 @@ mod tests {
         spec: serde_json::Map<String, serde_json::Value>,
     ) -> Resource {
         Resource {
-            api_version: "cataloga.io/v1".to_string(),
-            kind: "Resource".to_string(),
-            metadata: Metadata {
-                id: id.to_string(),
-                resource_type: t.to_string(),
-                name: name.to_string(),
-                tags: HashMap::new(),
-            },
+            id: id.to_string(),
+            resource_type: t.to_string(),
+            name: name.to_string(),
+            tags: HashMap::new(),
             spec,
             custom_fields: serde_json::Map::new(),
             dependencies: serde_json::Map::new(),
@@ -747,7 +734,7 @@ mod tests {
                         enum_values: vec![],
                     }],
                     required_fields: vec![],
-                    list_columns: vec!["metadata.name".into()],
+                    list_columns: vec!["name".into()],
                     form_layout: vec![],
                     detail_sections: vec![],
                     references: vec![],
@@ -778,7 +765,7 @@ mod tests {
             .await
             .unwrap()
             .unwrap();
-        assert_eq!(saved.metadata.name, "Punira Updated");
+        assert_eq!(saved.name, "Punira Updated");
         assert_eq!(
             saved.spec.get("description").and_then(|v| v.as_str()),
             Some("updated")
@@ -790,11 +777,11 @@ mod tests {
         let store = MemoryStore::default();
         let api = ApiService::new(store);
         let invalid = r#"
+version: 1
 resource_types: []
 resources:
   - type: provider
-    metadata:
-      name: ONPREM
+    name: ONPREM
     spec:
       status: active
 "#;
@@ -807,7 +794,7 @@ resources:
         match api_err {
             ApiError::BadRequest(msg) => {
                 assert!(msg.contains("invalid import YAML format"));
-                assert!(msg.contains("metadata.id"));
+                assert!(msg.contains("id"));
             }
             other => panic!("unexpected error: {other:?}"),
         }
