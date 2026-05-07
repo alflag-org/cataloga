@@ -38,6 +38,12 @@ export type GraphData = {
   edges: GraphEdge[];
 };
 
+type LayoutLink = {
+  source: string | GraphNode;
+  target: string | GraphNode;
+  field: string;
+};
+
 export const MIN_SCALE = 0.25;
 export const MAX_SCALE = 3.0;
 
@@ -57,6 +63,10 @@ function toTargetId(value: unknown): string | null {
     if (typeof row.id === "string") return row.id;
   }
   return null;
+}
+
+function linkEndpointKey(endpoint: string | GraphNode): string {
+  return typeof endpoint === "string" ? endpoint : endpoint.key;
 }
 
 export function buildGraphData(
@@ -203,13 +213,13 @@ export function computeNodeRadius(
 
 export function computeLayout(graph: GraphData): GraphData {
   const nodes = graph.nodes.map((node) => ({ ...node }));
-  const links = graph.edges.map((edge) => ({ ...edge }));
+  const links: LayoutLink[] = graph.edges.map((edge) => ({ ...edge }));
 
   const simulation = forceSimulation(nodes)
     .force(
       "link",
-      forceLink(links)
-        .id((node) => (node as GraphNode).key)
+      forceLink<GraphNode, LayoutLink>(links)
+        .id((node) => node.key)
         .distance(90)
         .strength(0.35),
     )
@@ -223,7 +233,14 @@ export function computeLayout(graph: GraphData): GraphData {
   for (let i = 0; i < 180; i += 1) simulation.tick();
   simulation.stop();
 
-  return { nodes, edges: links };
+  return {
+    nodes,
+    edges: links.map((link) => ({
+      source: linkEndpointKey(link.source),
+      target: linkEndpointKey(link.target),
+      field: link.field,
+    })),
+  };
 }
 
 export function fitViewportToGraph(
