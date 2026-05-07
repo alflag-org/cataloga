@@ -386,7 +386,7 @@ impl<S: CatalogStore> ApiService<S> {
             );
         }
 
-        let (types, resources) = import_yaml(input)?;
+        let (types, resources) = parse_import_yaml(input)?;
 
         for rt in types {
             self.create_or_update_resource_type(catalog_id, rt).await?;
@@ -403,7 +403,7 @@ impl<S: CatalogStore> ApiService<S> {
         catalog_id: &str,
         input: &str,
     ) -> anyhow::Result<ImportPreviewResult> {
-        let (types, resources) = import_yaml(input)?;
+        let (types, resources) = parse_import_yaml(input)?;
         let existing_types = self.store.list_resource_types(catalog_id).await?;
 
         let mut existing_type_ids = std::collections::HashSet::new();
@@ -447,6 +447,15 @@ impl<S: CatalogStore> ApiService<S> {
             validation_errors,
         })
     }
+}
+
+fn parse_import_yaml(input: &str) -> anyhow::Result<(Vec<ResourceType>, Vec<Resource>)> {
+    import_yaml(input).map_err(|e| {
+        ApiError::BadRequest(format!(
+            "invalid import YAML format: {e}. expected top-level keys `resource_types` and `resources`, and each resource must include `api_version`, `kind`, `metadata.id`, `metadata.type`, and `metadata.name`"
+        ))
+        .into()
+    })
 }
 
 fn build_validation_result(types: &[ResourceType], resources: &[Resource]) -> ValidationResult {
@@ -774,5 +783,33 @@ mod tests {
             saved.spec.get("description").and_then(|v| v.as_str()),
             Some("updated")
         );
+    }
+
+    #[tokio::test]
+    async fn import_preview_returns_bad_request_for_invalid_yaml_shape() {
+        let store = MemoryStore::default();
+        let api = ApiService::new(store);
+        let invalid = r#"
+resource_types: []
+resources:
+  - type: provider
+    metadata:
+      name: ONPREM
+    spec:
+      status: active
+"#;
+
+        let err = api
+            .import_catalog_preview("default", invalid)
+            .await
+            .expect_err("expected bad request");
+        let api_err = err.downcast_ref::<ApiError>().expect("api error");
+        match api_err {
+            ApiError::BadRequest(msg) => {
+                assert!(msg.contains("invalid import YAML format"));
+                assert!(msg.contains("metadata.id"));
+            }
+            other => panic!("unexpected error: {other:?}"),
+        }
     }
 }
