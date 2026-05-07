@@ -275,7 +275,8 @@ export function ResourceGraph({
           className="graph-panel relative h-[360px] overflow-hidden rounded-2xl border border-slate-200 bg-slate-950 shadow-sm md:h-[420px]"
         >
           <div className="pointer-events-none absolute left-4 top-4 z-10 rounded-full border border-white/10 bg-slate-950/70 px-3 py-1 text-xs font-medium text-slate-200 shadow-lg backdrop-blur">
-            {filteredGraph.nodes.length} nodes · {filteredGraph.edges.length} links
+            {filteredGraph.nodes.length} nodes · {filteredGraph.edges.length}{" "}
+            links
           </div>
           <svg
             width={size.width}
