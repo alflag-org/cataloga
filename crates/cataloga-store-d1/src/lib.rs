@@ -25,6 +25,51 @@ impl D1Store {
         let result = stmt.all().await?;
         Ok(result.results::<T>()?)
     }
+
+    fn decode_resource_row(
+        row: serde_json::Value,
+        fallback_type_id: Option<&str>,
+        fallback_resource_id: Option<&str>,
+    ) -> anyhow::Result<Resource> {
+        let type_id = row
+            .get("type_id")
+            .and_then(|x| x.as_str())
+            .or(fallback_type_id)
+            .unwrap_or_default();
+        let resource_id = row
+            .get("resource_id")
+            .and_then(|x| x.as_str())
+            .or(fallback_resource_id)
+            .unwrap_or_default();
+        let body = row
+            .get("body")
+            .and_then(|x| x.as_str())
+            .ok_or_else(|| anyhow::anyhow!("missing body"))?;
+
+        let mut json: serde_json::Value = serde_json::from_str(body)?;
+        let obj = json
+            .as_object_mut()
+            .ok_or_else(|| anyhow::anyhow!("resource body must be a JSON object"))?;
+        if !obj.contains_key("id") {
+            obj.insert(
+                "id".to_string(),
+                serde_json::Value::String(resource_id.to_string()),
+            );
+        }
+        if !obj.contains_key("type") && !obj.contains_key("resource_type") {
+            obj.insert(
+                "type".to_string(),
+                serde_json::Value::String(type_id.to_string()),
+            );
+        }
+        if !obj.contains_key("name") {
+            obj.insert(
+                "name".to_string(),
+                serde_json::Value::String(resource_id.to_string()),
+            );
+        }
+        Ok(serde_json::from_value::<Resource>(json)?)
+    }
 }
 
 #[cfg(target_arch = "wasm32")]
@@ -116,19 +161,13 @@ impl CatalogStore for D1Store {
     ) -> anyhow::Result<Vec<Resource>> {
         let rows: Vec<serde_json::Value> = self
             .fetch_all(
-                "SELECT body FROM resources WHERE catalog_id = ? AND type_id = ? ORDER BY resource_id",
+                "SELECT type_id, resource_id, body FROM resources WHERE catalog_id = ? AND type_id = ? ORDER BY resource_id",
                 vec![catalog_id.into(), type_id.into()],
             )
             .await?;
 
         rows.into_iter()
-            .map(|v| {
-                let body = v
-                    .get("body")
-                    .and_then(|x| x.as_str())
-                    .ok_or_else(|| anyhow::anyhow!("missing body"))?;
-                Ok(serde_json::from_str::<Resource>(body)?)
-            })
+            .map(|row| Self::decode_resource_row(row, Some(type_id), None))
             .collect()
     }
 
@@ -147,11 +186,11 @@ impl CatalogStore for D1Store {
         let Some(row) = items.pop() else {
             return Ok(None);
         };
-        let body = row
-            .get("body")
-            .and_then(|x| x.as_str())
-            .ok_or_else(|| anyhow::anyhow!("missing body"))?;
-        Ok(Some(serde_json::from_str::<Resource>(body)?))
+        Ok(Some(Self::decode_resource_row(
+            row,
+            Some(type_id),
+            Some(resource_id),
+        )?))
     }
 
     async fn upsert_resource(&self, catalog_id: &str, resource: Resource) -> anyhow::Result<()> {

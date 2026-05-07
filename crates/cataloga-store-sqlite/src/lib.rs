@@ -112,6 +112,38 @@ impl SqliteStore {
 
         Ok(Self { pool })
     }
+
+    fn decode_resource_row(
+        body: &str,
+        fallback_type_id: Option<&str>,
+        fallback_resource_id: Option<&str>,
+    ) -> anyhow::Result<Resource> {
+        let mut json: serde_json::Value = serde_json::from_str(body)?;
+        let obj = json
+            .as_object_mut()
+            .ok_or_else(|| anyhow::anyhow!("resource body must be a JSON object"))?;
+        let resource_id = fallback_resource_id.unwrap_or_default();
+        let type_id = fallback_type_id.unwrap_or_default();
+        if !obj.contains_key("id") {
+            obj.insert(
+                "id".to_string(),
+                serde_json::Value::String(resource_id.to_string()),
+            );
+        }
+        if !obj.contains_key("type") && !obj.contains_key("resource_type") {
+            obj.insert(
+                "type".to_string(),
+                serde_json::Value::String(type_id.to_string()),
+            );
+        }
+        if !obj.contains_key("name") {
+            obj.insert(
+                "name".to_string(),
+                serde_json::Value::String(resource_id.to_string()),
+            );
+        }
+        Ok(serde_json::from_value::<Resource>(json)?)
+    }
 }
 
 #[cfg_attr(target_arch = "wasm32", async_trait(?Send))]
@@ -182,7 +214,7 @@ impl CatalogStore for SqliteStore {
         type_id: &str,
     ) -> anyhow::Result<Vec<Resource>> {
         let rows = sqlx::query(
-            "SELECT body FROM resources WHERE catalog_id = ? AND type_id = ? ORDER BY resource_id",
+            "SELECT type_id, resource_id, body FROM resources WHERE catalog_id = ? AND type_id = ? ORDER BY resource_id",
         )
         .bind(catalog_id)
         .bind(type_id)
@@ -191,9 +223,13 @@ impl CatalogStore for SqliteStore {
 
         rows.into_iter()
             .map(|r| {
-                Ok(serde_json::from_str::<Resource>(
+                let row_type = r.get::<String, _>("type_id");
+                let row_id = r.get::<String, _>("resource_id");
+                Self::decode_resource_row(
                     &r.get::<String, _>("body"),
-                )?)
+                    Some(&row_type),
+                    Some(&row_id),
+                )
             })
             .collect()
     }
@@ -214,9 +250,9 @@ impl CatalogStore for SqliteStore {
         .await?;
 
         row.map(|r| {
-            Ok(serde_json::from_str::<Resource>(
-                &r.get::<String, _>("body"),
-            )?)
+            let row_type = r.get::<String, _>("type_id");
+            let row_id = r.get::<String, _>("resource_id");
+            Self::decode_resource_row(&r.get::<String, _>("body"), Some(&row_type), Some(&row_id))
         })
         .transpose()
     }

@@ -2,7 +2,7 @@ use std::collections::{HashMap, HashSet};
 
 use ipnet::IpNet;
 use regex::Regex;
-use serde::{Deserialize, Serialize};
+use serde::{Deserialize, Deserializer, Serialize};
 use serde_json::{Map, Value};
 use thiserror::Error;
 
@@ -110,19 +110,88 @@ pub enum ValidationRuleType {
     Url,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+#[derive(Debug, Clone, Serialize, PartialEq)]
 pub struct Resource {
     pub id: String,
-    #[serde(rename = "type", alias = "resource_type")]
+    #[serde(rename = "type")]
     pub resource_type: String,
     pub name: String,
-    #[serde(default)]
     pub tags: HashMap<String, String>,
     pub spec: Map<String, Value>,
-    #[serde(default)]
     pub custom_fields: Map<String, Value>,
-    #[serde(default)]
     pub dependencies: Map<String, Value>,
+}
+
+impl<'de> Deserialize<'de> for Resource {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: Deserializer<'de>,
+    {
+        #[derive(Deserialize)]
+        struct V2Resource {
+            id: String,
+            #[serde(rename = "type", alias = "resource_type")]
+            resource_type: String,
+            name: String,
+            #[serde(default)]
+            tags: HashMap<String, String>,
+            #[serde(default)]
+            spec: Map<String, Value>,
+            #[serde(default)]
+            custom_fields: Map<String, Value>,
+            #[serde(default)]
+            dependencies: Map<String, Value>,
+        }
+
+        #[derive(Deserialize)]
+        struct LegacyMetadata {
+            id: String,
+            #[serde(rename = "type", alias = "resource_type")]
+            resource_type: String,
+            name: String,
+            #[serde(default)]
+            tags: HashMap<String, String>,
+        }
+
+        #[derive(Deserialize)]
+        struct LegacyResource {
+            metadata: LegacyMetadata,
+            #[serde(default)]
+            spec: Map<String, Value>,
+            #[serde(default)]
+            custom_fields: Map<String, Value>,
+            #[serde(default)]
+            dependencies: Map<String, Value>,
+        }
+
+        #[derive(Deserialize)]
+        #[serde(untagged)]
+        enum RawResource {
+            V2(V2Resource),
+            Legacy(LegacyResource),
+        }
+
+        match RawResource::deserialize(deserializer)? {
+            RawResource::V2(v2) => Ok(Self {
+                id: v2.id,
+                resource_type: v2.resource_type,
+                name: v2.name,
+                tags: v2.tags,
+                spec: v2.spec,
+                custom_fields: v2.custom_fields,
+                dependencies: v2.dependencies,
+            }),
+            RawResource::Legacy(legacy) => Ok(Self {
+                id: legacy.metadata.id,
+                resource_type: legacy.metadata.resource_type,
+                name: legacy.metadata.name,
+                tags: legacy.metadata.tags,
+                spec: legacy.spec,
+                custom_fields: legacy.custom_fields,
+                dependencies: legacy.dependencies,
+            }),
+        }
+    }
 }
 
 #[derive(Debug, Error)]
@@ -656,10 +725,26 @@ pub fn export_yaml(types: &[ResourceType], resources: &[Resource]) -> anyhow::Re
 pub fn import_yaml(input: &str) -> anyhow::Result<(Vec<ResourceType>, Vec<Resource>)> {
     #[derive(Deserialize)]
     #[serde(deny_unknown_fields)]
+    struct ImportResource {
+        id: String,
+        #[serde(rename = "type")]
+        resource_type: String,
+        name: String,
+        #[serde(default)]
+        tags: HashMap<String, String>,
+        spec: Map<String, Value>,
+        #[serde(default)]
+        custom_fields: Map<String, Value>,
+        #[serde(default)]
+        dependencies: Map<String, Value>,
+    }
+
+    #[derive(Deserialize)]
+    #[serde(deny_unknown_fields)]
     struct CatalogDataset {
         version: u8,
         resource_types: Vec<ResourceType>,
-        resources: Vec<Resource>,
+        resources: Vec<ImportResource>,
     }
 
     let parsed: CatalogDataset = serde_yaml::from_str(input)?;
@@ -668,7 +753,20 @@ pub fn import_yaml(input: &str) -> anyhow::Result<(Vec<ResourceType>, Vec<Resour
         "unsupported catalog version: {}",
         parsed.version
     );
-    Ok((parsed.resource_types, parsed.resources))
+    let resources = parsed
+        .resources
+        .into_iter()
+        .map(|r| Resource {
+            id: r.id,
+            resource_type: r.resource_type,
+            name: r.name,
+            tags: r.tags,
+            spec: r.spec,
+            custom_fields: r.custom_fields,
+            dependencies: r.dependencies,
+        })
+        .collect();
+    Ok((parsed.resource_types, resources))
 }
 
 #[cfg(test)]
