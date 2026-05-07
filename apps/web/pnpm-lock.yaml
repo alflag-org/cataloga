@@ -48,12 +48,18 @@ importers:
       '@types/d3-force':
         specifier: ^3.0.10
         version: 3.0.10
+      '@types/datatables.net':
+        specifier: ^1.12.3
+        version: 1.12.3
       '@types/dropzone':
         specifier: ^5.7.9
         version: 5.7.9
       '@types/jquery':
         specifier: 3.5.33
         version: 3.5.33
+      '@types/lodash':
+        specifier: ^4.17.24
+        version: 4.17.24
       '@types/react':
         specifier: ^19.2.14
         version: 19.2.14
@@ -364,6 +370,10 @@ packages:
   '@types/d3-force@3.0.10':
     resolution: {integrity: sha512-ZYeSaCF3p73RdOKcjj+swRlZfnYpK1EbaDiYICEEp5Q6sUiqFaFQ9qgoshp5CzIyyb/yD09kD9o2zEltCexlgw==}
 
+  '@types/datatables.net@1.12.3':
+    resolution: {integrity: sha512-6Vguiqfey9UMweEJDrfi3K6PCizqAfVm8eW8oeFQPc7l/Pq/LjHmiBb5uu1nSWo8XE85yfjXFxcCHf3r2JmAMA==}
+    deprecated: This is a stub types definition. datatables.net provides its own type definitions, so you do not need this installed.
+
   '@types/deep-eql@4.0.2':
     resolution: {integrity: sha512-c9h9dVVMigMPc4bwTvC5dxqtqJZwQPePsWjPlpSOnojbor6pGqdk541lfA7AqFQr5pB1BRdq0juY9db81BwyFw==}
 
@@ -375,6 +385,9 @@ packages:
 
   '@types/jquery@3.5.33':
     resolution: {integrity: sha512-SeyVJXlCZpEki5F0ghuYe+L+PprQta6nRZqhONt9F13dWBtR/ftoaIbdRQ7cis7womE+X2LKhsDdDtkkDhJS6g==}
+
+  '@types/lodash@4.17.24':
+    resolution: {integrity: sha512-gIW7lQLZbue7lRSWEFql49QJJWThrTFFeIMJdp3eH4tKoxm1OvEPg02rm4wCCSHS0cL3/Fizimb35b7k8atwsQ==}
 
   '@types/react-dom@19.2.3':
     resolution: {integrity: sha512-jp2L/eY6fn+KgVVQAOqYItbF0VY/YApe5Mz2F0aykSO8gx31bYCZyvSeYxCHKvzHG5eZjc+zyaS5BrBWya2+kQ==}
@@ -1032,6 +1045,10 @@ snapshots:
 
   '@types/d3-force@3.0.10': {}
 
+  '@types/datatables.net@1.12.3':
+    dependencies:
+      datatables.net: 2.3.8
+
   '@types/deep-eql@4.0.2': {}
 
   '@types/dropzone@5.7.9':
@@ -1043,6 +1060,8 @@ snapshots:
   '@types/jquery@3.5.33':
     dependencies:
       '@types/sizzle': 2.3.10
+
+  '@types/lodash@4.17.24': {}
 
   '@types/react-dom@19.2.3(@types/react@19.2.14)':
     dependencies:
