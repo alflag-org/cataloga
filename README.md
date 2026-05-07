@@ -2,10 +2,23 @@
 
 Cataloga is an open source, schema-driven infrastructure catalog for teams that need clear visibility of Resources, Relations, and operational change status.
 
-Deploy your own instance in minutes, then adapt it to your team.
+[![Deploy to Cloudflare](https://deploy.workers.cloudflare.com/button)](https://deploy.workers.cloudflare.com/?url=https://github.com/viasnake/cataloga-cloudflare-template)
 
-Cloudflare Deploy Button is not fully reliable for this repository because Cataloga uses a Rust workspace monorepo layout.
-For Cloudflare deployment, use the project tasks from this repository checkout.
+## Recommended deployment
+
+Cataloga is designed to run well on Cloudflare Workers, D1, and R2.
+
+Use the Deploy to Cloudflare button above to create your own instance.
+
+## Deployment targets
+
+| Target | Status | Recommended for |
+|---|---:|---|
+| Cloudflare Workers + D1 + R2 | Recommended | Most users |
+| Local standalone + SQLite | Supported | Development and private local use |
+| Docker | Optional | Self-hosted environments that do not use Cloudflare |
+
+The Deploy Button uses the generated `cataloga-cloudflare-template` repository because the main Cataloga repository is a Rust workspace monorepo.
 
 ## Why Cataloga
 
@@ -39,10 +52,16 @@ Canonical runtime storage is database-backed (SQLite/D1). YAML is used for Impor
 
 ## Get started
 
-- Cloudflare deployment from this repository:
-  - `mise run build-worker`
-  - `mise run worker-deploy`
-- Local development and contribution guide: see [CONTRIBUTING.md](./CONTRIBUTING.md)
+- Deploy your own instance with the Deploy Button above.
+- For local development and contribution, see [CONTRIBUTING.md](./CONTRIBUTING.md).
+
+## Maintainers: template sync
+
+The Deploy Button template repository is updated from this repository.
+
+- Prepare generated template locally: `mise run cloudflare-template-prepare`
+- Validate generated template locally: `mise run cloudflare-template-check`
+- Sync by release tag (`v*.*.*`) or manual run of `.github/workflows/sync-cloudflare-template.yml`
 
 ## Contributing
 

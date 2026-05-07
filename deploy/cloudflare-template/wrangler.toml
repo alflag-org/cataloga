@@ -1,0 +1,29 @@
+name = "cataloga"
+main = "worker/shim.mjs"
+compatibility_date = "2026-05-05"
+upload_source_maps = true
+
+[assets]
+directory = "public"
+binding = "ASSETS"
+not_found_handling = "single-page-application"
+run_worker_first = ["/api/*"]
+
+[observability.logs]
+enabled = true
+head_sampling_rate = 1.0
+invocation_logs = true
+
+[observability.traces]
+enabled = true
+head_sampling_rate = 1.0
+
+[[d1_databases]]
+binding = "CATALOGA_DB"
+database_name = "cataloga"
+database_id = "00000000-0000-0000-0000-000000000000"
+migrations_dir = "migrations/d1"
+
+[[r2_buckets]]
+binding = "CATALOGA_SNAPSHOTS"
+bucket_name = "cataloga-snapshots"

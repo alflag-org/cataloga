@@ -15,12 +15,12 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 30
     steps:
-      - uses: actions/checkout@v4
-      - uses: jdx/mise-action@v2
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
+      - uses: jdx/mise-action@c37c93293d6b742fc901e1406b8f764f6fb19dac # v2.4.4
       - name: Install tools
         run: mise install
       - name: Cache Rust
-        uses: Swatinem/rust-cache@v2
+        uses: Swatinem/rust-cache@e18b497796c12c097a38f9edb9d0641fb99eee32 # v2
       - name: Format check
         run: mise run fmt-rust-check
       - name: Clippy
@@ -34,12 +34,12 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 20
     steps:
-      - uses: actions/checkout@v4
-      - uses: jdx/mise-action@v2
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
+      - uses: jdx/mise-action@c37c93293d6b742fc901e1406b8f764f6fb19dac # v2.4.4
       - name: Install tools
         run: mise install
       - name: Setup Node cache
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
         with:
           node-version: 24
           cache: pnpm
@@ -62,14 +62,14 @@ jobs:
       - rust
       - web
     steps:
-      - uses: actions/checkout@v4
-      - uses: jdx/mise-action@v2
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
+      - uses: jdx/mise-action@c37c93293d6b742fc901e1406b8f764f6fb19dac # v2.4.4
       - name: Install tools
         run: mise install
       - name: Cache Rust
-        uses: Swatinem/rust-cache@v2
+        uses: Swatinem/rust-cache@e18b497796c12c097a38f9edb9d0641fb99eee32 # v2
       - name: Setup Node cache
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
         with:
           node-version: 24
           cache: pnpm
@@ -82,49 +82,3 @@ jobs:
         run: cargo install worker-build
       - name: Build Worker
         run: mise run build-worker
-
-  deploy:
-    runs-on: ubuntu-latest
-    timeout-minutes: 30
-    needs:
-      - rust
-      - web
-      - worker
-    if: github.ref == 'refs/heads/master' && github.event_name == 'push'
-    concurrency:
-      group: cataloga-cloudflare-deploy
-      cancel-in-progress: false
-    environment: production
-    env:
-      CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
-      CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
-    steps:
-      - uses: actions/checkout@v4
-      - uses: jdx/mise-action@v2
-      - name: Install tools
-        run: mise install
-      - name: Cache Rust
-        uses: Swatinem/rust-cache@v2
-      - name: Setup Node cache
-        uses: actions/setup-node@v4
-        with:
-          node-version: 24
-          cache: pnpm
-          cache-dependency-path: apps/web/pnpm-lock.yaml
-      - name: Install web dependencies
-        run: mise run install-web
-      - name: Build web assets
-        run: mise run build-web
-      - name: Install worker-build
-        run: cargo install worker-build
-      - name: Build Worker
-        run: mise run build-worker
-      - name: Apply D1 migrations
-        working-directory: crates/cataloga-worker
-        run: wrangler d1 migrations apply cataloga-demo --remote
-      - name: Deploy Worker
-        working-directory: crates/cataloga-worker
-        run: wrangler deploy
-      - name: Smoke test deployed Worker
-        if: ${{ vars.CATALOGA_PROD_URL != '' }}
-        run: curl -fsS "${{ vars.CATALOGA_PROD_URL }}/api/health"

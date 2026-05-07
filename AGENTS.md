@@ -67,7 +67,7 @@ For full integration validation (before final delivery when feasible):
 1. `mise run ci`
 2. `mise run db-migrate`
 3. `mise run seed`
-4. `mise run smoke-local` (requires a running local server)
+4. Run targeted runtime smoke checks (for example `/api/health`) against the active environment
 
 ### Minimum acceptable narrow checks
 - Docs-only edits: `mise run docs-check`
@@ -99,9 +99,6 @@ For full integration validation (before final delivery when feasible):
 - Data ops:
   - `mise run db-migrate`
   - `mise run seed`
-- Smoke:
-  - `mise run smoke-local`
-  - `mise run smoke-worker`
 - CI:
   - `mise run ci`
 

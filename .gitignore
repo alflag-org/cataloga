@@ -15,6 +15,7 @@ apps/web/node_modules/
 apps/web/dist/
 apps/web/.vite/
 apps/web/tsconfig.tsbuildinfo
+dist/cloudflare-template/
 
 # Wrangler
 .wrangler/
@@ -25,7 +26,6 @@ output/playwright/
 
 # Codex
 .codex
-.agents
 
 #
 .mise*
