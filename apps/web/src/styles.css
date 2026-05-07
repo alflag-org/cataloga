@@ -30,8 +30,21 @@
 
 @layer components {
   .graph-panel {
-    background-image: radial-gradient(#e5e7eb 1px, transparent 1px);
-    background-size: 16px 16px;
+    background-image:
+      radial-gradient(circle at 50% 45%, rgb(30 41 59 / 0.72), transparent 62%),
+      radial-gradient(rgb(148 163 184 / 0.24) 1px, transparent 1px),
+      linear-gradient(rgb(148 163 184 / 0.08) 1px, transparent 1px),
+      linear-gradient(90deg, rgb(148 163 184 / 0.08) 1px, transparent 1px);
+    background-position:
+      center,
+      0 0,
+      0 0,
+      0 0;
+    background-size:
+      100% 100%,
+      18px 18px,
+      72px 72px,
+      72px 72px;
   }
 
   .lang-switch {
