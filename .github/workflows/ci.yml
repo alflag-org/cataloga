@@ -91,7 +91,8 @@ jobs:
       - rust
       - web
       - worker
-    if: (github.event_name == 'push' && github.ref == 'refs/heads/master' && github.repository == 'viasnake/cataloga') || github.event_name == 'workflow_dispatch'
+    if: (github.event_name == 'push' && github.ref == 'refs/heads/master') ||
+      github.event_name == 'workflow_dispatch'
     steps:
       - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
       - uses: jdx/mise-action@c37c93293d6b742fc901e1406b8f764f6fb19dac # v2.4.4
