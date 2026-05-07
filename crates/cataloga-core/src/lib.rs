@@ -111,10 +111,9 @@ pub enum ValidationRuleType {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
-#[serde(deny_unknown_fields)]
 pub struct Resource {
     pub id: String,
-    #[serde(rename = "type")]
+    #[serde(rename = "type", alias = "resource_type")]
     pub resource_type: String,
     pub name: String,
     #[serde(default)]
@@ -785,6 +784,37 @@ resources:
     spec: {}
 "#;
         assert!(import_yaml(legacy).is_err());
+    }
+
+    #[test]
+    fn resource_deserialize_accepts_resource_type_alias() {
+        let raw = r#"{
+  "id":"edge01",
+  "resource_type":"provider",
+  "name":"Edge Provider",
+  "tags":{},
+  "spec":{},
+  "custom_fields":{},
+  "dependencies":{}
+}"#;
+        let parsed: Resource = serde_json::from_str(raw).unwrap();
+        assert_eq!(parsed.resource_type, "provider");
+    }
+
+    #[test]
+    fn resource_deserialize_ignores_unknown_fields() {
+        let raw = r#"{
+  "id":"edge01",
+  "type":"provider",
+  "name":"Edge Provider",
+  "tags":{},
+  "spec":{},
+  "custom_fields":{},
+  "dependencies":{},
+  "legacy_extra":{"x":1}
+}"#;
+        let parsed: Resource = serde_json::from_str(raw).unwrap();
+        assert_eq!(parsed.id, "edge01");
     }
 
     #[test]
