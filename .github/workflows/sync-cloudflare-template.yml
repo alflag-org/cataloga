@@ -37,6 +37,11 @@ jobs:
       - name: Validate generated template
         run: mise run cloudflare-template-check
 
+      - name: Remove local validation artifacts
+        run: |
+          rm -rf dist/cloudflare-template/node_modules
+          rm -f dist/cloudflare-template/package-lock.json
+
       - name: Push generated template repository
         env:
           TEMPLATE_REPO_TOKEN: ${{ secrets.CATALOGA_TEMPLATE_REPO_TOKEN }}
