@@ -2,9 +2,10 @@
 
 Cataloga is an open source, schema-driven infrastructure catalog for teams that need clear visibility of Resources, Relations, and operational change status.
 
-[![Deploy to Cloudflare](https://deploy.workers.cloudflare.com/button)](https://deploy.workers.cloudflare.com/?url=https://github.com/viasnake/cataloga)
-
 Deploy your own instance in minutes, then adapt it to your team.
+
+Cloudflare Deploy Button is not fully reliable for this repository because Cataloga uses a Rust workspace monorepo layout.
+For Cloudflare deployment, use the project tasks from this repository checkout.
 
 ## Why Cataloga
 
@@ -38,7 +39,9 @@ Canonical runtime storage is database-backed (SQLite/D1). YAML is used for Impor
 
 ## Get started
 
-- One-click deploy: use the **Deploy to Cloudflare** button above
+- Cloudflare deployment from this repository:
+  - `mise run build-worker`
+  - `mise run worker-deploy`
 - Local development and contribution guide: see [CONTRIBUTING.md](./CONTRIBUTING.md)
 
 ## Contributing

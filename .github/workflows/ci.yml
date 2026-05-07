@@ -121,7 +121,7 @@ jobs:
         run: mise run build-worker
       - name: Apply D1 migrations
         working-directory: crates/cataloga-worker
-        run: wrangler d1 migrations apply cataloga-prod --remote
+        run: wrangler d1 migrations apply cataloga-demo --remote
       - name: Deploy Worker
         working-directory: crates/cataloga-worker
         run: wrangler deploy

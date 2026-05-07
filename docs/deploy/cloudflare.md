@@ -12,22 +12,22 @@ mise run build
 
 ```bash
 cd crates/cataloga-worker
-wrangler d1 create cataloga-prod
-wrangler r2 bucket create cataloga-prod-snapshots
+wrangler d1 create cataloga-demo
+wrangler r2 bucket create cataloga-demo-snapshots
 ```
 
-`crates/cataloga-worker/wrangler.toml` currently tracks the production D1 `database_id`.
+`crates/cataloga-worker/wrangler.toml` uses demo placeholders by default.
 
-- If you deploy to a different Cloudflare account, update `database_id` in `wrangler.toml`.
-- Keep `database_name = "cataloga-prod"` and `bucket_name = "cataloga-prod-snapshots"` aligned with created resources.
+- Set `database_id` in `wrangler.toml` to your created D1 database ID.
+- Keep `database_name = "cataloga-demo"` and `bucket_name = "cataloga-demo-snapshots"` aligned with created resources, or rename all of them consistently.
 
 D1 migrations path is configured as `../../migrations/d1` from `crates/cataloga-worker/wrangler.toml`.
 
 Apply migrations:
 
 ```bash
-wrangler d1 migrations apply cataloga-prod --local
-wrangler d1 migrations apply cataloga-prod --remote
+wrangler d1 migrations apply cataloga-demo --local
+wrangler d1 migrations apply cataloga-demo --remote
 ```
 
 ## Run and deploy
@@ -42,7 +42,7 @@ CI deploy uses the same ordering with explicit checks:
 
 1. `mise run build-web`
 2. `mise run worker-build`
-3. `wrangler d1 migrations apply cataloga-prod --remote`
+3. `wrangler d1 migrations apply cataloga-demo --remote`
 4. `wrangler deploy`
 5. `curl -fsS "${CATALOGA_PROD_URL}/api/health"` (read-only smoke, when configured)
 

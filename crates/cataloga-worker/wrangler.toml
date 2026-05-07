@@ -23,10 +23,10 @@ head_sampling_rate = 1.0
 
 [[d1_databases]]
 binding = "CATALOGA_DB"
-database_name = "cataloga-prod"
-database_id = "e7406e48-4b16-4cbd-9acb-5989b0b4095e"
+database_name = "cataloga-demo"
+database_id = "your-d1-database-id"
 migrations_dir = "../../migrations/d1"
 
 [[r2_buckets]]
-bucket_name = "cataloga-prod-snapshots"
+bucket_name = "cataloga-demo-snapshots"
 binding = "CATALOGA_SNAPSHOTS"
