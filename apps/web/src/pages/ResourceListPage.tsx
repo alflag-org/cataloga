@@ -23,7 +23,7 @@ export function ResourceListPage() {
   const [rt, setRt] = useState<ResourceType | null>(null);
   const [rows, setRows] = useState<Resource[]>([]);
   const [query, setQuery] = useState("");
-  const [sortBy, setSortBy] = useState("metadata.name");
+  const [sortBy, setSortBy] = useState("name");
   const [sortDir, setSortDir] = useState<"asc" | "desc">("asc");
   const [error, setError] = useState<string | null>(null);
 
@@ -43,16 +43,16 @@ export function ResourceListPage() {
   }, [type]);
 
   const cols = normalizeListColumns(
-    rt?.list_columns?.length ? rt.list_columns : ["metadata.name"],
+    rt?.list_columns?.length ? rt.list_columns : ["name"],
   );
   const filtered = rows.filter((r) => {
     const q = query.trim().toLowerCase();
     if (!q) return true;
     return [
-      r.metadata.id,
-      r.metadata.name,
-      r.metadata.type,
-      JSON.stringify(r.metadata.tags),
+      r.id,
+      r.name,
+      r.type,
+      JSON.stringify(r.tags),
       JSON.stringify(r.spec),
     ]
       .join(" ")
@@ -137,9 +137,7 @@ export function ResourceListPage() {
                 return;
               try {
                 await api.deleteResource(type, resourceId);
-                setRows((prev) =>
-                  prev.filter((r) => r.metadata.id !== resourceId),
-                );
+                setRows((prev) => prev.filter((r) => r.id !== resourceId));
               } catch (e) {
                 setError(e instanceof Error ? e.message : String(e));
               }

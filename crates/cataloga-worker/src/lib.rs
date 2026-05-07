@@ -410,12 +410,12 @@ async fn handle_api(
                 .json()
                 .await
                 .map_err(|e| ApiError::bad_request(e.to_string()))?;
-            let target_type = if payload.metadata.resource_type.is_empty() {
+            let target_type = if payload.resource_type.is_empty() {
                 (*type_id).to_string()
             } else {
-                payload.metadata.resource_type.clone()
+                payload.resource_type.clone()
             };
-            let target_id = payload.metadata.id.clone();
+            let target_id = payload.id.clone();
             api.create_or_update_resource(CATALOG_ID, payload)
                 .await
                 .map_err(ApiError::from_service_error)?;
@@ -467,15 +467,15 @@ async fn handle_api(
                 .json()
                 .await
                 .map_err(|e| ApiError::bad_request(e.to_string()))?;
-            let target_type = if payload.metadata.resource_type.is_empty() {
+            let target_type = if payload.resource_type.is_empty() {
                 (*type_id).to_string()
             } else {
-                payload.metadata.resource_type.clone()
+                payload.resource_type.clone()
             };
-            let target_id = if payload.metadata.id.is_empty() {
+            let target_id = if payload.id.is_empty() {
                 (*resource_id).to_string()
             } else {
-                payload.metadata.id.clone()
+                payload.id.clone()
             };
             api.create_or_update_resource(CATALOG_ID, payload)
                 .await

@@ -55,7 +55,7 @@ export function ResourceListTable({
         </thead>
         <tbody className="divide-y divide-gray-100 bg-white">
           {rows.map((r) => (
-            <tr key={r.metadata.id} className="hover:bg-gray-50">
+            <tr key={r.id} className="hover:bg-gray-50">
               {columns.map((c) => (
                 <td
                   key={c.path}
@@ -68,19 +68,13 @@ export function ResourceListTable({
               ))}
               <td className="px-3 py-2">
                 <div className="flex items-center gap-3">
-                  <ActionLink
-                    tone="primary"
-                    to={`/resources/${type}/${r.metadata.id}`}
-                  >
+                  <ActionLink tone="primary" to={`/resources/${type}/${r.id}`}>
                     {t("Show")}
                   </ActionLink>
-                  <ActionLink to={`/resources/${type}/${r.metadata.id}/edit`}>
+                  <ActionLink to={`/resources/${type}/${r.id}/edit`}>
                     {t("Edit")}
                   </ActionLink>
-                  <ActionButton
-                    tone="danger"
-                    onClick={() => onDelete(r.metadata.id)}
-                  >
+                  <ActionButton tone="danger" onClick={() => onDelete(r.id)}>
                     {t("Delete")}
                   </ActionButton>
                 </div>

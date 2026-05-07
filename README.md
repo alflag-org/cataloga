@@ -52,6 +52,49 @@ Most infra data is scattered across docs, tickets, dashboards, and tribal knowle
 
 Canonical runtime storage is database-backed (SQLite/D1). YAML is used for Import/Export and Snapshot portability.
 
+
+## YAML Import/Export format
+
+Cataloga YAML is a catalog dataset format for **Import**, **Export**, and **Snapshot** workflows. It is not a Kubernetes-style API object format: the file carries one top-level `version: 1`, and each Resource is written directly under `resources` without per-Resource `api_version`, `kind`, or nested metadata.
+
+Use the JSON Schema in `schemas/cataloga.v1.schema.json` with YAML Language Server, VS Code, or IntelliJ to get editor completion and validation. For local files, add this comment at the top of a catalog YAML file:
+
+```yaml
+# yaml-language-server: $schema=./schemas/cataloga.v1.schema.json
+version: 1
+```
+
+For files edited outside the repository, point the comment at the published schema URL:
+
+```yaml
+# yaml-language-server: $schema=https://raw.githubusercontent.com/viasnake/cataloga/master/schemas/cataloga.v1.schema.json
+version: 1
+```
+
+A minimal catalog dataset looks like this:
+
+```yaml
+version: 1
+resource_types: []
+resources: []
+```
+
+Each Resource uses the flat dataset shape:
+
+```yaml
+resources:
+  - id: device-edge01
+    type: device
+    name: edge01
+    tags:
+      site: kanagawa01
+    spec:
+      role: router
+      mgmt_ip: 10.10.10.1
+```
+
+See `examples/catalog.yaml` for a complete example.
+
 ## Get started
 
 - Deploy your own instance from this repository (see `docs/deploy/cloudflare.md`).

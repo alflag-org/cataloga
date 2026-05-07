@@ -17,7 +17,7 @@ export function buildHomeLabTypes(): ResourceType[] {
         },
       ],
       required_fields: ["code"],
-      list_columns: ["metadata.name", "spec.code"],
+      list_columns: ["name", "spec.code"],
       form_layout: [{ title: "Basic", fields: ["code", "description"] }],
       detail_sections: [{ title: "Overview", fields: ["code", "description"] }],
       references: [],
@@ -33,7 +33,7 @@ export function buildHomeLabTypes(): ResourceType[] {
         { name: "purpose", label: "Purpose", type: "text", enum_values: [] },
       ],
       required_fields: ["site"],
-      list_columns: ["metadata.name", "spec.site"],
+      list_columns: ["name", "spec.site"],
       form_layout: [{ title: "Basic", fields: ["site", "purpose"] }],
       detail_sections: [{ title: "Overview", fields: ["site", "purpose"] }],
       references: [{ field: "site", target_type: "site", multiple: false }],
@@ -50,7 +50,7 @@ export function buildHomeLabTypes(): ResourceType[] {
         { name: "gateway", label: "Gateway", type: "ip", enum_values: [] },
       ],
       required_fields: ["site", "cidr"],
-      list_columns: ["metadata.name", "spec.cidr"],
+      list_columns: ["name", "spec.cidr"],
       form_layout: [{ title: "Basic", fields: ["site", "cidr", "gateway"] }],
       detail_sections: [
         { title: "Overview", fields: ["site", "cidr", "gateway"] },
@@ -71,7 +71,7 @@ export function buildHomeLabTypes(): ResourceType[] {
         { name: "role", label: "Role", type: "string", enum_values: [] },
       ],
       required_fields: ["site", "zone", "vlan_id"],
-      list_columns: ["metadata.name", "spec.vlan_id"],
+      list_columns: ["name", "spec.vlan_id"],
       form_layout: [
         {
           title: "Basic",
@@ -113,7 +113,7 @@ export function buildHomeLabTypes(): ResourceType[] {
         },
       ],
       required_fields: ["address"],
-      list_columns: ["metadata.name", "spec.address"],
+      list_columns: ["name", "spec.address"],
       form_layout: [
         {
           title: "Basic",
@@ -150,7 +150,7 @@ export function buildHomeLabTypes(): ResourceType[] {
         },
       ],
       required_fields: ["site", "role"],
-      list_columns: ["metadata.name", "spec.role"],
+      list_columns: ["name", "spec.role"],
       form_layout: [
         { title: "Basic", fields: ["site", "role", "management_ip"] },
       ],
@@ -181,7 +181,7 @@ export function buildHomeLabTypes(): ResourceType[] {
         { name: "os", label: "OS", type: "string", enum_values: [] },
       ],
       required_fields: ["site", "host", "primary_ip"],
-      list_columns: ["metadata.name", "spec.role"],
+      list_columns: ["name", "spec.role"],
       form_layout: [
         {
           title: "Basic",
@@ -211,7 +211,7 @@ export function buildHomeLabTypes(): ResourceType[] {
         { name: "site", label: "Site", type: "reference", enum_values: [] },
       ],
       required_fields: ["name"],
-      list_columns: ["metadata.name", "spec.name"],
+      list_columns: ["name", "spec.name"],
       form_layout: [{ title: "Basic", fields: ["name", "site"] }],
       detail_sections: [{ title: "Overview", fields: ["name", "site"] }],
       references: [{ field: "site", target_type: "site", multiple: false }],
@@ -240,7 +240,7 @@ export function buildHomeLabTypes(): ResourceType[] {
         },
       ],
       required_fields: ["site"],
-      list_columns: ["metadata.name", "spec.url"],
+      list_columns: ["name", "spec.url"],
       form_layout: [
         {
           title: "Basic",
@@ -278,7 +278,7 @@ export function buildHomeLabTypes(): ResourceType[] {
         { name: "target", label: "Target", type: "reference", enum_values: [] },
       ],
       required_fields: ["zone", "record_type", "name"],
-      list_columns: ["metadata.name", "spec.record_type"],
+      list_columns: ["name", "spec.record_type"],
       form_layout: [
         {
           title: "Basic",

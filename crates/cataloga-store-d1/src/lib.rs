@@ -163,8 +163,8 @@ impl CatalogStore for D1Store {
             ),
             vec![
                 catalog_id.into(),
-                resource.metadata.resource_type.clone().into(),
-                resource.metadata.id.clone().into(),
+                resource.resource_type.clone().into(),
+                resource.id.clone().into(),
                 serde_json::to_string(&resource)?.into(),
             ],
         )?

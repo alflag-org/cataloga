@@ -488,7 +488,7 @@ export function ResourceTypeEditorPage({ mode }: { mode: "create" | "edit" }) {
                 ...value,
                 list_columns: [
                   ...normalizeListColumns(value.list_columns),
-                  { path: "metadata.name", label: t("Name") },
+                  { path: "name", label: t("Name") },
                 ],
               })
             }

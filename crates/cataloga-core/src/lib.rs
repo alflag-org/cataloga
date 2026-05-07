@@ -111,11 +111,14 @@ pub enum ValidationRuleType {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+#[serde(deny_unknown_fields)]
 pub struct Resource {
-    pub api_version: String,
-    pub kind: String,
-    pub metadata: Metadata,
+    pub id: String,
+    #[serde(rename = "type")]
+    pub resource_type: String,
+    pub name: String,
     #[serde(default)]
+    pub tags: HashMap<String, String>,
     pub spec: Map<String, Value>,
     #[serde(default)]
     pub custom_fields: Map<String, Value>,
@@ -123,20 +126,10 @@ pub struct Resource {
     pub dependencies: Map<String, Value>,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
-pub struct Metadata {
-    pub id: String,
-    #[serde(rename = "type")]
-    pub resource_type: String,
-    pub name: String,
-    #[serde(default)]
-    pub tags: HashMap<String, String>,
-}
-
 #[derive(Debug, Error)]
 pub enum ValidationError {
-    #[error("missing required metadata")]
-    MissingMetadata,
+    #[error("missing required resource fields")]
+    MissingResourceFields,
     #[error("unknown resource type: {0}")]
     UnknownResourceType(String),
     #[error("duplicate resource id: {0}")]
@@ -173,7 +166,9 @@ pub fn validate_resource_type(rt: &ResourceType) -> Result<(), ValidationError> 
     let field_names: HashSet<&str> = rt.fields.iter().map(|f| f.name.as_str()).collect();
 
     for col in &rt.list_columns {
-        if !col.starts_with("metadata.") && !col.starts_with("spec.") {
+        let is_resource_field =
+            matches!(col.as_str(), "id" | "type" | "name") || col.starts_with("tags.");
+        if !is_resource_field && !col.starts_with("spec.") {
             return Err(ValidationError::InvalidListColumnPath(col.clone()));
         }
     }
@@ -234,8 +229,8 @@ pub fn validate_resources(
 ) -> Result<(), ValidationError> {
     let issues = validate_resources_detailed(types, resources);
     if let Some(issue) = issues.first() {
-        if issue.message.contains("missing required metadata") {
-            return Err(ValidationError::MissingMetadata);
+        if issue.message.contains("missing required resource fields") {
+            return Err(ValidationError::MissingResourceFields);
         }
         if issue.message.contains("duplicate resource id:") {
             return Err(ValidationError::DuplicateResourceId(
@@ -282,49 +277,40 @@ pub fn validate_resources_detailed(
     let mut id_to_types: HashMap<String, HashSet<String>> = HashMap::new();
 
     for r in resources {
-        let key = (r.metadata.resource_type.clone(), r.metadata.id.clone());
+        let key = (r.resource_type.clone(), r.id.clone());
         if !seen.insert(key.clone()) {
             issues.push(ResourceValidationIssue {
-                resource_type: r.metadata.resource_type.clone(),
-                resource_id: r.metadata.id.clone(),
-                field: "metadata.id".to_string(),
-                message: format!(
-                    "duplicate resource id: {}/{}",
-                    r.metadata.resource_type, r.metadata.id
-                ),
+                resource_type: r.resource_type.clone(),
+                resource_id: r.id.clone(),
+                field: "id".to_string(),
+                message: format!("duplicate resource id: {}/{}", r.resource_type, r.id),
             });
             continue;
         }
         id_to_types
-            .entry(r.metadata.id.clone())
+            .entry(r.id.clone())
             .or_default()
-            .insert(r.metadata.resource_type.clone());
+            .insert(r.resource_type.clone());
         resource_index.insert(key, r);
     }
 
     for r in resources {
-        let context = format!("{}/{}", r.metadata.resource_type, r.metadata.id);
-        if r.metadata.id.is_empty()
-            || r.metadata.resource_type.is_empty()
-            || r.metadata.name.is_empty()
-        {
+        let context = format!("{}/{}", r.resource_type, r.id);
+        if r.id.is_empty() || r.resource_type.is_empty() || r.name.is_empty() {
             issues.push(ResourceValidationIssue {
-                resource_type: r.metadata.resource_type.clone(),
-                resource_id: r.metadata.id.clone(),
-                field: "metadata".to_string(),
-                message: format!("{context} missing required metadata"),
+                resource_type: r.resource_type.clone(),
+                resource_id: r.id.clone(),
+                field: "resource".to_string(),
+                message: format!("{context} missing required resource fields"),
             });
             continue;
         }
-        let Some(rt) = type_map.get(r.metadata.resource_type.as_str()) else {
+        let Some(rt) = type_map.get(r.resource_type.as_str()) else {
             issues.push(ResourceValidationIssue {
-                resource_type: r.metadata.resource_type.clone(),
-                resource_id: r.metadata.id.clone(),
-                field: "metadata.type".to_string(),
-                message: format!(
-                    "{context} unknown resource type: {}",
-                    r.metadata.resource_type
-                ),
+                resource_type: r.resource_type.clone(),
+                resource_id: r.id.clone(),
+                field: "type".to_string(),
+                message: format!("{context} unknown resource type: {}", r.resource_type),
             });
             continue;
         };
@@ -332,8 +318,8 @@ pub fn validate_resources_detailed(
         for required in &rt.required_fields {
             if !r.spec.contains_key(required) {
                 issues.push(ResourceValidationIssue {
-                    resource_type: r.metadata.resource_type.clone(),
-                    resource_id: r.metadata.id.clone(),
+                    resource_type: r.resource_type.clone(),
+                    resource_id: r.id.clone(),
                     field: required.clone(),
                     message: format!("{context} missing required field: {required}"),
                 });
@@ -351,8 +337,8 @@ pub fn validate_resources_detailed(
                     _ => format!("{context} invalid field type: {}", f.name),
                 };
                 issues.push(ResourceValidationIssue {
-                    resource_type: r.metadata.resource_type.clone(),
-                    resource_id: r.metadata.id.clone(),
+                    resource_type: r.resource_type.clone(),
+                    resource_id: r.id.clone(),
                     field: f.name.clone(),
                     message,
                 });
@@ -361,11 +347,11 @@ pub fn validate_resources_detailed(
 
         for rule in &rt.validation_rules {
             if let Some(v) = r.spec.get(&rule.field)
-                && validate_rule_value(rule, v, &r.metadata.resource_type, &id_to_types).is_err()
+                && validate_rule_value(rule, v, &r.resource_type, &id_to_types).is_err()
             {
                 issues.push(ResourceValidationIssue {
-                    resource_type: r.metadata.resource_type.clone(),
-                    resource_id: r.metadata.id.clone(),
+                    resource_type: r.resource_type.clone(),
+                    resource_id: r.id.clone(),
                     field: rule.field.clone(),
                     message: format!("{context} invalid value for field: {}", rule.field),
                 });
@@ -379,8 +365,8 @@ pub fn validate_resources_detailed(
             if reference.multiple {
                 let Some(items) = value.as_array() else {
                     issues.push(ResourceValidationIssue {
-                        resource_type: r.metadata.resource_type.clone(),
-                        resource_id: r.metadata.id.clone(),
+                        resource_type: r.resource_type.clone(),
+                        resource_id: r.id.clone(),
                         field: reference.field.clone(),
                         message: format!("{context} {} must be an array", reference.field),
                     });
@@ -389,8 +375,8 @@ pub fn validate_resources_detailed(
                 for item in items {
                     let Some(target_id) = item.as_str() else {
                         issues.push(ResourceValidationIssue {
-                            resource_type: r.metadata.resource_type.clone(),
-                            resource_id: r.metadata.id.clone(),
+                            resource_type: r.resource_type.clone(),
+                            resource_id: r.id.clone(),
                             field: reference.field.clone(),
                             message: format!(
                                 "{context} {} contains non-string value",
@@ -412,8 +398,8 @@ pub fn validate_resources_detailed(
             } else {
                 let Some(target_id) = value.as_str() else {
                     issues.push(ResourceValidationIssue {
-                        resource_type: r.metadata.resource_type.clone(),
-                        resource_id: r.metadata.id.clone(),
+                        resource_type: r.resource_type.clone(),
+                        resource_id: r.id.clone(),
                         field: reference.field.clone(),
                         message: format!("{context} {} must be a string", reference.field),
                     });
@@ -439,10 +425,7 @@ pub fn validate_resources_detailed(
             .filter(|rule| matches!(rule.rule_type, ValidationRuleType::Unique))
         {
             let mut seen_values: HashMap<String, String> = HashMap::new();
-            for r in resources
-                .iter()
-                .filter(|r| r.metadata.resource_type == rt.id)
-            {
+            for r in resources.iter().filter(|r| r.resource_type == rt.id) {
                 let Some(value) = r.spec.get(&rule.field) else {
                     continue;
                 };
@@ -450,15 +433,15 @@ pub fn validate_resources_detailed(
                 if let Some(first_id) = seen_values.get(&stable) {
                     issues.push(ResourceValidationIssue {
                         resource_type: rt.id.clone(),
-                        resource_id: r.metadata.id.clone(),
+                        resource_id: r.id.clone(),
                         field: rule.field.clone(),
                         message: format!(
                             "{}/{} duplicate value for unique field: {}.{} (already used by {})",
-                            rt.id, r.metadata.id, rt.id, rule.field, first_id
+                            rt.id, r.id, rt.id, rule.field, first_id
                         ),
                     });
                 } else {
-                    seen_values.insert(stable, r.metadata.id.clone());
+                    seen_values.insert(stable, r.id.clone());
                 }
             }
         }
@@ -476,10 +459,7 @@ fn validate_reference_target(
     target_type: &str,
     target_id: &str,
 ) {
-    let context = format!(
-        "{}/{}",
-        resource.metadata.resource_type, resource.metadata.id
-    );
+    let context = format!("{}/{}", resource.resource_type, resource.id);
     let target_key = (target_type.to_string(), target_id.to_string());
     if resource_index.contains_key(&target_key) {
         return;
@@ -488,8 +468,8 @@ fn validate_reference_target(
         && let Some(actual_type) = types.iter().find(|t| t.as_str() != target_type)
     {
         issues.push(ResourceValidationIssue {
-            resource_type: resource.metadata.resource_type.clone(),
-            resource_id: resource.metadata.id.clone(),
+            resource_type: resource.resource_type.clone(),
+            resource_id: resource.id.clone(),
             field: field.to_string(),
             message: format!(
                 "{context} {field} must reference {target_type} but references {actual_type}"
@@ -498,8 +478,8 @@ fn validate_reference_target(
         return;
     }
     issues.push(ResourceValidationIssue {
-        resource_type: resource.metadata.resource_type.clone(),
-        resource_id: resource.metadata.id.clone(),
+        resource_type: resource.resource_type.clone(),
+        resource_id: resource.id.clone(),
         field: field.to_string(),
         message: format!("{context} {field} references missing {target_type}: {target_id}"),
     });
@@ -661,12 +641,14 @@ fn validate_rule_value(
 
 pub fn export_yaml(types: &[ResourceType], resources: &[Resource]) -> anyhow::Result<String> {
     #[derive(Serialize)]
-    struct Registry<'a> {
+    struct CatalogDataset<'a> {
+        version: u8,
         resource_types: &'a [ResourceType],
         resources: &'a [Resource],
     }
 
-    Ok(serde_yaml::to_string(&Registry {
+    Ok(serde_yaml::to_string(&CatalogDataset {
+        version: 1,
         resource_types: types,
         resources,
     })?)
@@ -674,12 +656,19 @@ pub fn export_yaml(types: &[ResourceType], resources: &[Resource]) -> anyhow::Re
 
 pub fn import_yaml(input: &str) -> anyhow::Result<(Vec<ResourceType>, Vec<Resource>)> {
     #[derive(Deserialize)]
-    struct Registry {
+    #[serde(deny_unknown_fields)]
+    struct CatalogDataset {
+        version: u8,
         resource_types: Vec<ResourceType>,
         resources: Vec<Resource>,
     }
 
-    let parsed: Registry = serde_yaml::from_str(input)?;
+    let parsed: CatalogDataset = serde_yaml::from_str(input)?;
+    anyhow::ensure!(
+        parsed.version == 1,
+        "unsupported catalog version: {}",
+        parsed.version
+    );
     Ok((parsed.resource_types, parsed.resources))
 }
 
@@ -709,7 +698,7 @@ mod tests {
                 },
             ],
             required_fields: vec!["role".into()],
-            list_columns: vec!["metadata.name".into(), "spec.role".into()],
+            list_columns: vec!["name".into(), "spec.role".into()],
             form_layout: vec![FormSection {
                 title: "General".into(),
                 fields: vec!["role".into(), "mgmt_ip".into()],
@@ -738,14 +727,10 @@ mod tests {
         spec.insert("mgmt_ip".into(), json!("10.0.0.1"));
 
         Resource {
-            api_version: "cataloga.io/v1".into(),
-            kind: "Resource".into(),
-            metadata: Metadata {
-                id: "r1".into(),
-                resource_type: "device".into(),
-                name: "edge01".into(),
-                tags: HashMap::new(),
-            },
+            id: "r1".into(),
+            resource_type: "device".into(),
+            name: "edge01".into(),
+            tags: HashMap::new(),
             spec,
             custom_fields: Map::new(),
             dependencies: Map::new(),
@@ -776,9 +761,30 @@ mod tests {
         let rt = sample_type();
         let r = sample_resource();
         let out = export_yaml(std::slice::from_ref(&rt), std::slice::from_ref(&r)).unwrap();
+        assert!(out.contains("version: 1"));
+        assert!(out.contains("id: r1"));
+        assert!(!out.contains("api_version"));
+        assert!(!out.contains("metadata:"));
         let (types, resources) = import_yaml(&out).unwrap();
         assert_eq!(types[0], rt);
         assert_eq!(resources[0], r);
+    }
+
+    #[test]
+    fn import_yaml_rejects_legacy_resource_objects() {
+        let legacy = r#"
+version: 1
+resource_types: []
+resources:
+  - api_version: cataloga.io/v1
+    kind: Resource
+    metadata:
+      id: device-edge01
+      type: device
+      name: edge01
+    spec: {}
+"#;
+        assert!(import_yaml(legacy).is_err());
     }
 
     #[test]
@@ -824,10 +830,10 @@ mod tests {
             validation_rules: vec![],
         };
         let mut ip = sample_resource();
-        ip.metadata.resource_type = "ip_address".into();
-        ip.metadata.id = "10.0.0.1".into();
+        ip.resource_type = "ip_address".into();
+        ip.id = "10.0.0.1".into();
         let mut vm = sample_resource();
-        vm.metadata.resource_type = "vm".into();
+        vm.resource_type = "vm".into();
         vm.spec = Map::new();
         vm.spec.insert("primary_ip".into(), json!("10.0.0.1"));
         let issues = validate_resources_detailed(&[ip_type, vm_type], &[ip, vm]);
@@ -859,7 +865,7 @@ mod tests {
             validation_rules: vec![],
         };
         let mut vm = sample_resource();
-        vm.metadata.resource_type = "vm".into();
+        vm.resource_type = "vm".into();
         vm.spec = Map::new();
         vm.spec.insert("primary_ip".into(), json!("10.0.0.999"));
         let issues = validate_resources_detailed(&[vm_type], &[vm]);
@@ -908,10 +914,10 @@ mod tests {
             validation_rules: vec![],
         };
         let mut target = sample_resource();
-        target.metadata.resource_type = "device".into();
-        target.metadata.id = "node-1".into();
+        target.resource_type = "device".into();
+        target.id = "node-1".into();
         let mut vm = sample_resource();
-        vm.metadata.resource_type = "vm".into();
+        vm.resource_type = "vm".into();
         vm.spec = Map::new();
         vm.spec.insert("host".into(), json!("node-1"));
         let issues = validate_resources_detailed(&[device_type, vm_type], &[target, vm]);
@@ -946,12 +952,12 @@ mod tests {
             validation_rules: vec![],
         };
         let mut s1 = sample_resource();
-        s1.metadata.resource_type = "service".into();
-        s1.metadata.id = "a".into();
+        s1.resource_type = "service".into();
+        s1.id = "a".into();
         s1.spec = Map::new();
         let mut s2 = sample_resource();
-        s2.metadata.resource_type = "service".into();
-        s2.metadata.id = "b".into();
+        s2.resource_type = "service".into();
+        s2.id = "b".into();
         s2.spec = Map::new();
         s2.spec.insert("depends_on".into(), json!(["a"]));
         let issues = validate_resources_detailed(&[service_type], &[s1, s2]);
@@ -983,8 +989,8 @@ mod tests {
             validation_rules: vec![],
         };
         let mut s = sample_resource();
-        s.metadata.resource_type = "service".into();
-        s.metadata.id = "b".into();
+        s.resource_type = "service".into();
+        s.id = "b".into();
         s.spec = Map::new();
         s.spec.insert("depends_on".into(), json!(["a"]));
         let issues = validate_resources_detailed(&[service_type], &[s]);
@@ -1017,13 +1023,13 @@ mod tests {
             target_type: String::new(),
         }];
         let mut a = sample_resource();
-        a.metadata.resource_type = "ip_address".into();
-        a.metadata.id = "ip1".into();
+        a.resource_type = "ip_address".into();
+        a.id = "ip1".into();
         a.spec = Map::new();
         a.spec.insert("address".into(), json!("10.0.0.1"));
         let mut b = sample_resource();
-        b.metadata.resource_type = "ip_address".into();
-        b.metadata.id = "ip2".into();
+        b.resource_type = "ip_address".into();
+        b.id = "ip2".into();
         b.spec = Map::new();
         b.spec.insert("address".into(), json!("10.0.0.2"));
         assert!(validate_resources_detailed(&[rt], &[a, b]).is_empty());
@@ -1051,13 +1057,13 @@ mod tests {
             target_type: String::new(),
         }];
         let mut a = sample_resource();
-        a.metadata.resource_type = "ip_address".into();
-        a.metadata.id = "ip1".into();
+        a.resource_type = "ip_address".into();
+        a.id = "ip1".into();
         a.spec = Map::new();
         a.spec.insert("address".into(), json!("10.0.0.1"));
         let mut b = sample_resource();
-        b.metadata.resource_type = "ip_address".into();
-        b.metadata.id = "ip2".into();
+        b.resource_type = "ip_address".into();
+        b.id = "ip2".into();
         b.spec = Map::new();
         b.spec.insert("address".into(), json!("10.0.0.1"));
         let issues = validate_resources_detailed(&[rt], &[a, b]);
@@ -1090,12 +1096,12 @@ mod tests {
             target_type: String::new(),
         }];
         let mut a = sample_resource();
-        a.metadata.resource_type = "ip_address".into();
-        a.metadata.id = "ip1".into();
+        a.resource_type = "ip_address".into();
+        a.id = "ip1".into();
         a.spec = Map::new();
         let mut b = sample_resource();
-        b.metadata.resource_type = "ip_address".into();
-        b.metadata.id = "ip2".into();
+        b.resource_type = "ip_address".into();
+        b.id = "ip2".into();
         b.spec = Map::new();
         assert!(validate_resources_detailed(&[rt], &[a, b]).is_empty());
     }
