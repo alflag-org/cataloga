@@ -1,6 +1,6 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://cataloga.dev/schemas/cataloga.v1.schema.json",
+  "$id": "https://raw.githubusercontent.com/viasnake/cataloga/master/schemas/cataloga.v1.schema.json",
   "title": "Cataloga Catalog",
   "description": "Cataloga YAML Import/Export and Snapshot dataset format.",
   "type": "object",
