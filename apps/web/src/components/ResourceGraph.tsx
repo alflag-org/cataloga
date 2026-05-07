@@ -11,6 +11,7 @@ import {
   type GraphViewport,
 } from "../graph/graphLayout";
 import { pickGroupColor } from "../graph/graphColors";
+import { useI18n } from "../i18n";
 
 type Props = {
   types: ResourceType[];
@@ -36,6 +37,7 @@ export function ResourceGraph({
   resourcesByType,
   compact = false,
 }: Props) {
+  const { t } = useI18n();
   const containerRef = useRef<HTMLDivElement | null>(null);
   const [search, setSearch] = useState("");
   const [groupFilter, setGroupFilter] = useState("All");
@@ -223,9 +225,9 @@ export function ResourceGraph({
   if (!baseGraph.nodes.length) {
     return (
       <div className="rounded-2xl border border-gray-200 bg-white p-6 text-sm text-gray-600">
-        <p className="font-medium text-gray-900">No resources</p>
+        <p className="font-medium text-gray-900">{t("No resources")}</p>
         <p className="mt-1">
-          Create Resource Types and Resources to populate the graph.
+          {t("Create Resource Types and Resources to populate the graph.")}
         </p>
       </div>
     );

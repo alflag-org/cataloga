@@ -6,9 +6,11 @@ import { DataCard } from "../components/DataCard";
 import { ErrorBanner } from "../components/ErrorBanner";
 import { PageHeader } from "../components/PageHeader";
 import { TextInput } from "../components/TextInput";
+import { useI18n } from "../i18n";
 import type { ResourceType } from "../types";
 
 export function ResourceTypeListPage() {
+  const { t, tf } = useI18n();
   const [items, setItems] = useState<ResourceType[]>([]);
   const [counts, setCounts] = useState<Record<string, number>>({});
   const [query, setQuery] = useState("");
@@ -41,16 +43,18 @@ export function ResourceTypeListPage() {
   return (
     <section className="space-y-5">
       <PageHeader
-        title="Administration / Resource Types"
+        title={t("Administration / Resource Types")}
         actions={
-          <LinkButton to="/resource-types/new">Create Resource Type</LinkButton>
+          <LinkButton to="/resource-types/new">
+            {t("Create Resource Type")}
+          </LinkButton>
         }
       />
       <ErrorBanner message={error} />
       <DataCard>
         <div className="mb-4">
           <TextInput
-            placeholder="Search"
+            placeholder={t("Search")}
             value={query}
             onChange={(e) => setQuery(e.target.value)}
           />
@@ -60,56 +64,64 @@ export function ResourceTypeListPage() {
             <thead className="bg-gray-50">
               <tr>
                 <th className="px-3 py-2 text-left font-semibold text-gray-600">
-                  Title
+                  {t("Title")}
                 </th>
                 <th className="px-3 py-2 text-left font-semibold text-gray-600">
-                  ID
+                  {t("ID")}
                 </th>
                 <th className="px-3 py-2 text-left font-semibold text-gray-600">
-                  Group
+                  {t("Group")}
                 </th>
                 <th className="px-3 py-2 text-left font-semibold text-gray-600">
-                  Fields
+                  {t("Fields")}
                 </th>
                 <th className="px-3 py-2 text-left font-semibold text-gray-600">
-                  Resources
+                  {t("Resources")}
                 </th>
                 <th className="px-3 py-2 text-left font-semibold text-gray-600">
-                  Actions
+                  {t("Actions")}
                 </th>
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-100 bg-white">
-              {filtered.map((t) => (
-                <tr key={t.id} className="hover:bg-gray-50">
+              {filtered.map((item) => (
+                <tr key={item.id} className="hover:bg-gray-50">
                   <td className="px-3 py-2 font-medium text-gray-800">
-                    {t.title || t.id}
+                    {item.title || item.id}
                   </td>
-                  <td className="px-3 py-2 text-gray-700">{t.id}</td>
-                  <td className="px-3 py-2 text-gray-700">{t.group || "-"}</td>
-                  <td className="px-3 py-2 text-gray-700">{t.fields.length}</td>
+                  <td className="px-3 py-2 text-gray-700">{item.id}</td>
                   <td className="px-3 py-2 text-gray-700">
-                    {counts[t.id] ?? 0}
+                    {item.group || "-"}
+                  </td>
+                  <td className="px-3 py-2 text-gray-700">
+                    {item.fields.length}
+                  </td>
+                  <td className="px-3 py-2 text-gray-700">
+                    {counts[item.id] ?? 0}
                   </td>
                   <td className="px-3 py-2">
                     <div className="flex items-center gap-3">
-                      <ActionLink tone="primary" to={`/resources/${t.id}`}>
-                        Show
+                      <ActionLink tone="primary" to={`/resources/${item.id}`}>
+                        {t("Show")}
                       </ActionLink>
-                      <ActionLink to={`/resource-types/${t.id}/edit`}>
-                        Edit
+                      <ActionLink to={`/resource-types/${item.id}/edit`}>
+                        {t("Edit")}
                       </ActionLink>
                       <ActionButton
                         tone="danger"
                         onClick={async () => {
                           if (
-                            !window.confirm(`Delete Resource Type '${t.id}'?`)
+                            !window.confirm(
+                              tf("Delete Resource Type '{id}'?", {
+                                id: item.id,
+                              }),
+                            )
                           )
                             return;
                           try {
-                            await api.deleteResourceType(t.id);
+                            await api.deleteResourceType(item.id);
                             setItems((prev) =>
-                              prev.filter((x) => x.id !== t.id),
+                              prev.filter((x) => x.id !== item.id),
                             );
                           } catch (e) {
                             setError(
@@ -118,7 +130,7 @@ export function ResourceTypeListPage() {
                           }
                         }}
                       >
-                        Delete
+                        {t("Delete")}
                       </ActionButton>
                     </div>
                   </td>

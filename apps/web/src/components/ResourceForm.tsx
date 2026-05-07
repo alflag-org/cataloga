@@ -8,6 +8,7 @@ import { FieldInput } from "./FieldInput";
 import type { ReferenceOption } from "./ReferencePicker";
 import { TextInput } from "./TextInput";
 import { TextareaInput } from "./TextareaInput";
+import { useI18n } from "../i18n";
 
 type Props = {
   resourceType: ResourceType;
@@ -67,6 +68,7 @@ export function ResourceForm({
   mode,
   onSubmit,
 }: Props) {
+  const { t } = useI18n();
   const [form, setForm] = useState<Resource>(initial);
   const [customFieldsText, setCustomFieldsText] = useState(
     JSON.stringify(initial.custom_fields ?? {}, null, 2),
@@ -197,10 +199,10 @@ export function ResourceForm({
   return (
     <div className="space-y-5">
       <ErrorBanner message={error} />
-      <DataCard title="Metadata">
+      <DataCard title={t("Metadata")}>
         <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
           <label className="block text-sm font-medium text-gray-700">
-            ID
+            {t("ID")}
             <TextInput
               value={form.metadata.id}
               disabled={mode === "edit"}
@@ -213,7 +215,7 @@ export function ResourceForm({
             />
           </label>
           <label className="block text-sm font-medium text-gray-700">
-            Name
+            {t("Name")}
             <TextInput
               value={form.metadata.name}
               onChange={(e) =>
@@ -226,7 +228,7 @@ export function ResourceForm({
           </label>
         </div>
       </DataCard>
-      <DataCard title="Fields">
+      <DataCard title={t("Fields")}>
         <div className="space-y-4">
           {resourceType.fields.map((field) => (
             <label
@@ -281,10 +283,10 @@ export function ResourceForm({
           ))}
         </div>
       </DataCard>
-      <DataCard title="Advanced">
+      <DataCard title={t("Advanced")}>
         <div className="grid grid-cols-1 gap-4">
           <label className="block text-sm font-medium text-gray-700">
-            custom_fields JSON
+            {t("custom_fields JSON")}
             <TextareaInput
               rows={5}
               value={customFieldsText}
@@ -292,7 +294,7 @@ export function ResourceForm({
             />
           </label>
           <label className="block text-sm font-medium text-gray-700">
-            dependencies JSON
+            {t("dependencies JSON")}
             <TextareaInput
               rows={5}
               value={dependenciesText}
@@ -302,7 +304,7 @@ export function ResourceForm({
         </div>
       </DataCard>
       <div className="flex justify-end">
-        <Button onClick={submit}>Save</Button>
+        <Button onClick={submit}>{t("Save")}</Button>
       </div>
     </div>
   );

@@ -4,9 +4,11 @@ import { api } from "../api/client";
 import { ErrorBanner } from "../components/ErrorBanner";
 import { PageHeader } from "../components/PageHeader";
 import { ResourceForm } from "../components/ResourceForm";
+import { useI18n } from "../i18n";
 import type { Resource, ResourceType } from "../types";
 
 export function ResourceEditPage() {
+  const { t } = useI18n();
   const { type = "", id = "" } = useParams();
   const navigate = useNavigate();
   const [rt, setRt] = useState<ResourceType | null>(null);
@@ -31,11 +33,13 @@ export function ResourceEditPage() {
     })();
   }, [type, id]);
 
-  if (!rt || !resource) return <ErrorBanner message={error || "loading"} />;
+  if (!rt || !resource) return <ErrorBanner message={error || t("loading")} />;
 
   return (
     <section className="space-y-5">
-      <PageHeader title={`Resources / ${rt.title || type} / ${id} / Edit`} />
+      <PageHeader
+        title={`${t("Resources")} / ${rt.title || type} / ${id} / ${t("Edit")}`}
+      />
       <ResourceForm
         resourceType={rt}
         allTypes={allTypes}

@@ -1,4 +1,5 @@
 import { type ReactNode, useMemo } from "react";
+import { useI18n } from "../i18n";
 import { TextInput } from "./TextInput";
 import { SelectInput } from "./SelectInput";
 
@@ -39,11 +40,12 @@ export function DataTable<T>({
   sortKey,
   sortDir,
   onSort,
-  searchPlaceholder = "Search",
+  searchPlaceholder,
   filters,
   rowKey,
   empty,
 }: Props<T>) {
+  const { t } = useI18n();
   const sortedRows = useMemo(() => {
     const target = columns.find((col) => col.key === sortKey);
     if (!target) return rows;
@@ -64,10 +66,10 @@ export function DataTable<T>({
     <div className="space-y-3">
       <div className="grid grid-cols-1 gap-3 md:grid-cols-[1fr_auto] md:items-end">
         <label className="text-sm text-gray-700">
-          Search
+          {t("Search")}
           <TextInput
             value={searchValue}
-            placeholder={searchPlaceholder}
+            placeholder={searchPlaceholder ?? t("Search")}
             onChange={(e) => onSearchChange(e.target.value)}
           />
         </label>
@@ -77,7 +79,7 @@ export function DataTable<T>({
       </div>
 
       {sortedRows.length === 0 ? (
-        (empty ?? <p className="text-sm text-gray-600">No rows.</p>)
+        (empty ?? <p className="text-sm text-gray-600">{t("No rows.")}</p>)
       ) : (
         <div className="overflow-x-auto">
           <table className="min-w-full divide-y divide-gray-200 text-sm">

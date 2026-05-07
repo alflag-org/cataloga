@@ -1,5 +1,6 @@
 import { ActionButton, ActionLink } from "./Action";
 import { readPath, type NormalizedListColumn, type Resource } from "../types";
+import { useI18n } from "../i18n";
 
 type Props = {
   type: string;
@@ -27,6 +28,7 @@ export function ResourceListTable({
   onSort,
   onDelete,
 }: Props) {
+  const { t } = useI18n();
   return (
     <div className="overflow-x-auto">
       <table className="min-w-full divide-y divide-gray-200 text-sm">
@@ -47,7 +49,7 @@ export function ResourceListTable({
               </th>
             ))}
             <th className="px-3 py-2 text-left font-semibold text-gray-600">
-              Actions
+              {t("Actions")}
             </th>
           </tr>
         </thead>
@@ -70,16 +72,16 @@ export function ResourceListTable({
                     tone="primary"
                     to={`/resources/${type}/${r.metadata.id}`}
                   >
-                    Show
+                    {t("Show")}
                   </ActionLink>
                   <ActionLink to={`/resources/${type}/${r.metadata.id}/edit`}>
-                    Edit
+                    {t("Edit")}
                   </ActionLink>
                   <ActionButton
                     tone="danger"
                     onClick={() => onDelete(r.metadata.id)}
                   >
-                    Delete
+                    {t("Delete")}
                   </ActionButton>
                 </div>
               </td>

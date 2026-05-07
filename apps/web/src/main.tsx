@@ -21,6 +21,7 @@ import { ResourceTypeEditPage } from "./pages/ResourceTypeEditPage";
 import { ResourceTypeListPage } from "./pages/ResourceTypeListPage";
 import { ResourcesIndexPage } from "./pages/ResourcesIndexPage";
 import { ValidationPage } from "./pages/ValidationPage";
+import { I18nProvider } from "./i18n";
 import "./styles.css";
 
 function App() {
@@ -100,6 +101,8 @@ function RedirectResourceTypeEditToResourcesEdit() {
 
 createRoot(document.getElementById("root")!).render(
   <React.StrictMode>
-    <App />
+    <I18nProvider>
+      <App />
+    </I18nProvider>
   </React.StrictMode>,
 );

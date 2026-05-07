@@ -12,11 +12,18 @@ import {
   type ResourceReferences,
   type ResourceType,
 } from "../types";
+import { useI18n } from "../i18n";
 
-function renderValue(value: unknown, field?: FieldDef): ReactNode {
+function renderValue(
+  value: unknown,
+  field: FieldDef | undefined,
+  t: (key: string) => string,
+): ReactNode {
   const type = field?.type;
   if (type === "boolean") {
-    return <span className="text-sm">{Boolean(value) ? "True" : "False"}</span>;
+    return (
+      <span className="text-sm">{Boolean(value) ? t("True") : t("False")}</span>
+    );
   }
   if (type === "array" || Array.isArray(value)) {
     const items = Array.isArray(value) ? value : [];
@@ -55,6 +62,7 @@ function renderValue(value: unknown, field?: FieldDef): ReactNode {
 }
 
 export function ResourceDetailPage() {
+  const { t, tf } = useI18n();
   const { type = "", id = "" } = useParams();
   const navigate = useNavigate();
   const [resource, setResource] = useState<Resource | null>(null);
@@ -86,14 +94,21 @@ export function ResourceDetailPage() {
   return (
     <section className="space-y-5">
       <PageHeader
-        title={`Resources / ${type} / ${id}`}
+        title={`${t("Resources")} / ${type} / ${id}`}
         actions={
           <div className="flex items-center gap-3">
-            <ActionLink to={`/resources/${type}/${id}/edit`}>Edit</ActionLink>
+            <ActionLink to={`/resources/${type}/${id}/edit`}>
+              {t("Edit")}
+            </ActionLink>
             <ActionButton
               tone="danger"
               onClick={async () => {
-                if (!window.confirm(`Delete Resource '${type}/${id}'?`)) return;
+                if (
+                  !window.confirm(
+                    tf("Delete Resource '{id}'?", { id: `${type}/${id}` }),
+                  )
+                )
+                  return;
                 try {
                   await api.deleteResource(type, id);
                   navigate(`/resources/${type}`);
@@ -102,7 +117,7 @@ export function ResourceDetailPage() {
                 }
               }}
             >
-              Delete
+              {t("Delete")}
             </ActionButton>
           </div>
         }
@@ -111,15 +126,15 @@ export function ResourceDetailPage() {
 
       {resource ? (
         <>
-          <DataCard title="Metadata">
+          <DataCard title={t("Metadata")}>
             <dl className="grid grid-cols-[140px_1fr] gap-y-2 text-sm">
-              <dt className="font-medium text-gray-600">ID</dt>
+              <dt className="font-medium text-gray-600">{t("ID")}</dt>
               <dd>{resource.metadata.id}</dd>
-              <dt className="font-medium text-gray-600">Type</dt>
+              <dt className="font-medium text-gray-600">{t("Type")}</dt>
               <dd>{resource.metadata.type}</dd>
-              <dt className="font-medium text-gray-600">Name</dt>
+              <dt className="font-medium text-gray-600">{t("Name")}</dt>
               <dd>{resource.metadata.name}</dd>
-              <dt className="font-medium text-gray-600">Tags</dt>
+              <dt className="font-medium text-gray-600">{t("Tags")}</dt>
               <dd>
                 {Object.entries(resource.metadata.tags || {})
                   .map(([k, v]) => `${k}=${v}`)
@@ -128,9 +143,9 @@ export function ResourceDetailPage() {
             </dl>
           </DataCard>
 
-          <DataCard title="Spec">
+          <DataCard title={t("Spec")}>
             {Object.keys(resource.spec).length === 0 ? (
-              <p className="text-sm text-gray-600">No spec fields.</p>
+              <p className="text-sm text-gray-600">{t("No spec fields.")}</p>
             ) : (
               <div className="space-y-3">
                 {Object.entries(resource.spec).map(([key, value]) => {
@@ -143,7 +158,7 @@ export function ResourceDetailPage() {
                       <p className="text-sm font-medium text-gray-700">
                         {field?.label || deriveDisplayLabel(`spec.${key}`)}
                       </p>
-                      <div>{renderValue(value, field)}</div>
+                      <div>{renderValue(value, field, t)}</div>
                     </div>
                   );
                 })}
@@ -151,7 +166,7 @@ export function ResourceDetailPage() {
             )}
           </DataCard>
 
-          <DataCard title="Referenced resources">
+          <DataCard title={t("Referenced resources")}>
             {references && references.outgoing.length > 0 ? (
               <div className="space-y-2 text-sm">
                 {references.outgoing.map((item, idx) => (
@@ -173,11 +188,13 @@ export function ResourceDetailPage() {
                 ))}
               </div>
             ) : (
-              <p className="text-sm text-gray-600">No referenced resources.</p>
+              <p className="text-sm text-gray-600">
+                {t("No referenced resources.")}
+              </p>
             )}
           </DataCard>
 
-          <DataCard title="Used by">
+          <DataCard title={t("Used by")}>
             {references && references.incoming.length > 0 ? (
               <div className="space-y-2 text-sm">
                 {references.incoming.map((item, idx) => (
@@ -200,13 +217,13 @@ export function ResourceDetailPage() {
               </div>
             ) : (
               <p className="text-sm text-gray-600">
-                No resources reference this resource.
+                {t("No resources reference this resource.")}
               </p>
             )}
           </DataCard>
 
           {Object.keys(resource.custom_fields || {}).length > 0 ? (
-            <DataCard title="Custom fields">
+            <DataCard title={t("Custom fields")}>
               <pre className="overflow-x-auto rounded-lg bg-gray-50 p-3 text-xs text-gray-700">
                 {JSON.stringify(resource.custom_fields, null, 2)}
               </pre>
@@ -214,7 +231,7 @@ export function ResourceDetailPage() {
           ) : null}
 
           {Object.keys(resource.dependencies || {}).length > 0 ? (
-            <DataCard title="Dependencies">
+            <DataCard title={t("Dependencies")}>
               <pre className="overflow-x-auto rounded-lg bg-gray-50 p-3 text-xs text-gray-700">
                 {JSON.stringify(resource.dependencies, null, 2)}
               </pre>
@@ -223,7 +240,7 @@ export function ResourceDetailPage() {
 
           <details className="rounded-xl border border-gray-200 bg-white p-4">
             <summary className="cursor-pointer text-sm font-medium text-gray-700">
-              Raw JSON
+              {t("Raw JSON")}
             </summary>
             <pre className="mt-3 overflow-x-auto rounded-lg bg-gray-950 p-3 text-xs text-gray-100">
               {JSON.stringify(resource, null, 2)}

@@ -6,12 +6,14 @@ import { DataTable, type DataTableColumn } from "../components/DataTable";
 import { ErrorBanner } from "../components/ErrorBanner";
 import { PageHeader } from "../components/PageHeader";
 import { ResourceGraph } from "../components/ResourceGraph";
+import { useI18n } from "../i18n";
 import type { Resource, ResourceType } from "../types";
 
 type SearchHit = { type: string; typeTitle: string; id: string; name: string };
 type ResourceRow = { group: string; title: string; id: string; count: number };
 
 export function DashboardPage() {
+  const { t } = useI18n();
   const [types, setTypes] = useState<ResourceType[]>([]);
   const [resourceByType, setResourceByType] = useState<
     Record<string, Resource[]>
@@ -67,7 +69,7 @@ export function DashboardPage() {
   const rows = useMemo<ResourceRow[]>(() => {
     return types
       .map((type) => ({
-        group: type.group?.trim() || "Other",
+        group: type.group?.trim() || t("Other"),
         title: type.title || type.id,
         id: type.id,
         count: (resourceByType[type.id] ?? []).length,
@@ -88,19 +90,19 @@ export function DashboardPage() {
   const columns: DataTableColumn<ResourceRow>[] = [
     {
       key: "group",
-      label: "Group",
+      label: t("Group"),
       render: (row) => row.group,
       sortValue: (row) => row.group,
     },
     {
       key: "type",
-      label: "Type",
+      label: t("Type"),
       render: (row) => row.title,
       sortValue: (row) => row.title,
     },
     {
       key: "resources",
-      label: "Resources",
+      label: t("Resources"),
       render: (row) => row.count,
       sortValue: (row) => row.count,
     },
@@ -108,17 +110,17 @@ export function DashboardPage() {
 
   return (
     <section className="space-y-5">
-      <PageHeader title="Dashboard" />
+      <PageHeader title={t("Dashboard")} />
       <ErrorBanner message={error} />
 
-      <DataCard title="Graph">
+      <DataCard title={t("Graph")}>
         <ResourceGraph compact types={types} resourcesByType={resourceByType} />
       </DataCard>
 
-      <DataCard title="Resource search">
+      <DataCard title={t("Resource search")}>
         <div className="space-y-2">
           <label className="text-sm font-medium text-gray-700">
-            Search resources
+            {t("Search resources")}
             <input
               className="mt-1 block w-full rounded-lg border border-gray-300 px-3 py-2 text-sm"
               value={query}
@@ -128,7 +130,7 @@ export function DashboardPage() {
           {query.trim() ? (
             <div className="space-y-1 text-sm">
               {searchHits.length === 0 ? (
-                <p className="text-gray-600">No results</p>
+                <p className="text-gray-600">{t("No results")}</p>
               ) : (
                 searchHits.map((hit) => (
                   <Link
@@ -146,13 +148,13 @@ export function DashboardPage() {
       </DataCard>
 
       <DataCard
-        title="Resources"
+        title={t("Resources")}
         actions={
           <Link
             to="/resources"
             className="text-sm font-medium text-blue-700 hover:text-blue-800"
           >
-            View all resources
+            {t("View all resources")}
           </Link>
         }
       >
@@ -172,7 +174,9 @@ export function DashboardPage() {
             }
           }}
           rowKey={(row) => row.id}
-          empty={<p className="text-sm text-gray-600">No Resource Types</p>}
+          empty={
+            <p className="text-sm text-gray-600">{t("No Resource Types")}</p>
+          }
         />
       </DataCard>
     </section>

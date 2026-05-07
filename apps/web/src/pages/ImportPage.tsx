@@ -5,16 +5,18 @@ import { DataCard } from "../components/DataCard";
 import { ErrorBanner } from "../components/ErrorBanner";
 import { PageHeader } from "../components/PageHeader";
 import { TextareaInput } from "../components/TextareaInput";
+import { useI18n } from "../i18n";
 import type { ImportPreviewResult } from "../types";
 
 export function ImportPage() {
+  const { t } = useI18n();
   const [yaml, setYaml] = useState("");
   const [preview, setPreview] = useState<ImportPreviewResult | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   return (
     <section className="space-y-5">
-      <PageHeader title="Administration / Import" />
+      <PageHeader title={t("Administration / Import")} />
       <ErrorBanner message={error} />
       <DataCard title="YAML">
         <div className="space-y-4">
@@ -34,24 +36,30 @@ export function ImportPage() {
               }
             }}
           >
-            Preview import
+            {t("Preview import")}
           </Button>
         </div>
       </DataCard>
       {preview ? (
-        <DataCard title="Preview">
+        <DataCard title={t("Preview")}>
           <div className="space-y-2 text-sm">
             <p>
-              Resource Types to create:{" "}
+              {t("Resource Types to create")}:{" "}
               {preview.resource_types_to_create.length}
             </p>
             <p>
-              Resource Types to update:{" "}
+              {t("Resource Types to update")}:{" "}
               {preview.resource_types_to_update.length}
             </p>
-            <p>Resources to create: {preview.resources_to_create.length}</p>
-            <p>Resources to update: {preview.resources_to_update.length}</p>
-            <p>Validation errors: {preview.validation_errors.length}</p>
+            <p>
+              {t("Resources to create")}: {preview.resources_to_create.length}
+            </p>
+            <p>
+              {t("Resources to update")}: {preview.resources_to_update.length}
+            </p>
+            <p>
+              {t("Validation errors")}: {preview.validation_errors.length}
+            </p>
             <Button
               onClick={async () => {
                 try {
@@ -63,7 +71,7 @@ export function ImportPage() {
               }}
               disabled={preview.validation_errors.length > 0}
             >
-              Apply import
+              {t("Apply import")}
             </Button>
           </div>
         </DataCard>

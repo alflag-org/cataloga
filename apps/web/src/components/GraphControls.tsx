@@ -1,5 +1,6 @@
 import { SelectInput } from "./SelectInput";
 import { TextInput } from "./TextInput";
+import { useI18n } from "../i18n";
 
 type ShowMode = "all" | "connected" | "isolated";
 
@@ -32,23 +33,24 @@ export function GraphControls({
   onResetZoom,
   onFit,
 }: Props) {
+  const { t } = useI18n();
   return (
     <div className="grid grid-cols-1 gap-3 lg:grid-cols-[1fr_180px_200px_auto]">
       <label className="text-sm text-gray-700">
-        Search
+        {t("Search")}
         <TextInput
           value={search}
           onChange={(event) => onSearchChange(event.target.value)}
-          placeholder="Resource, ID, Resource Type"
+          placeholder={t("Resource, ID, Resource Type")}
         />
       </label>
       <label className="text-sm text-gray-700">
-        Group
+        {t("Group")}
         <SelectInput
           value={selectedGroup}
           onChange={(event) => onGroupChange(event.target.value)}
         >
-          <option value="All">All</option>
+          <option value="All">{t("All")}</option>
           {groups.map((group) => (
             <option key={group} value={group}>
               {group}
@@ -57,14 +59,14 @@ export function GraphControls({
         </SelectInput>
       </label>
       <label className="text-sm text-gray-700">
-        Show
+        {t("ShowMode")}
         <SelectInput
           value={showMode}
           onChange={(event) => onShowModeChange(event.target.value as ShowMode)}
         >
-          <option value="all">All</option>
-          <option value="connected">Connected</option>
-          <option value="isolated">Isolated</option>
+          <option value="all">{t("All")}</option>
+          <option value="connected">{t("Connected")}</option>
+          <option value="isolated">{t("Isolated")}</option>
         </SelectInput>
       </label>
       <div className="flex items-end gap-2">
@@ -72,7 +74,7 @@ export function GraphControls({
           type="button"
           onClick={onZoomOut}
           className="rounded-lg border border-gray-300 bg-white px-2.5 py-1.5 text-sm font-medium text-gray-700 hover:bg-gray-50"
-          aria-label="Zoom out"
+          aria-label={t("Zoom out")}
         >
           −
         </button>
@@ -80,7 +82,7 @@ export function GraphControls({
           type="button"
           onClick={onResetZoom}
           className="min-w-[62px] rounded-lg border border-gray-300 bg-white px-2.5 py-1.5 text-sm font-medium text-gray-700 hover:bg-gray-50"
-          aria-label="Reset zoom"
+          aria-label={t("Reset zoom")}
         >
           {zoomPercent}%
         </button>
@@ -88,7 +90,7 @@ export function GraphControls({
           type="button"
           onClick={onZoomIn}
           className="rounded-lg border border-gray-300 bg-white px-2.5 py-1.5 text-sm font-medium text-gray-700 hover:bg-gray-50"
-          aria-label="Zoom in"
+          aria-label={t("Zoom in")}
         >
           +
         </button>
@@ -97,7 +99,7 @@ export function GraphControls({
           onClick={onFit}
           className="rounded-lg border border-gray-300 bg-white px-3 py-1.5 text-sm font-medium text-gray-700 hover:bg-gray-50"
         >
-          Fit
+          {t("Fit")}
         </button>
       </div>
     </div>

@@ -1,4 +1,5 @@
 import { NavLink } from "react-router-dom";
+import { useI18n } from "../i18n";
 
 const primaryItems = [
   { to: "/", label: "Dashboard" },
@@ -21,6 +22,7 @@ function navClass(isActive: boolean): string {
 }
 
 export function Sidebar() {
+  const { t } = useI18n();
   return (
     <aside className="hidden w-64 shrink-0 border-r border-gray-200 bg-white lg:block">
       <div className="p-5">
@@ -34,12 +36,12 @@ export function Sidebar() {
             end={item.to === "/"}
             className={({ isActive }) => navClass(isActive)}
           >
-            {item.label}
+            {t(item.label)}
           </NavLink>
         ))}
 
         <div className="px-3 pt-4 text-xs font-semibold uppercase tracking-wide text-gray-500">
-          Administration
+          {t("Administration")}
         </div>
         {administrationItems.map((item) => (
           <NavLink
@@ -47,7 +49,7 @@ export function Sidebar() {
             to={item.to}
             className={({ isActive }) => navClass(isActive)}
           >
-            {item.label}
+            {t(item.label)}
           </NavLink>
         ))}
       </nav>

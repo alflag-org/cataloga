@@ -1,4 +1,5 @@
 import type { FieldDef } from "../types";
+import { useI18n } from "../i18n";
 import { ReferencePicker, type ReferenceOption } from "./ReferencePicker";
 import { SelectInput } from "./SelectInput";
 import { TextInput } from "./TextInput";
@@ -29,6 +30,7 @@ function asText(value: unknown): string {
 }
 
 export function FieldInput({ field, value, onChange, reference }: Props) {
+  const { t } = useI18n();
   const base = `field-${field.name}`;
   const currentText = asText(value);
 
@@ -52,7 +54,7 @@ export function FieldInput({ field, value, onChange, reference }: Props) {
     return (
       <div className="space-y-2">
         <p className="text-xs text-amber-700">
-          Reference target is not configured for this field.
+          {t("Reference target is not configured for this field.")}
         </p>
         <TextInput
           id={base}
@@ -84,7 +86,7 @@ export function FieldInput({ field, value, onChange, reference }: Props) {
     return (
       <div className="space-y-2">
         <p className="text-xs text-amber-700">
-          Reference target is not configured for this field.
+          {t("Reference target is not configured for this field.")}
         </p>
         <TextareaInput
           id={base}
@@ -118,8 +120,8 @@ export function FieldInput({ field, value, onChange, reference }: Props) {
         value={String(Boolean(value))}
         onChange={(e) => onChange(e.target.value === "true")}
       >
-        <option value="false">False</option>
-        <option value="true">True</option>
+        <option value="false">{t("False")}</option>
+        <option value="true">{t("True")}</option>
       </SelectInput>
     );
   }
@@ -130,7 +132,7 @@ export function FieldInput({ field, value, onChange, reference }: Props) {
         value={currentText}
         onChange={(e) => onChange(e.target.value)}
       >
-        <option value="">Select</option>
+        <option value="">{t("Select")}</option>
         {field.enum_values.map((opt) => (
           <option key={opt} value={opt}>
             {opt}

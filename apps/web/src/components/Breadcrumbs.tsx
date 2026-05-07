@@ -1,38 +1,44 @@
 import { Link, useLocation } from "react-router-dom";
+import { useI18n } from "../i18n";
 
-function toLabel(pathname: string): string {
-  if (pathname === "/") return "Dashboard";
+function toLabel(pathname: string, t: (key: string) => string): string {
+  if (pathname === "/") return t("Dashboard");
 
   const parts = pathname.split("/").filter(Boolean);
   if (parts[0] === "resources") {
-    if (parts.length === 1) return "Resources";
-    if (parts.length === 2) return `Resources / ${parts[1]}`;
-    if (parts.length === 3) return `Resources / ${parts[1]} / ${parts[2]}`;
+    if (parts.length === 1) return t("Resources");
+    if (parts.length === 2) return `${t("Resources")} / ${parts[1]}`;
+    if (parts.length === 3)
+      return `${t("Resources")} / ${parts[1]} / ${parts[2]}`;
     if (parts.length === 4 && parts[3] === "edit")
-      return `Resources / ${parts[1]} / ${parts[2]} / Edit`;
+      return `${t("Resources")} / ${parts[1]} / ${parts[2]} / ${t("Edit")}`;
     if (parts.length === 3 && parts[2] === "new")
-      return `Resources / ${parts[1]} / Create`;
+      return `${t("Resources")} / ${parts[1]} / ${t("Create Resource")}`;
   }
 
   if (parts[0] === "resource-types") {
-    if (parts.length === 1) return "Administration / Resource Types";
+    if (parts.length === 1)
+      return `${t("Administration")} / ${t("Resource Types")}`;
     if (parts.length === 2 && parts[1] === "new")
-      return "Administration / Resource Types / Create Resource Type";
+      return `${t("Administration")} / ${t("Resource Types")} / ${t("Create Resource Type")}`;
     if (parts.length === 3 && parts[2] === "edit")
-      return `Administration / Resource Types / ${parts[1]} / Edit schema`;
+      return `${t("Administration")} / ${t("Resource Types")} / ${parts[1]} / Edit schema`;
   }
 
-  if (pathname === "/import") return "Administration / Import";
-  if (pathname === "/export") return "Administration / Export";
-  if (pathname === "/validation") return "Administration / Validation";
-  if (pathname === "/field-types") return "Administration / Field Types";
+  if (pathname === "/import") return `${t("Administration")} / ${t("Import")}`;
+  if (pathname === "/export") return `${t("Administration")} / ${t("Export")}`;
+  if (pathname === "/validation")
+    return `${t("Administration")} / ${t("Validation")}`;
+  if (pathname === "/field-types")
+    return `${t("Administration")} / Field Types`;
 
-  return "Dashboard";
+  return t("Dashboard");
 }
 
 export function Breadcrumbs() {
+  const { t } = useI18n();
   const location = useLocation();
-  const label = toLabel(location.pathname);
+  const label = toLabel(location.pathname, t);
 
   return (
     <div className="flex items-center gap-2 text-sm text-gray-700">

@@ -9,6 +9,7 @@ import { PageHeader } from "../components/PageHeader";
 import { SelectInput } from "../components/SelectInput";
 import { TextInput } from "../components/TextInput";
 import { TextareaInput } from "../components/TextareaInput";
+import { useI18n } from "../i18n";
 import {
   defaultResourceType,
   deriveDisplayLabel,
@@ -40,6 +41,7 @@ const fieldTypes: FieldDef["type"][] = [
 ];
 
 export function ResourceTypeEditorPage({ mode }: { mode: "create" | "edit" }) {
+  const { t } = useI18n();
   const { type = "" } = useParams();
   const navigate = useNavigate();
   const [value, setValue] = useState<ResourceType>(defaultResourceType());
@@ -198,13 +200,13 @@ export function ResourceTypeEditorPage({ mode }: { mode: "create" | "edit" }) {
       <PageHeader
         title={
           mode === "create"
-            ? "Administration / Resource Types / Create Resource Type"
-            : `Administration / Resource Types / ${type} / Edit schema`
+            ? `${t("Administration")} / ${t("Resource Types")} / ${t("Create Resource Type")}`
+            : `${t("Administration")} / ${t("Resource Types")} / ${type} / Edit schema`
         }
       />
       <ErrorBanner message={error} />
 
-      <DataCard title="General">
+      <DataCard title={t("General")}>
         <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
           <label className="block text-sm font-medium text-gray-700">
             ID
@@ -215,21 +217,21 @@ export function ResourceTypeEditorPage({ mode }: { mode: "create" | "edit" }) {
             />
           </label>
           <label className="block text-sm font-medium text-gray-700">
-            Title
+            {t("Title")}
             <TextInput
               value={value.title}
               onChange={(e) => setValue({ ...value, title: e.target.value })}
             />
           </label>
           <label className="block text-sm font-medium text-gray-700">
-            Group
+            {t("Group")}
             <TextInput
               value={value.group}
               onChange={(e) => setValue({ ...value, group: e.target.value })}
             />
           </label>
           <label className="block text-sm font-medium text-gray-700 md:col-span-2">
-            Description
+            {t("Description")}
             <TextareaInput
               rows={3}
               value={value.description}
@@ -242,14 +244,14 @@ export function ResourceTypeEditorPage({ mode }: { mode: "create" | "edit" }) {
       </DataCard>
 
       <DataCard
-        title="Fields"
+        title={t("Fields")}
         actions={
           <div className="flex items-center gap-3">
             <Link
               to="/field-types"
               className="text-sm font-medium text-blue-700 hover:text-blue-800"
             >
-              Field Types guide
+              {t("Field Types guide")}
             </Link>
             <Button
               variant="secondary"
@@ -263,7 +265,7 @@ export function ResourceTypeEditorPage({ mode }: { mode: "create" | "edit" }) {
                 })
               }
             >
-              Add field
+              {t("Add field")}
             </Button>
           </div>
         }
@@ -273,25 +275,25 @@ export function ResourceTypeEditorPage({ mode }: { mode: "create" | "edit" }) {
             <div key={idx} className="rounded-lg border border-gray-200 p-3">
               <div className="grid grid-cols-1 gap-3 md:grid-cols-5">
                 <label className="text-sm text-gray-700">
-                  Field name
+                  {t("Field name")}
                   <TextInput
                     value={field.name}
                     onChange={(e) => setFieldName(idx, e.target.value)}
-                    placeholder="primary_ip"
+                    placeholder={t("primary_ip")}
                   />
                 </label>
                 <label className="text-sm text-gray-700">
-                  Label
+                  {t("Label")}
                   <TextInput
                     value={field.label}
                     onChange={(e) =>
                       upsertField(idx, { ...field, label: e.target.value })
                     }
-                    placeholder="Primary IP"
+                    placeholder={t("Primary IP")}
                   />
                 </label>
                 <label className="text-sm text-gray-700">
-                  Type
+                  {t("Type")}
                   <SelectInput
                     value={field.type}
                     onChange={(e) =>
@@ -306,7 +308,7 @@ export function ResourceTypeEditorPage({ mode }: { mode: "create" | "edit" }) {
                   </SelectInput>
                 </label>
                 <label className="text-sm text-gray-700">
-                  Required
+                  {t("Required")}
                   <SelectInput
                     value={
                       value.required_fields.includes(field.name) ? "yes" : "no"
@@ -315,13 +317,13 @@ export function ResourceTypeEditorPage({ mode }: { mode: "create" | "edit" }) {
                       toggleRequired(field.name, e.target.value === "yes")
                     }
                   >
-                    <option value="no">No</option>
-                    <option value="yes">Yes</option>
+                    <option value="no">{t("No")}</option>
+                    <option value="yes">{t("Yes")}</option>
                   </SelectInput>
                 </label>
                 <div className="flex items-end">
                   <ActionButton tone="danger" onClick={() => removeField(idx)}>
-                    Remove
+                    {t("Remove")}
                   </ActionButton>
                 </div>
               </div>
@@ -329,7 +331,7 @@ export function ResourceTypeEditorPage({ mode }: { mode: "create" | "edit" }) {
               {field.type === "enum" ? (
                 <div className="mt-3">
                   <p className="text-sm font-medium text-gray-700">
-                    Enum values
+                    {t("Enum values")}
                   </p>
                   <div className="mt-2 space-y-2">
                     {(field.enum_values ?? []).map((valueText, enumIndex) => (
@@ -357,7 +359,7 @@ export function ResourceTypeEditorPage({ mode }: { mode: "create" | "edit" }) {
                             });
                           }}
                         >
-                          Remove
+                          {t("Remove")}
                         </ActionButton>
                       </div>
                     ))}
@@ -370,7 +372,7 @@ export function ResourceTypeEditorPage({ mode }: { mode: "create" | "edit" }) {
                         })
                       }
                     >
-                      Add value
+                      {t("Add value")}
                     </Button>
                   </div>
                 </div>
@@ -380,7 +382,7 @@ export function ResourceTypeEditorPage({ mode }: { mode: "create" | "edit" }) {
               field.type === "reference_array" ? (
                 <div className="mt-3 grid grid-cols-1 gap-3 md:grid-cols-2">
                   <label className="text-sm text-gray-700">
-                    Target Resource Type
+                    {t("Target Resource Type")}
                     <SelectInput
                       value={
                         value.references.find((ref) => ref.field === field.name)
@@ -394,7 +396,7 @@ export function ResourceTypeEditorPage({ mode }: { mode: "create" | "edit" }) {
                         )
                       }
                     >
-                      <option value="">Select type</option>
+                      <option value="">{t("Select type")}</option>
                       {allTypes.map((typeDef) => (
                         <option key={typeDef.id} value={typeDef.id}>
                           {typeDef.title || typeDef.id}
@@ -404,8 +406,12 @@ export function ResourceTypeEditorPage({ mode }: { mode: "create" | "edit" }) {
                   </label>
                   <div className="text-xs text-gray-500 md:self-end md:pb-2">
                     {field.type === "reference_array"
-                      ? "Multiple is derived from field type: reference_array => yes."
-                      : "Multiple is derived from field type: reference => no."}
+                      ? t(
+                          "Multiple is derived from field type: reference_array => yes.",
+                        )
+                      : t(
+                          "Multiple is derived from field type: reference => no.",
+                        )}
                   </div>
                 </div>
               ) : null}
@@ -414,7 +420,7 @@ export function ResourceTypeEditorPage({ mode }: { mode: "create" | "edit" }) {
         </div>
       </DataCard>
 
-      <DataCard title="List columns">
+      <DataCard title={t("List columns")}>
         <div className="space-y-3">
           {normalizeListColumns(value.list_columns).map((column, idx) => (
             <div
@@ -422,7 +428,7 @@ export function ResourceTypeEditorPage({ mode }: { mode: "create" | "edit" }) {
               className="grid grid-cols-1 gap-3 md:grid-cols-[1fr_1fr_auto] md:items-end"
             >
               <label className="text-sm text-gray-700">
-                Path
+                {t("Path")}
                 <TextInput
                   value={column.path}
                   onChange={(e) => {
@@ -433,7 +439,7 @@ export function ResourceTypeEditorPage({ mode }: { mode: "create" | "edit" }) {
                 />
               </label>
               <label className="text-sm text-gray-700">
-                Label
+                {t("Label")}
                 <TextInput
                   value={column.label}
                   onChange={(e) => {
@@ -452,7 +458,7 @@ export function ResourceTypeEditorPage({ mode }: { mode: "create" | "edit" }) {
                   setValue({ ...value, list_columns: next });
                 }}
               >
-                Remove
+                {t("Remove")}
               </ActionButton>
             </div>
           ))}
@@ -463,19 +469,21 @@ export function ResourceTypeEditorPage({ mode }: { mode: "create" | "edit" }) {
                 ...value,
                 list_columns: [
                   ...normalizeListColumns(value.list_columns),
-                  { path: "metadata.name", label: "Name" },
+                  { path: "metadata.name", label: t("Name") },
                 ],
               })
             }
           >
-            Add column
+            {t("Add column")}
           </Button>
         </div>
       </DataCard>
 
-      <DataCard title="References">
+      <DataCard title={t("References")}>
         {value.references.length === 0 ? (
-          <p className="text-sm text-gray-600">No references configured.</p>
+          <p className="text-sm text-gray-600">
+            {t("No references configured.")}
+          </p>
         ) : (
           <ul className="space-y-2 text-sm text-gray-700">
             {value.references.map((reference) => (
@@ -488,7 +496,7 @@ export function ResourceTypeEditorPage({ mode }: { mode: "create" | "edit" }) {
         )}
       </DataCard>
 
-      <DataCard title="Validation rules">
+      <DataCard title={t("Validation rules")}>
         <label className="block text-sm font-medium text-gray-700">
           validation_rules
           <TextareaInput
@@ -501,7 +509,7 @@ export function ResourceTypeEditorPage({ mode }: { mode: "create" | "edit" }) {
         </label>
       </DataCard>
 
-      <DataCard title="Advanced JSON">
+      <DataCard title={t("Advanced JSON")}>
         <div className="space-y-4">
           <label className="block text-sm font-medium text-gray-700">
             form_layout
@@ -527,7 +535,7 @@ export function ResourceTypeEditorPage({ mode }: { mode: "create" | "edit" }) {
       </DataCard>
 
       <div className="flex justify-end">
-        <Button onClick={save}>Save</Button>
+        <Button onClick={save}>{t("Save")}</Button>
       </div>
     </section>
   );

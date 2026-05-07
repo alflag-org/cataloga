@@ -7,6 +7,7 @@ import { PageHeader } from "../components/PageHeader";
 import { ResourceListTable } from "../components/ResourceListTable";
 import { SelectInput } from "../components/SelectInput";
 import { TextInput } from "../components/TextInput";
+import { useI18n } from "../i18n";
 import { api } from "../api/client";
 import {
   normalizeListColumns,
@@ -17,6 +18,7 @@ import {
 import { useParams } from "react-router-dom";
 
 export function ResourceListPage() {
+  const { t, tf } = useI18n();
   const { type = "" } = useParams();
   const [rt, setRt] = useState<ResourceType | null>(null);
   const [rows, setRows] = useState<Resource[]>([]);
@@ -68,23 +70,25 @@ export function ResourceListPage() {
   return (
     <section className="space-y-5">
       <PageHeader
-        title={`Resources / ${rt?.title || type}`}
+        title={`${t("Resources")} / ${rt?.title || type}`}
         actions={
-          <LinkButton to={`/resources/${type}/new`}>Create Resource</LinkButton>
+          <LinkButton to={`/resources/${type}/new`}>
+            {t("Create Resource")}
+          </LinkButton>
         }
       />
       <ErrorBanner message={error} />
       <DataCard>
         <div className="mb-4 grid grid-cols-1 gap-3 md:grid-cols-[1fr_auto_auto] md:items-end">
           <label className="text-sm text-gray-700">
-            Search
+            {t("Search")}
             <TextInput
               value={query}
               onChange={(e) => setQuery(e.target.value)}
             />
           </label>
           <label className="text-sm text-gray-700">
-            Sort by
+            {t("Sort by")}
             <SelectInput
               value={sortBy}
               onChange={(e) => setSortBy(e.target.value)}
@@ -97,13 +101,13 @@ export function ResourceListPage() {
             </SelectInput>
           </label>
           <label className="text-sm text-gray-700">
-            Order
+            {t("Order")}
             <SelectInput
               value={sortDir}
               onChange={(e) => setSortDir(e.target.value as "asc" | "desc")}
             >
-              <option value="asc">asc</option>
-              <option value="desc">desc</option>
+              <option value="asc">{t("asc")}</option>
+              <option value="desc">{t("desc")}</option>
             </SelectInput>
           </label>
         </div>
@@ -123,7 +127,13 @@ export function ResourceListPage() {
               }
             }}
             onDelete={async (resourceId) => {
-              if (!window.confirm(`Delete Resource '${type}/${resourceId}'?`))
+              if (
+                !window.confirm(
+                  tf("Delete Resource '{id}'?", {
+                    id: `${type}/${resourceId}`,
+                  }),
+                )
+              )
                 return;
               try {
                 await api.deleteResource(type, resourceId);
@@ -137,11 +147,11 @@ export function ResourceListPage() {
           />
         ) : (
           <EmptyState
-            title="No resources"
-            description="Create Resource"
+            title={t("No resources")}
+            description={t("Create Resource")}
             action={
               <LinkButton to={`/resources/${type}/new`}>
-                Create Resource
+                {t("Create Resource")}
               </LinkButton>
             }
           />

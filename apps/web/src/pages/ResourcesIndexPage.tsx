@@ -9,6 +9,7 @@ import {
 } from "../components/DataTable";
 import { ErrorBanner } from "../components/ErrorBanner";
 import { PageHeader } from "../components/PageHeader";
+import { useI18n } from "../i18n";
 import type { ResourceType } from "../types";
 
 type Row = {
@@ -19,6 +20,7 @@ type Row = {
 };
 
 export function ResourcesIndexPage() {
+  const { t } = useI18n();
   const [types, setTypes] = useState<ResourceType[]>([]);
   const [counts, setCounts] = useState<Record<string, number>>({});
   const [query, setQuery] = useState("");
@@ -48,7 +50,7 @@ export function ResourcesIndexPage() {
 
   const rows = useMemo<Row[]>(() => {
     return types.map((type) => ({
-      group: type.group?.trim() || "Other",
+      group: type.group?.trim() || t("Other"),
       typeTitle: type.title || type.id,
       typeId: type.id,
       count: counts[type.id] ?? 0,
@@ -79,37 +81,37 @@ export function ResourcesIndexPage() {
   const columns: DataTableColumn<Row>[] = [
     {
       key: "group",
-      label: "Group",
+      label: t("Group"),
       render: (row) => row.group,
       sortValue: (row) => row.group,
     },
     {
       key: "type",
-      label: "Type",
+      label: t("Type"),
       render: (row) => row.typeTitle,
       sortValue: (row) => row.typeTitle,
     },
     {
       key: "id",
-      label: "ID",
+      label: t("ID"),
       render: (row) => row.typeId,
       sortValue: (row) => row.typeId,
     },
     {
       key: "resources",
-      label: "Resources",
+      label: t("Resources"),
       render: (row) => row.count,
       sortValue: (row) => row.count,
     },
     {
       key: "actions",
-      label: "Actions",
+      label: t("Actions"),
       render: (row) => (
         <Link
           className="text-blue-700 hover:text-blue-800"
           to={`/resources/${row.typeId}`}
         >
-          View resources
+          {t("View resources")}
         </Link>
       ),
       sortValue: () => "",
@@ -118,14 +120,16 @@ export function ResourcesIndexPage() {
 
   return (
     <section className="space-y-5">
-      <PageHeader title="Resources" />
+      <PageHeader title={t("Resources")} />
       <ErrorBanner message={error} />
       <DataCard>
         {rows.length === 0 ? (
           <div className="text-sm text-gray-700">
-            <p className="font-medium text-gray-900">No Resource Types</p>
+            <p className="font-medium text-gray-900">
+              {t("No Resource Types")}
+            </p>
             <p className="mt-1">
-              Create Resource Types from Administration / Resource Types.
+              {t("Create Resource Types from Administration / Resource Types.")}
             </p>
           </div>
         ) : (
@@ -148,22 +152,22 @@ export function ResourcesIndexPage() {
             filters={
               <>
                 <FilterSelect
-                  label="Group"
+                  label={t("Group")}
                   value={groupFilter}
                   onChange={setGroupFilter}
                   options={groups.map((group) => ({
                     value: group,
-                    label: group === "all" ? "All" : group,
+                    label: group === "all" ? t("All") : group,
                   }))}
                 />
                 <FilterSelect
-                  label="Has resources"
+                  label={t("Has resources")}
                   value={hasResourcesFilter}
                   onChange={setHasResourcesFilter}
                   options={[
-                    { value: "all", label: "All" },
-                    { value: "has", label: "Has resources" },
-                    { value: "empty", label: "Empty" },
+                    { value: "all", label: t("All") },
+                    { value: "has", label: t("Has resources") },
+                    { value: "empty", label: t("Empty") },
                   ]}
                 />
               </>

@@ -1,5 +1,6 @@
 import { DataCard } from "../components/DataCard";
 import { PageHeader } from "../components/PageHeader";
+import { useI18n } from "../i18n";
 
 const rows = [
   {
@@ -96,10 +97,11 @@ const rows = [
 ];
 
 export function FieldTypesGuidePage() {
+  const { t } = useI18n();
   return (
     <section className="space-y-5">
-      <PageHeader title="Administration / Field Types" />
-      <DataCard title="Field Types">
+      <PageHeader title={`${t("Administration")} / ${t("Field Types")}`} />
+      <DataCard title={t("Field Types")}>
         <div className="space-y-3">
           {rows.map((row) => (
             <div
@@ -107,28 +109,35 @@ export function FieldTypesGuidePage() {
               className="rounded-lg border border-gray-200 p-3 text-sm"
             >
               <p className="font-semibold text-gray-900">{row.type}</p>
-              <p className="text-gray-700">Purpose: {row.purpose}</p>
-              <p className="text-gray-700">Resource form: {row.form}</p>
-              <p className="text-gray-700">Stored value: {row.stored}</p>
+              <p className="text-gray-700">
+                {t("Purpose")}: {t(row.purpose)}
+              </p>
+              <p className="text-gray-700">
+                {t("Resource form")}: {t(row.form)}
+              </p>
+              <p className="text-gray-700">
+                {t("Stored value")}: {t(row.stored)}
+              </p>
               <p className="font-mono text-xs text-gray-600">
-                Example: {row.example}
+                {t("Example")}: {row.example}
               </p>
             </div>
           ))}
         </div>
       </DataCard>
 
-      <DataCard title="Recommendations">
+      <DataCard title={t("Recommendations")}>
         <ul className="list-disc space-y-1 pl-5 text-sm text-gray-700">
           <li>
-            Use reference instead of plain string when the value points to
-            another Resource.
+            {t(
+              "Use reference instead of plain string when the value points to another Resource.",
+            )}
           </li>
-          <li>Use enum when allowed values are small and stable.</li>
-          <li>Use json only when no simpler field type fits.</li>
-          <li>Use array for simple lists.</li>
-          <li>Use text for descriptions.</li>
-          <li>Use ip and cidr instead of string for network values.</li>
+          <li>{t("Use enum when allowed values are small and stable.")}</li>
+          <li>{t("Use json only when no simpler field type fits.")}</li>
+          <li>{t("Use array for simple lists.")}</li>
+          <li>{t("Use text for descriptions.")}</li>
+          <li>{t("Use ip and cidr instead of string for network values.")}</li>
         </ul>
       </DataCard>
     </section>
