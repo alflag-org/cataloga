@@ -121,7 +121,7 @@ mkdir -p "${out_dir}"
 
 cp -R "${src_template_dir}"/. "${out_dir}"/
 cp -R "${web_dist_dir}" "${out_dir}/public"
-cp -R "${worker_build_dir}/worker" "${out_dir}/worker"
+cp -R "${worker_build_dir}" "${out_dir}/build"
 mkdir -p "${out_dir}/migrations"
 cp -R "${migrations_d1_dir}" "${out_dir}/migrations/d1"
 
@@ -134,7 +134,8 @@ EOF
 require_path "${out_dir}/package.json"
 require_path "${out_dir}/wrangler.toml"
 require_non_empty_dir "${out_dir}/public"
-require_path "${out_dir}/worker/shim.mjs"
+require_path "${out_dir}/build/worker/shim.mjs"
+require_path "${out_dir}/build/index.js"
 require_non_empty_dir "${out_dir}/migrations/d1"
 
 echo "Prepared Cloudflare template at: ${out_dir}"

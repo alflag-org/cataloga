@@ -4,8 +4,9 @@ const required = [
   "wrangler.toml",
   "package.json",
   "public",
-  "worker",
-  "worker/shim.mjs",
+  "build",
+  "build/worker/shim.mjs",
+  "build/index.js",
   "migrations/d1",
 ];
 

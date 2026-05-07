@@ -56,7 +56,8 @@ jobs:
 
           test -f dist/cloudflare-template/wrangler.toml
           test -f dist/cloudflare-template/package.json
-          test -f dist/cloudflare-template/worker/shim.mjs
+          test -f dist/cloudflare-template/build/worker/shim.mjs
+          test -f dist/cloudflare-template/build/index.js
           test -d dist/cloudflare-template/public
           test -d dist/cloudflare-template/migrations/d1
 
