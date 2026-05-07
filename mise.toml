@@ -84,7 +84,7 @@ run = ["mise run build-rust", "mise run build-web"]
 description = "Build and assemble the generated Cloudflare Deploy Button template"
 depends = ["build-web", "build-worker"]
 run = """
-set -euo pipefail
+set -eu
 out_dir="dist/cloudflare-template"
 src_template_dir="deploy/cloudflare-template"
 web_dist_dir="apps/web/dist"
@@ -93,7 +93,7 @@ worker_shim="${worker_build_dir}/worker/shim.mjs"
 migrations_d1_dir="migrations/d1"
 
 require_path() {
-  local path="$1"
+  path="$1"
   if [ ! -e "$path" ]; then
     echo "Missing required path: $path" >&2
     exit 1
@@ -101,7 +101,7 @@ require_path() {
 }
 
 require_non_empty_dir() {
-  local path="$1"
+  path="$1"
   require_path "$path"
   if [ -z "$(find "$path" -mindepth 1 -maxdepth 1 | head -n 1)" ]; then
     echo "Required directory is empty: $path" >&2
