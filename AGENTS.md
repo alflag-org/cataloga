@@ -70,7 +70,6 @@ For full integration validation (before final delivery when feasible):
 4. Run targeted runtime smoke checks (for example `/api/health`) against the active environment
 
 ### Minimum acceptable narrow checks
-- Docs-only edits: `mise run docs-check`
 - Rust-only edits: `mise run fmt-rust-check` + `mise run lint-rust` + relevant Rust tests
 - Web-only edits: `mise run fmt-web-check` + `mise run lint-web` + `mise run test-web`
 

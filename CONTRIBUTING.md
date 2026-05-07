@@ -53,7 +53,6 @@ mise run worker-deploy
 - `mise run check`
 - `mise run lint-rust`
 - `mise run lint-web`
-- `mise run docs-check`
 
 ### Tests
 

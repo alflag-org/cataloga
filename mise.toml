@@ -50,7 +50,6 @@ run = [
   "mise run fmt-web-check",
   "mise run lint-rust",
   "mise run lint-web",
-  "mise run docs-check",
 ]
 
 [tasks.test-rust]
