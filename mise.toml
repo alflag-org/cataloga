@@ -5,58 +5,122 @@ node = "24"
 "npm:prettier" = "3"
 "npm:wrangler" = "4.88.0"
 
-[tasks.fmt]
-run = ["cargo fmt --all"]
+[env]
+CATALOGA_DB = "sqlite://./cataloga.db"
+CATALOGA_LISTEN = "127.0.0.1:8080"
+CATALOGA_CATALOG = "default"
+CATALOGA_BASE_URL = "http://127.0.0.1:8080"
 
-[tasks.fmt-check]
+[tasks.install-web]
+description = "Install web dependencies"
+run = "mise exec -- pnpm -C apps/web install"
+
+[tasks.fmt-rust]
+description = "Format Rust code"
+run = "cargo fmt --all"
+
+[tasks.fmt-rust-check]
+description = "Check Rust formatting"
 run = "cargo fmt --all -- --check"
 
-[tasks.lint]
-run = ["cargo clippy --all-targets --all-features -- -D warnings", "mise exec -- pnpm -C apps/web typecheck"]
-
-[tasks.test]
-run = ["cargo test --all", "mise exec -- pnpm -C apps/web test"]
-
-[tasks.web-fmt]
+[tasks.fmt-web]
+description = "Format web code"
 run = "mise exec -- prettier --write apps/web/src"
 
-[tasks.web-fmt-check]
+[tasks.fmt-web-check]
+description = "Check web formatting"
 run = "mise exec -- prettier --check apps/web/src"
 
+[tasks.fix]
+description = "Apply safe automatic formatting fixes"
+run = ["mise run fmt-rust", "mise run fmt-web"]
+
+[tasks.lint-rust]
+description = "Run Rust lints"
+run = "cargo clippy --all-targets --all-features -- -D warnings"
+
+[tasks.lint-web]
+description = "Run web type/lint checks"
+run = "mise exec -- pnpm -C apps/web typecheck"
+
+[tasks.docs-check]
+description = "Validate markdown formatting for key docs"
+run = "rg -n '^# ' AGENTS.md README.md >/dev/null"
+
+[tasks.check]
+description = "Run non-destructive checks"
+run = [
+  "mise run fmt-rust-check",
+  "mise run fmt-web-check",
+  "mise run lint-rust",
+  "mise run lint-web",
+  "mise run docs-check",
+]
+
+[tasks.test-rust]
+description = "Run Rust tests"
+run = "cargo test --all"
+
+[tasks.test-web]
+description = "Run web tests"
+run = "mise exec -- pnpm -C apps/web test"
+
+[tasks.test]
+description = "Run all tests"
+run = ["mise run test-rust", "mise run test-web"]
+
 [tasks.build-rust]
+description = "Build Rust workspace"
 run = "cargo build --workspace"
 
 [tasks.build-web]
+description = "Build web app"
 run = "mise exec -- pnpm -C apps/web build"
 
+[tasks.build-worker]
+description = "Build Cloudflare worker bundle"
+run = "cd crates/cataloga-worker && worker-build --release"
+
 [tasks.build]
+description = "Build Rust and web artifacts"
 run = ["mise run build-rust", "mise run build-web"]
 
 [tasks.dev]
+description = "Run web dev server"
 run = "mise exec -- pnpm -C apps/web dev"
 
 [tasks.serve]
-run = "cargo run -p cataloga-cli -- serve --db sqlite://./cataloga.db --listen 127.0.0.1:8080 --catalog default"
+description = "Run local API server"
+run = "cargo run -p cataloga-cli -- serve --db $CATALOGA_DB --listen $CATALOGA_LISTEN --catalog $CATALOGA_CATALOG"
 
 [tasks.worker-dev]
+description = "Run worker in local dev mode"
 run = "cd crates/cataloga-worker && wrangler dev"
 
 [tasks.worker-deploy]
+description = "Deploy worker to Cloudflare"
 run = "cd crates/cataloga-worker && wrangler deploy"
 
-[tasks.worker-build]
-run = "cd crates/cataloga-worker && worker-build --release"
+[tasks.db-migrate]
+description = "Apply local SQLite migrations"
+run = "cargo run -p cataloga-cli -- migrate --db $CATALOGA_DB"
+
+[tasks.seed]
+description = "Seed local catalog data"
+run = "cargo run -p cataloga-cli -- seed --db $CATALOGA_DB --catalog $CATALOGA_CATALOG"
+
+[tasks.smoke-local]
+description = "Run local API smoke test"
+run = "BASE_URL=$CATALOGA_BASE_URL scripts/smoke-local.sh"
+
+[tasks.smoke-worker]
+description = "Run worker API smoke test"
+run = "BASE_URL=$CATALOGA_BASE_URL scripts/smoke-worker.sh"
 
 [tasks.ci]
+description = "Run full local CI suite"
 run = [
-  "mise run fmt-check",
-  "mise run lint",
+  "mise run check",
   "mise run test",
   "mise run build",
 ]
-
-[tasks.db-migrate]
-run = "cargo run -p cataloga-cli -- migrate --db sqlite://./cataloga.db"
-
-[tasks.seed]
-run = "cargo run -p cataloga-cli -- seed --db sqlite://./cataloga.db --catalog default"
