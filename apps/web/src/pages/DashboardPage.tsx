@@ -111,7 +111,7 @@ export function DashboardPage() {
       <PageHeader title="Dashboard" />
       <ErrorBanner message={error} />
 
-      <DataCard title="Graph View">
+      <DataCard title="Graph">
         <ResourceGraph compact types={types} resourcesByType={resourceByType} />
       </DataCard>
 
