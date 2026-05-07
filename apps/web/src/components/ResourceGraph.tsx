@@ -32,6 +32,21 @@ function neighborSets(edges: Array<{ source: string; target: string }>) {
   return map;
 }
 
+function edgePath(
+  source: { x: number; y: number },
+  target: { x: number; y: number },
+): string {
+  const dx = target.x - source.x;
+  const dy = target.y - source.y;
+  const distance = Math.hypot(dx, dy) || 1;
+  const curve = Math.min(48, Math.max(14, distance * 0.14));
+  const normalX = (-dy / distance) * curve;
+  const normalY = (dx / distance) * curve;
+  const midX = (source.x + target.x) / 2 + normalX;
+  const midY = (source.y + target.y) / 2 + normalY;
+  return `M ${source.x} ${source.y} Q ${midX} ${midY} ${target.x} ${target.y}`;
+}
+
 export function ResourceGraph({
   types,
   resourcesByType,
@@ -257,8 +272,12 @@ export function ResourceGraph({
       <div className="grid gap-3 lg:grid-cols-[1fr_320px]">
         <div
           ref={containerRef}
-          className="graph-panel relative h-[360px] overflow-hidden rounded-2xl border border-gray-200 bg-white md:h-[420px]"
+          className="graph-panel relative h-[360px] overflow-hidden rounded-2xl border border-slate-200 bg-slate-950 shadow-sm md:h-[420px]"
         >
+          <div className="pointer-events-none absolute left-4 top-4 z-10 rounded-full border border-white/10 bg-slate-950/70 px-3 py-1 text-xs font-medium text-slate-200 shadow-lg backdrop-blur">
+            {filteredGraph.nodes.length} nodes · {filteredGraph.edges.length}{" "}
+            links
+          </div>
           <svg
             width={size.width}
             height={size.height}
@@ -273,6 +292,34 @@ export function ResourceGraph({
               if (!target.closest("[data-node='true']")) setSelectedKey(null);
             }}
           >
+            <defs>
+              <radialGradient id="graph-node-glow" cx="50%" cy="50%" r="50%">
+                <stop offset="0%" stopColor="#ffffff" stopOpacity="0.45" />
+                <stop offset="100%" stopColor="#ffffff" stopOpacity="0" />
+              </radialGradient>
+              <marker
+                id="graph-edge-arrow"
+                markerWidth="8"
+                markerHeight="8"
+                refX="7"
+                refY="4"
+                orient="auto"
+                markerUnits="strokeWidth"
+              >
+                <path d="M 0 0 L 8 4 L 0 8 z" fill="#94a3b8" opacity="0.55" />
+              </marker>
+              <marker
+                id="graph-edge-arrow-active"
+                markerWidth="8"
+                markerHeight="8"
+                refX="7"
+                refY="4"
+                orient="auto"
+                markerUnits="strokeWidth"
+              >
+                <path d="M 0 0 L 8 4 L 0 8 z" fill="#38bdf8" opacity="0.95" />
+              </marker>
+            </defs>
             <g
               transform={`translate(${viewport.x}, ${viewport.y}) scale(${viewport.scale})`}
             >
@@ -284,16 +331,21 @@ export function ResourceGraph({
                   const active = activeKey
                     ? edge.source === activeKey || edge.target === activeKey
                     : false;
+                  const dimmed = Boolean(activeSet) && !active;
                   return (
-                    <line
+                    <path
                       key={`${edge.source}-${edge.target}-${edge.field}-${index}`}
-                      x1={source.x}
-                      y1={source.y}
-                      x2={target.x}
-                      y2={target.y}
-                      stroke={active ? "#2563eb" : "#94a3b8"}
-                      strokeOpacity={active ? 0.9 : 0.35}
-                      strokeWidth={active ? 2 : 1}
+                      d={edgePath(source, target)}
+                      fill="none"
+                      stroke={active ? "#38bdf8" : "#94a3b8"}
+                      strokeOpacity={active ? 0.9 : dimmed ? 0.08 : 0.28}
+                      strokeWidth={active ? 2.2 : 1.2}
+                      markerEnd={
+                        active
+                          ? "url(#graph-edge-arrow-active)"
+                          : "url(#graph-edge-arrow)"
+                      }
+                      vectorEffect="non-scaling-stroke"
                     />
                   );
                 })}
@@ -305,7 +357,11 @@ export function ResourceGraph({
                   const isSelected = selectedKey === node.key;
                   const isActive = isHovered || isSelected;
                   const isRelated = activeSet?.has(node.key) ?? false;
-                  const opacity = activeSet ? (isRelated ? 1 : 0.25) : 1;
+                  const opacity = activeSet ? (isRelated ? 1 : 0.18) : 1;
+                  const radius = computeNodeRadius(
+                    node,
+                    isSelected ? "selected" : isHovered ? "hover" : "base",
+                  );
                   const showLabel =
                     isActive ||
                     (!activeSet && viewport.scale >= 1.1) ||
@@ -329,27 +385,32 @@ export function ResourceGraph({
                       }}
                       opacity={opacity}
                     >
+                      {isRelated ? (
+                        <circle
+                          r={radius + 7}
+                          fill="url(#graph-node-glow)"
+                          opacity={isActive ? 0.9 : 0.45}
+                        />
+                      ) : null}
                       <circle
-                        r={computeNodeRadius(
-                          node,
-                          isSelected
-                            ? "selected"
-                            : isHovered
-                              ? "hover"
-                              : "base",
-                        )}
+                        r={radius}
                         fill={pickGroupColor(node.group)}
-                        stroke={isSelected ? "#111827" : "#ffffff"}
-                        strokeWidth={isSelected ? 2 : 1.5}
+                        stroke={isSelected ? "#f8fafc" : "#0f172a"}
+                        strokeWidth={isSelected ? 2.4 : 1.4}
+                      />
+                      <circle
+                        r={Math.max(1.8, radius * 0.32)}
+                        fill="#ffffff"
+                        opacity={0.38}
                       />
                       {showLabel ? (
                         <text
-                          x={10}
-                          y={-10}
+                          x={radius + 7}
+                          y={-radius - 4}
                           fontSize={11}
-                          fill="#0f172a"
-                          stroke="#ffffff"
-                          strokeWidth={2}
+                          fill="#e2e8f0"
+                          stroke="#020617"
+                          strokeWidth={3}
                           paintOrder="stroke"
                         >
                           {node.name || node.resourceId}
