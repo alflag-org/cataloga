@@ -2,13 +2,15 @@
 
 Cataloga is an open source, schema-driven infrastructure catalog for teams that need clear visibility of Resources, Relations, and operational change status.
 
-[![Deploy to Cloudflare](https://deploy.workers.cloudflare.com/button)](https://deploy.workers.cloudflare.com/?url=https://github.com/viasnake/cataloga-cloudflare-template)
-
 ## Recommended deployment
 
 Cataloga is designed to run well on Cloudflare Workers, D1, and R2.
 
-Use the Deploy to Cloudflare button above to create your own instance.
+Use this repository as the single source for Cloudflare deployment.
+
+1. Fork `https://github.com/viasnake/cataloga`
+2. Configure Cloudflare credentials for your fork
+3. Deploy with Wrangler or GitHub Actions from your fork
 
 ## Deployment targets
 
@@ -18,7 +20,7 @@ Use the Deploy to Cloudflare button above to create your own instance.
 | Local standalone + SQLite | Supported | Development and private local use |
 | Docker | Optional | Self-hosted environments that do not use Cloudflare |
 
-The Deploy Button uses the generated `cataloga-cloudflare-template` repository because the main Cataloga repository is a Rust workspace monorepo.
+The project is now operated as a single repository without a separate deploy template repository.
 
 ## Why Cataloga
 
@@ -52,16 +54,18 @@ Canonical runtime storage is database-backed (SQLite/D1). YAML is used for Impor
 
 ## Get started
 
-- Deploy your own instance with the Deploy Button above.
+- Deploy your own instance from this repository (see `docs/deploy/cloudflare.md`).
 - For local development and contribution, see [CONTRIBUTING.md](./CONTRIBUTING.md).
 
-## Maintainers: template sync
+## Cloudflare operation policy
 
-The Deploy Button template repository is updated from this repository.
+- `viasnake/cataloga` is the only deployment source repository.
+- Deployment uses fork + Wrangler/GitHub Actions workflow from this repository.
 
-- Prepare generated template locally: `mise run cloudflare-template-prepare`
-- Validate generated template locally: `mise run cloudflare-template-check`
-- Sync by release tag (`v*.*.*`) or manual run of `.github/workflows/sync-cloudflare-template.yml`
+## Future scope
+
+Planned areas such as login/auth expansion or managed offering are intentionally out of current scope.
+Current operation only covers self-hosted deployment via user forks of this repository.
 
 ## Contributing
 
