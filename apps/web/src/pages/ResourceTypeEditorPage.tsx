@@ -123,7 +123,10 @@ export function ResourceTypeEditorPage({ mode }: { mode: "create" | "edit" }) {
     const references = target
       ? value.references.filter((ref) => ref.field !== target)
       : value.references;
-    setValue({ ...value, fields, references });
+    const required_fields = target
+      ? value.required_fields.filter((name) => name !== target)
+      : value.required_fields;
+    setValue({ ...value, fields, references, required_fields });
   };
 
   const setFieldName = (idx: number, name: string) => {
@@ -143,7 +146,13 @@ export function ResourceTypeEditorPage({ mode }: { mode: "create" | "edit" }) {
               ref.field === oldName ? { ...ref, field: name } : ref,
             )
           : prev.references;
-      return { ...prev, fields, references };
+      const required_fields =
+        oldName && oldName !== name
+          ? prev.required_fields.map((required) =>
+              required === oldName ? name : required,
+            )
+          : prev.required_fields;
+      return { ...prev, fields, references, required_fields };
     });
   };
 
@@ -167,10 +176,22 @@ export function ResourceTypeEditorPage({ mode }: { mode: "create" | "edit" }) {
   const save = async () => {
     try {
       setError(null);
+      const fields = value.fields
+        .filter((field) => field.name.trim())
+        .map((field) => ({
+          ...field,
+          enum_values:
+            field.type === "enum"
+              ? (field.enum_values ?? []).map((v) => v.trim()).filter(Boolean)
+              : (field.enum_values ?? []),
+        }));
+      const fieldNames = new Set(fields.map((field) => field.name));
       const payload: ResourceType = {
         ...value,
-        fields: value.fields.filter((field) => field.name.trim()),
-        required_fields: value.required_fields.filter(Boolean),
+        fields,
+        required_fields: value.required_fields.filter(
+          (name) => Boolean(name) && fieldNames.has(name),
+        ),
         list_columns: normalizeListColumns(value.list_columns).map(
           (col) => col.path,
         ),
@@ -279,7 +300,6 @@ export function ResourceTypeEditorPage({ mode }: { mode: "create" | "edit" }) {
                   <TextInput
                     value={field.name}
                     onChange={(e) => setFieldName(idx, e.target.value)}
-                    placeholder={t("primary_ip")}
                   />
                 </label>
                 <label className="text-sm text-gray-700">
@@ -289,7 +309,6 @@ export function ResourceTypeEditorPage({ mode }: { mode: "create" | "edit" }) {
                     onChange={(e) =>
                       upsertField(idx, { ...field, label: e.target.value })
                     }
-                    placeholder={t("Primary IP")}
                   />
                 </label>
                 <label className="text-sm text-gray-700">
@@ -343,7 +362,7 @@ export function ResourceTypeEditorPage({ mode }: { mode: "create" | "edit" }) {
                             enumValues[enumIndex] = e.target.value;
                             upsertField(idx, {
                               ...field,
-                              enum_values: enumValues.filter(Boolean),
+                              enum_values: enumValues,
                             });
                           }}
                         />
