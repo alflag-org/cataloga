@@ -31,8 +31,12 @@
 @layer components {
   .graph-panel {
     background-image:
-      radial-gradient(circle at 50% 45%, rgb(30 41 59 / 0.72), transparent 62%),
-      radial-gradient(rgb(148 163 184 / 0.24) 1px, transparent 1px),
+      radial-gradient(
+        circle at 50% 45%,
+        rgb(255 255 255 / 0.92),
+        transparent 62%
+      ),
+      radial-gradient(rgb(148 163 184 / 0.16) 1px, transparent 1px),
       linear-gradient(rgb(148 163 184 / 0.08) 1px, transparent 1px),
       linear-gradient(90deg, rgb(148 163 184 / 0.08) 1px, transparent 1px);
     background-position:

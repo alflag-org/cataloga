@@ -387,7 +387,7 @@ export function ResourceGraph({
     panelClassName: string,
   ) => (
     <div ref={containerRef} className={panelClassName}>
-      <div className="pointer-events-none absolute left-4 top-4 z-10 rounded-full border border-white/10 bg-slate-950/70 px-3 py-1 text-xs font-medium text-slate-200 shadow-lg backdrop-blur">
+      <div className="pointer-events-none absolute left-4 top-4 z-10 rounded-full border border-gray-200 bg-white/90 px-3 py-1 text-xs font-medium text-gray-700 shadow-lg backdrop-blur">
         {filteredGraph.nodes.length} nodes · {filteredGraph.edges.length} links
       </div>
 
@@ -395,7 +395,7 @@ export function ResourceGraph({
         <div className="absolute right-3 top-3 z-20">
           <button
             type="button"
-            className="rounded-lg border border-white/20 bg-slate-950/80 px-3 py-1.5 text-xs font-medium text-slate-100 shadow-md hover:bg-slate-900"
+            className="rounded-lg border border-gray-200 bg-white/95 px-3 py-1.5 text-xs font-medium text-gray-700 shadow-md hover:bg-gray-50"
             onClick={() => setIsExpanded(true)}
           >
             {t("Expand")}
@@ -407,7 +407,7 @@ export function ResourceGraph({
         <div className="absolute right-3 top-3 z-20">
           <button
             type="button"
-            className="rounded-lg border border-white/20 bg-slate-950/80 px-3 py-1.5 text-xs font-medium text-slate-100 shadow-md hover:bg-slate-900"
+            className="rounded-lg border border-gray-200 bg-white/95 px-3 py-1.5 text-xs font-medium text-gray-700 shadow-md hover:bg-gray-50"
             onClick={() => setIsExpanded(false)}
           >
             {t("Close")}
@@ -415,11 +415,11 @@ export function ResourceGraph({
         </div>
       ) : null}
 
-      <div className="absolute bottom-3 right-3 z-20 flex flex-col overflow-hidden rounded-xl border border-white/10 bg-slate-950/80 shadow-lg backdrop-blur">
+      <div className="absolute bottom-3 right-3 z-20 flex flex-col overflow-hidden rounded-xl border border-gray-200 bg-white/95 shadow-lg backdrop-blur">
         <button
           type="button"
           onClick={() => zoomFromCenter(ZOOM_STEP)}
-          className="border-b border-white/10 px-3 py-2 text-sm font-semibold text-white hover:bg-slate-900"
+          className="border-b border-gray-200 px-3 py-2 text-sm font-semibold text-gray-700 hover:bg-gray-50"
           aria-label={t("Zoom in")}
         >
           +
@@ -427,7 +427,7 @@ export function ResourceGraph({
         <button
           type="button"
           onClick={() => zoomFromCenter(1 / ZOOM_STEP)}
-          className="border-b border-white/10 px-3 py-2 text-sm font-semibold text-white hover:bg-slate-900"
+          className="border-b border-gray-200 px-3 py-2 text-sm font-semibold text-gray-700 hover:bg-gray-50"
           aria-label={t("Zoom out")}
         >
           −
@@ -435,19 +435,19 @@ export function ResourceGraph({
         <button
           type="button"
           onClick={fitGraph}
-          className="border-b border-white/10 px-3 py-2 text-xs font-medium text-white hover:bg-slate-900"
+          className="border-b border-gray-200 px-3 py-2 text-xs font-medium text-gray-700 hover:bg-gray-50"
         >
           {t("Fit")}
         </button>
         {mode === "greedy" ? (
-          <div className="px-3 py-1.5 text-center text-[11px] font-medium text-slate-300">
+          <div className="px-3 py-1.5 text-center text-[11px] font-medium text-gray-500">
             {zoomPercent}%
           </div>
         ) : null}
       </div>
 
       {showWheelHint && mode === "cooperative" ? (
-        <div className="pointer-events-none absolute left-1/2 top-6 z-20 -translate-x-1/2 rounded-full border border-white/20 bg-slate-950/85 px-3 py-1 text-xs text-slate-200 shadow-lg">
+        <div className="pointer-events-none absolute left-1/2 top-6 z-20 -translate-x-1/2 rounded-full border border-gray-200 bg-white/95 px-3 py-1 text-xs text-gray-600 shadow-lg">
           {t("Ctrl + scroll to zoom")}
         </div>
       ) : null}
@@ -580,8 +580,8 @@ export function ResourceGraph({
                       x={radius + 7}
                       y={-radius - 4}
                       fontSize={11}
-                      fill="#e2e8f0"
-                      stroke="#020617"
+                      fill="#334155"
+                      stroke="#f8fafc"
                       strokeWidth={3}
                       paintOrder="stroke"
                     >
@@ -617,7 +617,7 @@ export function ResourceGraph({
             isExpanded ? "greedy" : "cooperative",
             !isExpanded,
             false,
-            "graph-panel relative h-[360px] overflow-hidden rounded-2xl border border-slate-200 bg-slate-950 shadow-sm md:h-[420px]",
+            "graph-panel relative h-[360px] overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-sm md:h-[420px]",
           )}
           <GraphDetailsPanel
             selectedNode={selectedNode}
@@ -627,16 +627,16 @@ export function ResourceGraph({
       </div>
 
       {isExpanded ? (
-        <div className="fixed inset-0 z-50 bg-slate-950/80 p-3 md:p-6">
-          <div className="flex h-full flex-col rounded-2xl border border-slate-700 bg-slate-900 p-3 shadow-2xl md:p-4">
+        <div className="fixed inset-0 z-50 bg-gray-800/35 p-3 md:p-6">
+          <div className="flex h-full flex-col rounded-2xl border border-gray-200 bg-gray-50 p-3 shadow-2xl md:p-4">
             <div className="mb-3 flex items-center justify-between gap-2">
-              <h2 className="text-sm font-semibold text-slate-100">
+              <h2 className="text-sm font-semibold text-gray-900">
                 {t("Graph")}
               </h2>
               <button
                 type="button"
                 onClick={() => setIsExpanded(false)}
-                className="rounded-lg border border-slate-600 px-3 py-1.5 text-xs font-medium text-slate-100 hover:bg-slate-800"
+                className="rounded-lg border border-gray-300 bg-white px-3 py-1.5 text-xs font-medium text-gray-700 hover:bg-gray-50"
               >
                 {t("Close")}
               </button>
@@ -660,7 +660,7 @@ export function ResourceGraph({
                   "greedy",
                   false,
                   true,
-                  "graph-panel relative h-full min-h-[640px] overflow-hidden rounded-2xl border border-slate-700 bg-slate-950 shadow-sm",
+                  "graph-panel relative h-full min-h-[640px] overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-sm",
                 )}
               </div>
               <div className="min-h-0 overflow-auto">
