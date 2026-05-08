@@ -441,7 +441,7 @@ export function ResourceGraph({
             refX="7"
             refY="4"
             orient="auto"
-            markerUnits="strokeWidth"
+            markerUnits="userSpaceOnUse"
           >
             <path d="M 0 0 L 8 4 L 0 8 z" fill="#94a3b8" opacity="0.55" />
           </marker>
@@ -452,7 +452,7 @@ export function ResourceGraph({
             refX="7"
             refY="4"
             orient="auto"
-            markerUnits="strokeWidth"
+            markerUnits="userSpaceOnUse"
           >
             <path d="M 0 0 L 8 4 L 0 8 z" fill="#38bdf8" opacity="0.95" />
           </marker>
