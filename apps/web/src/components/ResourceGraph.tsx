@@ -89,9 +89,6 @@ export function ResourceGraph({
     y: 0,
     scale: 1,
   });
-  const [showWheelHint, setShowWheelHint] = useState(false);
-
-  const wheelHintTimerRef = useRef<number | null>(null);
   const dragState = useRef<{
     pointerId: number;
     startX: number;
@@ -252,15 +249,6 @@ export function ResourceGraph({
     return () => window.removeEventListener("keydown", onKeyDown);
   }, [isExpanded]);
 
-  useEffect(
-    () => () => {
-      if (wheelHintTimerRef.current != null) {
-        window.clearTimeout(wheelHintTimerRef.current);
-      }
-    },
-    [],
-  );
-
   const positionMap = useMemo(
     () => new Map(filteredGraph.nodes.map((node) => [node.key, node])),
     [filteredGraph.nodes],
@@ -302,25 +290,6 @@ export function ResourceGraph({
   };
 
   const onWheel = (event: React.WheelEvent<SVGSVGElement>) => {
-    const shouldZoom =
-      interactionMode === "greedy" ||
-      event.ctrlKey ||
-      event.metaKey ||
-      event.altKey;
-
-    if (!shouldZoom) {
-      if (interactionMode === "cooperative") {
-        setShowWheelHint(true);
-        if (wheelHintTimerRef.current != null) {
-          window.clearTimeout(wheelHintTimerRef.current);
-        }
-        wheelHintTimerRef.current = window.setTimeout(() => {
-          setShowWheelHint(false);
-        }, 1400);
-      }
-      return;
-    }
-
     event.preventDefault();
 
     const rect = event.currentTarget.getBoundingClientRect();
@@ -445,12 +414,6 @@ export function ResourceGraph({
           </div>
         ) : null}
       </div>
-
-      {showWheelHint && mode === "cooperative" ? (
-        <div className="pointer-events-none absolute left-1/2 top-6 z-20 -translate-x-1/2 rounded-full border border-gray-200 bg-white/95 px-3 py-1 text-xs text-gray-600 shadow-lg">
-          {t("Ctrl + scroll to zoom")}
-        </div>
-      ) : null}
 
       <svg
         width={canvasSize.width}
