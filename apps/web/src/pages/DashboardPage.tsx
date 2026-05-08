@@ -113,17 +113,7 @@ export function DashboardPage() {
       <PageHeader title={t("Dashboard")} />
       <ErrorBanner message={error} />
 
-      <DataCard
-        title={t("Graph")}
-        actions={
-          <Link
-            to="/graph"
-            className="text-sm font-medium text-blue-700 hover:text-blue-800"
-          >
-            {t("Open graph")}
-          </Link>
-        }
-      >
+      <DataCard title={t("Graph")}>
         <ResourceGraph compact types={types} resourcesByType={resourceByType} />
       </DataCard>
 

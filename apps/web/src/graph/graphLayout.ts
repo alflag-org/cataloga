@@ -251,10 +251,18 @@ export function fitViewportToGraph(
 ): GraphViewport {
   if (!graph.nodes.length) return { x: 0, y: 0, scale: 1 };
 
-  const minX = Math.min(...graph.nodes.map((n) => n.x));
-  const maxX = Math.max(...graph.nodes.map((n) => n.x));
-  const minY = Math.min(...graph.nodes.map((n) => n.y));
-  const maxY = Math.max(...graph.nodes.map((n) => n.y));
+  const minX = Math.min(
+    ...graph.nodes.map((n) => n.x - computeNodeRadius(n) - 120),
+  );
+  const maxX = Math.max(
+    ...graph.nodes.map((n) => n.x + computeNodeRadius(n) + 220),
+  );
+  const minY = Math.min(
+    ...graph.nodes.map((n) => n.y - computeNodeRadius(n) - 80),
+  );
+  const maxY = Math.max(
+    ...graph.nodes.map((n) => n.y + computeNodeRadius(n) + 80),
+  );
 
   const graphWidth = Math.max(1, maxX - minX);
   const graphHeight = Math.max(1, maxY - minY);
