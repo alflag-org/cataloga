@@ -11,6 +11,7 @@ import { Layout } from "./components/Layout";
 import { DashboardPage } from "./pages/DashboardPage";
 import { ExportPage } from "./pages/ExportPage";
 import { FieldTypesGuidePage } from "./pages/FieldTypesGuidePage";
+import { GraphPage } from "./pages/GraphPage";
 import { ImportPage } from "./pages/ImportPage";
 import { ResourceCreatePage } from "./pages/ResourceCreatePage";
 import { ResourceDetailPage } from "./pages/ResourceDetailPage";
@@ -32,7 +33,7 @@ function App() {
           <Route path="/" element={<DashboardPage />} />
 
           <Route path="/resources" element={<ResourcesIndexPage />} />
-          <Route path="/graph" element={<Navigate to="/" replace />} />
+          <Route path="/graph" element={<GraphPage />} />
           <Route path="/resources/:type" element={<ResourceListPage />} />
           <Route path="/resources/:type/new" element={<ResourceCreatePage />} />
           <Route path="/resources/:type/:id" element={<ResourceDetailPage />} />

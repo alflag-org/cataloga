@@ -17,6 +17,7 @@ type Props = {
   types: ResourceType[];
   resourcesByType: Record<string, Resource[]>;
   compact?: boolean;
+  expanded?: boolean;
 };
 
 const ZOOM_STEP = 1.12;
@@ -51,6 +52,7 @@ export function ResourceGraph({
   types,
   resourcesByType,
   compact = false,
+  expanded = false,
 }: Props) {
   const { t } = useI18n();
   const containerRef = useRef<HTMLDivElement | null>(null);
@@ -62,7 +64,10 @@ export function ResourceGraph({
   const [selectedKey, setSelectedKey] = useState<string | null>(null);
   const [hoveredKey, setHoveredKey] = useState<string | null>(null);
   const [dragging, setDragging] = useState(false);
-  const [size, setSize] = useState({ width: 920, height: compact ? 360 : 420 });
+  const [size, setSize] = useState({
+    width: 920,
+    height: expanded ? 680 : compact ? 360 : 420,
+  });
   const [viewport, setViewport] = useState<GraphViewport>({
     x: 0,
     y: 0,
@@ -143,12 +148,15 @@ export function ResourceGraph({
       if (!rect) return;
       setSize({
         width: Math.max(360, Math.floor(rect.width)),
-        height: Math.max(compact ? 360 : 420, Math.floor(rect.height)),
+        height: Math.max(
+          expanded ? 640 : compact ? 360 : 420,
+          Math.floor(rect.height),
+        ),
       });
     });
     observer.observe(containerRef.current);
     return () => observer.disconnect();
-  }, [compact]);
+  }, [compact, expanded]);
 
   useEffect(() => {
     setViewport(fitViewportToGraph(filteredGraph, size.width, size.height));
@@ -248,6 +256,13 @@ export function ResourceGraph({
     );
   }
 
+  const graphPanelHeightClass = expanded
+    ? "h-[calc(100vh-15rem)] min-h-[640px]"
+    : "h-[360px] md:h-[420px]";
+  const graphGridClass = expanded
+    ? "grid gap-3 xl:grid-cols-[1fr_360px]"
+    : "grid gap-3 lg:grid-cols-[1fr_320px]";
+
   return (
     <div className="space-y-3">
       <GraphControls
@@ -269,10 +284,10 @@ export function ResourceGraph({
         }
       />
 
-      <div className="grid gap-3 lg:grid-cols-[1fr_320px]">
+      <div className={graphGridClass}>
         <div
           ref={containerRef}
-          className="graph-panel relative h-[360px] overflow-hidden rounded-2xl border border-slate-200 bg-slate-950 shadow-sm md:h-[420px]"
+          className={`graph-panel relative overflow-hidden rounded-2xl border border-slate-200 bg-slate-950 shadow-sm ${graphPanelHeightClass}`}
         >
           <div className="pointer-events-none absolute left-4 top-4 z-10 rounded-full border border-white/10 bg-slate-950/70 px-3 py-1 text-xs font-medium text-slate-200 shadow-lg backdrop-blur">
             {filteredGraph.nodes.length} nodes · {filteredGraph.edges.length}{" "}
