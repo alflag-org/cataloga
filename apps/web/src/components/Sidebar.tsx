@@ -40,7 +40,7 @@ export function Sidebar() {
           </NavLink>
         ))}
 
-        <div className="px-3 pt-4 text-xs font-semibold uppercase tracking-wide text-gray-500">
+        <div className="mt-4 rounded-lg border border-sky-200 bg-sky-50 px-3 py-2 text-xs font-semibold uppercase tracking-wide text-sky-800">
           {t("Administration")}
         </div>
         {administrationItems.map((item) => (

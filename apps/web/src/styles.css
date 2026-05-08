@@ -20,6 +20,14 @@
 
   body {
     @apply bg-gray-50 text-gray-800 dark:bg-neutral-950 dark:text-neutral-200;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    text-rendering: optimizeLegibility;
+  }
+
+  :lang(ja) .ja-text-smoothing {
+    transform: rotate(0.03deg);
+    transform-origin: top left;
   }
 
   button:not(:disabled),

@@ -17,7 +17,7 @@ import {
   fitViewportToGraph,
   type GraphViewport,
 } from "../graph/graphLayout";
-import { pickGroupColor } from "../graph/graphColors";
+import { pickTypeColor } from "../graph/graphColors";
 import { useI18n } from "../i18n";
 
 type Props = {
@@ -45,16 +45,27 @@ function neighborSets(edges: Array<{ source: string; target: string }>) {
 function edgePath(
   source: { x: number; y: number },
   target: { x: number; y: number },
+  sourceRadius: number,
+  targetRadius: number,
 ): string {
-  const dx = target.x - source.x;
-  const dy = target.y - source.y;
+  const rawDx = target.x - source.x;
+  const rawDy = target.y - source.y;
+  const rawDistance = Math.hypot(rawDx, rawDy) || 1;
+  const unitX = rawDx / rawDistance;
+  const unitY = rawDy / rawDistance;
+  const startX = source.x + unitX * (sourceRadius + 2);
+  const startY = source.y + unitY * (sourceRadius + 2);
+  const endX = target.x - unitX * (targetRadius + 12);
+  const endY = target.y - unitY * (targetRadius + 12);
+  const dx = endX - startX;
+  const dy = endY - startY;
   const distance = Math.hypot(dx, dy) || 1;
   const curve = Math.min(48, Math.max(14, distance * 0.14));
   const normalX = (-dy / distance) * curve;
   const normalY = (dx / distance) * curve;
-  const midX = (source.x + target.x) / 2 + normalX;
-  const midY = (source.y + target.y) / 2 + normalY;
-  return `M ${source.x} ${source.y} Q ${midX} ${midY} ${target.x} ${target.y}`;
+  const midX = (startX + endX) / 2 + normalX;
+  const midY = (startY + endY) / 2 + normalY;
+  return `M ${startX} ${startY} Q ${midX} ${midY} ${endX} ${endY}`;
 }
 
 export function ResourceGraph({
@@ -436,9 +447,9 @@ export function ResourceGraph({
           </radialGradient>
           <marker
             id="graph-edge-arrow"
-            markerWidth="8"
-            markerHeight="8"
-            refX="7"
+            markerWidth="10"
+            markerHeight="10"
+            refX="8"
             refY="4"
             orient="auto"
             markerUnits="userSpaceOnUse"
@@ -447,9 +458,9 @@ export function ResourceGraph({
           </marker>
           <marker
             id="graph-edge-arrow-active"
-            markerWidth="8"
-            markerHeight="8"
-            refX="7"
+            markerWidth="10"
+            markerHeight="10"
+            refX="8"
             refY="4"
             orient="auto"
             markerUnits="userSpaceOnUse"
@@ -469,10 +480,12 @@ export function ResourceGraph({
                 ? edge.source === activeKey || edge.target === activeKey
                 : false;
               const dimmed = Boolean(activeSet) && !active;
+              const sourceRadius = computeNodeRadius(source);
+              const targetRadius = computeNodeRadius(target);
               return (
                 <path
                   key={`${edge.source}-${edge.target}-${edge.field}-${index}`}
-                  d={edgePath(source, target)}
+                  d={edgePath(source, target, sourceRadius, targetRadius)}
                   fill="none"
                   stroke={active ? "#38bdf8" : "#94a3b8"}
                   strokeOpacity={active ? 0.9 : dimmed ? 0.08 : 0.28}
@@ -529,7 +542,7 @@ export function ResourceGraph({
                   ) : null}
                   <circle
                     r={radius}
-                    fill={pickGroupColor(node.group)}
+                    fill={pickTypeColor(node.typeId)}
                     stroke={isSelected ? "#f8fafc" : "#0f172a"}
                     strokeWidth={isSelected ? 2.4 : 1.4}
                   />
