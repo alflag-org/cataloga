@@ -21,7 +21,10 @@ export function GraphPage() {
         const rt = await api.listResourceTypes();
         setTypes(rt);
         const resources = await Promise.all(
-          rt.map(async (type) => [type.id, await api.listResources(type.id)] as const),
+          rt.map(
+            async (type) =>
+              [type.id, await api.listResources(type.id)] as const,
+          ),
         );
         setResourceByType(Object.fromEntries(resources));
       } catch (e) {
