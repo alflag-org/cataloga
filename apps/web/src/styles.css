@@ -25,9 +25,8 @@
     text-rendering: optimizeLegibility;
   }
 
-  :lang(ja) .ja-text-smoothing {
-    transform: rotate(0.03deg);
-    transform-origin: top left;
+  :lang(ja) body * {
+    transform: rotate(0.04deg);
   }
 
   button:not(:disabled),

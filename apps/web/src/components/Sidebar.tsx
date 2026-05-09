@@ -40,8 +40,13 @@ export function Sidebar() {
           </NavLink>
         ))}
 
-        <div className="mt-4 rounded-lg border border-sky-200 bg-sky-50 px-3 py-2 text-xs font-semibold uppercase tracking-wide text-sky-800">
-          {t("Administration")}
+        <div className="mt-5 px-1">
+          <div className="flex items-center gap-2">
+            <span className="text-[11px] font-semibold uppercase tracking-[0.14em] text-gray-500">
+              {t("Administration")}
+            </span>
+            <span className="h-px flex-1 bg-gray-200" aria-hidden />
+          </div>
         </div>
         {administrationItems.map((item) => (
           <NavLink
