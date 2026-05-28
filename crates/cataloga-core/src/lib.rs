@@ -311,6 +311,18 @@ pub fn validate_resource_type_with_known_types(
     Ok(())
 }
 
+pub fn is_active_reference(rt: &ResourceType, reference: &ReferenceDef) -> bool {
+    rt.fields
+        .iter()
+        .find(|field| field.name == reference.field)
+        .is_some_and(|field| {
+            matches!(
+                (&field.field_type, reference.multiple),
+                (FieldType::Reference, false) | (FieldType::ReferenceArray, true)
+            )
+        })
+}
+
 pub fn validate_resources(
     types: &[ResourceType],
     resources: &[Resource],
@@ -446,7 +458,11 @@ pub fn validate_resources_detailed(
             }
         }
 
-        for reference in &rt.references {
+        for reference in rt
+            .references
+            .iter()
+            .filter(|reference| is_active_reference(rt, reference))
+        {
             let Some(value) = r.spec.get(&reference.field) else {
                 continue;
             };
@@ -1073,6 +1089,40 @@ resources:
             i.message
                 .contains("must reference ip_address but references device")
         }));
+    }
+
+    #[test]
+    fn reference_validation_ignores_stale_reference_definition_for_non_reference_field() {
+        let resource_type = ResourceType {
+            id: "ip_reservation".into(),
+            title: "IP Reservation".into(),
+            group: String::new(),
+            description: String::new(),
+            fields: vec![FieldDef {
+                name: "zone".into(),
+                label: "Zone".into(),
+                field_type: FieldType::String,
+                enum_values: vec![],
+            }],
+            required_fields: vec![],
+            list_columns: vec![],
+            form_layout: vec![],
+            detail_sections: vec![],
+            references: vec![ReferenceDef {
+                field: "zone".into(),
+                target_type: "zone".into(),
+                multiple: false,
+            }],
+            validation_rules: vec![],
+        };
+        let mut resource = sample_resource();
+        resource.resource_type = "ip_reservation".into();
+        resource.spec.clear();
+        resource.spec.insert("zone".into(), json!("client"));
+
+        let issues = validate_resources_detailed(&[resource_type], &[resource]);
+
+        assert!(issues.is_empty());
     }
 
     #[test]

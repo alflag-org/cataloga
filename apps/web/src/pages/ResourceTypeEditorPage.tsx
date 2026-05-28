@@ -186,6 +186,14 @@ export function ResourceTypeEditorPage({ mode }: { mode: "create" | "edit" }) {
               : (field.enum_values ?? []),
         }));
       const fieldNames = new Set(fields.map((field) => field.name));
+      const referenceFields = new Map(
+        fields
+          .filter(
+            (field) =>
+              field.type === "reference" || field.type === "reference_array",
+          )
+          .map((field) => [field.name, field.type]),
+      );
       const payload: ResourceType = {
         ...value,
         fields,
@@ -195,9 +203,15 @@ export function ResourceTypeEditorPage({ mode }: { mode: "create" | "edit" }) {
         list_columns: normalizeListColumns(value.list_columns).map(
           (col) => col.path,
         ),
-        references: value.references.filter(
-          (ref) => ref.field && ref.target_type,
-        ),
+        references: value.references.filter((ref) => {
+          const fieldType = referenceFields.get(ref.field);
+          return (
+            Boolean(ref.field) &&
+            Boolean(ref.target_type) &&
+            ((fieldType === "reference" && !ref.multiple) ||
+              (fieldType === "reference_array" && ref.multiple))
+          );
+        }),
         form_layout: parseJsonArray(
           advanced.form_layout,
         ) as ResourceType["form_layout"],

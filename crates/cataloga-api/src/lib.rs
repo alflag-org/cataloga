@@ -1,5 +1,5 @@
 use cataloga_core::{
-    Resource, ResourceType, ResourceValidationIssue, export_yaml, import_yaml,
+    Resource, ResourceType, ResourceValidationIssue, export_yaml, import_yaml, is_active_reference,
     validate_resource_type_with_known_types, validate_resources_detailed,
 };
 use cataloga_store::CatalogStore;
@@ -305,7 +305,11 @@ impl<S: CatalogStore> ApiService<S> {
             let resources = by_type.get(&rt.id).map_or(&[][..], Vec::as_slice);
             for resource in resources {
                 let is_current = resource.resource_type == type_id && resource.id == resource_id;
-                for reference in &rt.references {
+                for reference in rt
+                    .references
+                    .iter()
+                    .filter(|reference| is_active_reference(rt, reference))
+                {
                     let Some(value) = resource.spec.get(&reference.field) else {
                         continue;
                     };
@@ -680,7 +684,12 @@ mod tests {
                     title: "VM".into(),
                     group: String::new(),
                     description: String::new(),
-                    fields: vec![],
+                    fields: vec![FieldDef {
+                        name: "primary_ip".into(),
+                        label: "Primary IP".into(),
+                        field_type: FieldType::Reference,
+                        enum_values: vec![],
+                    }],
                     required_fields: vec![],
                     list_columns: vec![],
                     form_layout: vec![],
@@ -1113,6 +1122,51 @@ resources:
                 "10.10.10.242 updated",
                 spec,
             ),
+        )
+        .await
+        .unwrap();
+    }
+
+    #[tokio::test]
+    async fn create_or_update_resource_ignores_stale_reference_definition_for_non_reference_field()
+    {
+        let store = MemoryStore::default();
+        let api = ApiService::new(store.clone());
+        store
+            .upsert_resource_type(
+                "default",
+                ResourceType {
+                    id: "ip_reservation".into(),
+                    title: "IP Reservation".into(),
+                    group: String::new(),
+                    description: String::new(),
+                    fields: vec![FieldDef {
+                        name: "zone".into(),
+                        label: "Zone".into(),
+                        field_type: FieldType::String,
+                        enum_values: vec![],
+                    }],
+                    required_fields: vec![],
+                    list_columns: vec![],
+                    form_layout: vec![],
+                    detail_sections: vec![],
+                    references: vec![ReferenceDef {
+                        field: "zone".into(),
+                        target_type: "zone".into(),
+                        multiple: false,
+                    }],
+                    validation_rules: vec![],
+                },
+            )
+            .await
+            .unwrap();
+
+        let mut spec = serde_json::Map::new();
+        spec.insert("zone".into(), json!("client"));
+
+        api.create_or_update_resource(
+            "default",
+            resource("ip_reservation", "ip-10.10.10.242", "10.10.10.242", spec),
         )
         .await
         .unwrap();
