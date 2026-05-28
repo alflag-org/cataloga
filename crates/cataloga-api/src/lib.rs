@@ -1,10 +1,10 @@
 use cataloga_core::{
-    Resource, ResourceType, export_yaml, import_yaml, validate_resource_type_with_known_types,
-    validate_resources, validate_resources_detailed,
+    Resource, ResourceType, ResourceValidationIssue, export_yaml, import_yaml,
+    validate_resource_type_with_known_types, validate_resources_detailed,
 };
 use cataloga_store::CatalogStore;
 use serde::Serialize;
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 use thiserror::Error;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
@@ -149,6 +149,21 @@ pub struct ResourceReferences {
     pub incoming: Vec<ResourceRef>,
 }
 
+type IssueKey = (String, String, String, String);
+
+fn issue_key(issue: &ResourceValidationIssue) -> IssueKey {
+    (
+        issue.resource_type.clone(),
+        issue.resource_id.clone(),
+        issue.field.clone(),
+        issue.message.clone(),
+    )
+}
+
+fn issue_keys(issues: &[ResourceValidationIssue]) -> HashSet<IssueKey> {
+    issues.iter().map(issue_key).collect()
+}
+
 pub struct ApiService<S: CatalogStore> {
     store: S,
 }
@@ -223,6 +238,7 @@ impl<S: CatalogStore> ApiService<S> {
     ) -> anyhow::Result<()> {
         let types = self.store.list_resource_types(catalog_id).await?;
         let mut all_resources = self.load_all_resources(catalog_id, &types).await?;
+        let existing_issues = issue_keys(&validate_resources_detailed(&types, &all_resources));
         if let Some(existing_idx) = all_resources
             .iter()
             .position(|r| r.resource_type == resource.resource_type && r.id == resource.id)
@@ -237,8 +253,12 @@ impl<S: CatalogStore> ApiService<S> {
         }) {
             return Err(ApiError::Validation(issue.message.clone()).into());
         }
-        validate_resources(&types, &all_resources)
-            .map_err(|e| ApiError::Validation(e.to_string()))?;
+        if let Some(issue) = issues
+            .iter()
+            .find(|issue| !existing_issues.contains(&issue_key(issue)))
+        {
+            return Err(ApiError::Validation(issue.message.clone()).into());
+        }
         self.store.upsert_resource(catalog_id, resource).await
     }
 
@@ -538,7 +558,7 @@ fn merge_resources(existing: Vec<Resource>, imported: &[Resource]) -> Vec<Resour
 mod tests {
     use super::*;
     use async_trait::async_trait;
-    use cataloga_core::{FieldDef, FieldType, ReferenceDef};
+    use cataloga_core::{FieldDef, FieldType, ReferenceDef, ValidationRule, ValidationRuleType};
     use serde_json::json;
     use std::sync::{Arc, Mutex};
 
@@ -1006,6 +1026,165 @@ resources:
         let api_err = err.downcast_ref::<ApiError>().expect("api error");
         match api_err {
             ApiError::Validation(msg) => assert!(msg.contains("references missing site: UNKNOWN")),
+            other => panic!("unexpected error: {other:?}"),
+        }
+    }
+
+    #[tokio::test]
+    async fn create_or_update_resource_allows_unrelated_existing_validation_errors() {
+        let store = MemoryStore::default();
+        let api = ApiService::new(store.clone());
+
+        for rt in [
+            ResourceType {
+                id: "zone".into(),
+                title: "Zone".into(),
+                group: String::new(),
+                description: String::new(),
+                fields: vec![],
+                required_fields: vec![],
+                list_columns: vec![],
+                form_layout: vec![],
+                detail_sections: vec![],
+                references: vec![],
+                validation_rules: vec![],
+            },
+            ResourceType {
+                id: "network".into(),
+                title: "Network".into(),
+                group: String::new(),
+                description: String::new(),
+                fields: vec![FieldDef {
+                    name: "zone".into(),
+                    label: "Zone".into(),
+                    field_type: FieldType::Reference,
+                    enum_values: vec![],
+                }],
+                required_fields: vec![],
+                list_columns: vec![],
+                form_layout: vec![],
+                detail_sections: vec![],
+                references: vec![ReferenceDef {
+                    field: "zone".into(),
+                    target_type: "zone".into(),
+                    multiple: false,
+                }],
+                validation_rules: vec![],
+            },
+            ResourceType {
+                id: "ip_reservation".into(),
+                title: "IP Reservation".into(),
+                group: String::new(),
+                description: String::new(),
+                fields: vec![FieldDef {
+                    name: "address".into(),
+                    label: "Address".into(),
+                    field_type: FieldType::Ip,
+                    enum_values: vec![],
+                }],
+                required_fields: vec![],
+                list_columns: vec![],
+                form_layout: vec![],
+                detail_sections: vec![],
+                references: vec![],
+                validation_rules: vec![],
+            },
+        ] {
+            store.upsert_resource_type("default", rt).await.unwrap();
+        }
+
+        let mut broken_spec = serde_json::Map::new();
+        broken_spec.insert("zone".into(), json!("missing-zone"));
+        store
+            .upsert_resource(
+                "default",
+                resource("network", "net1", "Network 1", broken_spec),
+            )
+            .await
+            .unwrap();
+
+        let mut spec = serde_json::Map::new();
+        spec.insert("address".into(), json!("10.10.10.242"));
+        api.create_or_update_resource(
+            "default",
+            resource(
+                "ip_reservation",
+                "ip-10.10.10.242",
+                "10.10.10.242 updated",
+                spec,
+            ),
+        )
+        .await
+        .unwrap();
+    }
+
+    #[tokio::test]
+    async fn create_or_update_resource_rejects_new_global_validation_errors() {
+        let store = MemoryStore::default();
+        let api = ApiService::new(store.clone());
+
+        store
+            .upsert_resource_type(
+                "default",
+                ResourceType {
+                    id: "device".into(),
+                    title: "Device".into(),
+                    group: String::new(),
+                    description: String::new(),
+                    fields: vec![FieldDef {
+                        name: "serial".into(),
+                        label: "Serial".into(),
+                        field_type: FieldType::String,
+                        enum_values: vec![],
+                    }],
+                    required_fields: vec![],
+                    list_columns: vec![],
+                    form_layout: vec![],
+                    detail_sections: vec![],
+                    references: vec![],
+                    validation_rules: vec![ValidationRule {
+                        rule_type: ValidationRuleType::Unique,
+                        field: "serial".into(),
+                        message: String::new(),
+                        pattern: String::new(),
+                        min: None,
+                        max: None,
+                        values: vec![],
+                        target_type: String::new(),
+                    }],
+                },
+            )
+            .await
+            .unwrap();
+
+        let mut first_spec = serde_json::Map::new();
+        first_spec.insert("serial".into(), json!("A"));
+        store
+            .upsert_resource("default", resource("device", "d1", "Device 1", first_spec))
+            .await
+            .unwrap();
+
+        let mut second_spec = serde_json::Map::new();
+        second_spec.insert("serial".into(), json!("B"));
+        store
+            .upsert_resource("default", resource("device", "d2", "Device 2", second_spec))
+            .await
+            .unwrap();
+
+        let mut duplicate_spec = serde_json::Map::new();
+        duplicate_spec.insert("serial".into(), json!("A"));
+        let err = api
+            .create_or_update_resource(
+                "default",
+                resource("device", "d2", "Device 2", duplicate_spec),
+            )
+            .await
+            .expect_err("expected validation error");
+        let api_err = err.downcast_ref::<ApiError>().expect("api error");
+        match api_err {
+            ApiError::Validation(msg) => {
+                assert!(msg.contains("duplicate value for unique field"))
+            }
             other => panic!("unexpected error: {other:?}"),
         }
     }

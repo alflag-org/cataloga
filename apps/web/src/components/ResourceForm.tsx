@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useState } from "react";
 import { api } from "../api/client";
 import type { Resource, ResourceType } from "../types";
 import { Button } from "./Button";
@@ -9,6 +9,7 @@ import type { ReferenceOption } from "./ReferencePicker";
 import { TextInput } from "./TextInput";
 import { TextareaInput } from "./TextareaInput";
 import { useI18n } from "../i18n";
+import { buildResourcePayload } from "../resourcePayload";
 
 type Props = {
   resourceType: ResourceType;
@@ -20,45 +21,6 @@ type Props = {
 
 function getReferenceForField(resourceType: ResourceType, fieldName: string) {
   return resourceType.references.find((r) => r.field === fieldName);
-}
-
-function parseFieldValue(type: string, raw: unknown): unknown {
-  if (raw == null) return raw;
-  if (type === "integer") {
-    const n = Number(raw);
-    return Number.isFinite(n) ? Math.trunc(n) : 0;
-  }
-  if (type === "number") {
-    const n = Number(raw);
-    return Number.isFinite(n) ? n : 0;
-  }
-  if (type === "boolean") return Boolean(raw);
-  if (type === "array") {
-    if (Array.isArray(raw)) return raw;
-    const s = String(raw).trim();
-    if (!s) return [];
-    return JSON.parse(s);
-  }
-  if (type === "json") {
-    if (typeof raw === "object") return raw;
-    const s = String(raw).trim();
-    if (!s) return {};
-    return JSON.parse(s);
-  }
-  if (type === "reference_array") {
-    if (Array.isArray(raw)) return raw.map(String);
-    const s = String(raw).trim();
-    if (!s) return [];
-    try {
-      return JSON.parse(s);
-    } catch {
-      return s
-        .split("\n")
-        .map((x) => x.trim())
-        .filter(Boolean);
-    }
-  }
-  return String(raw);
 }
 
 export function ResourceForm({
@@ -86,11 +48,6 @@ export function ResourceForm({
   const [referenceErrors, setReferenceErrors] = useState<
     Record<string, string>
   >({});
-  const required = useMemo(
-    () => new Set(resourceType.required_fields),
-    [resourceType.required_fields],
-  );
-
   useEffect(() => {
     let alive = true;
     (async () => {
@@ -173,23 +130,12 @@ export function ResourceForm({
   const submit = async () => {
     try {
       setError(null);
-      const next: Resource = {
-        ...form,
-        type: resourceType.id,
-        spec: { ...form.spec },
-        custom_fields: JSON.parse(customFieldsText || "{}"),
-        dependencies: JSON.parse(dependenciesText || "{}"),
-      };
-      for (const field of resourceType.fields) {
-        const raw = next.spec[field.name];
-        if (raw == null || raw === "") {
-          if (required.has(field.name))
-            throw new Error(`missing required field: ${field.name}`);
-          delete next.spec[field.name];
-          continue;
-        }
-        next.spec[field.name] = parseFieldValue(field.type, raw);
-      }
+      const next = buildResourcePayload(
+        resourceType,
+        form,
+        customFieldsText,
+        dependenciesText,
+      );
       await onSubmit(next);
     } catch (e) {
       setError(e instanceof Error ? e.message : String(e));
