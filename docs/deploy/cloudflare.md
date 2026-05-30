@@ -86,19 +86,21 @@ wrangler d1 migrations apply CATALOGA_DB --remote
 
 This repository includes deploy in `.github/workflows/ci.yml` (`deploy` job).
 
-- In `viasnake/cataloga`, push to `master` runs CI and then deploys the demo environment.
-- In forks, users can run `workflow_dispatch` on the CI workflow after setting their own secrets.
+- Pushes to `master` run CI checks only.
+- In forks, users can run `workflow_dispatch` on the CI workflow after updating their own `wrangler.toml` and setting Cloudflare credentials.
 
 Required repository secrets:
 
 - `CLOUDFLARE_API_TOKEN`
 - `CLOUDFLARE_ACCOUNT_ID`
-- `CATALOGA_D1_DATABASE_ID`
-- `CATALOGA_R2_BUCKET_NAME`
+
+D1 `database_id` and R2 `bucket_name` are Worker binding identifiers, not credentials.
+Keep them in `crates/cataloga-worker/wrangler.toml` for the deployment target instead of storing them as GitHub Secrets.
+The committed `database_id` is a placeholder and must be replaced before deployment.
 
 Fork setup:
 
 1. Create D1 and R2 first (steps 3 and 4 above).
-2. Add the four secrets in your fork repository settings.
-3. Push your `wrangler.toml` updates.
+2. Update `crates/cataloga-worker/wrangler.toml` with your Worker name, D1 database name, D1 database ID, and R2 bucket name.
+3. Add the two Cloudflare secrets in your fork repository settings.
 4. Run `CI` workflow manually from Actions (`workflow_dispatch`).
