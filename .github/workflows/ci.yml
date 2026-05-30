@@ -91,8 +91,7 @@ jobs:
       - rust
       - web
       - worker
-    if: (github.event_name == 'push' && github.ref == 'refs/heads/master') ||
-      github.event_name == 'workflow_dispatch'
+    if: github.event_name == 'workflow_dispatch'
     steps:
       - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
       - uses: jdx/mise-action@c37c93293d6b742fc901e1406b8f764f6fb19dac # v2.4.4
@@ -112,26 +111,6 @@ jobs:
         run: mise run build-web
       - name: Install worker-build
         run: cargo install worker-build
-      - name: Build Worker
-        run: mise run build-worker
-      - name: Inject deploy identifiers
-        env:
-          CATALOGA_D1_DATABASE_ID: ${{ secrets.CATALOGA_D1_DATABASE_ID }}
-          CATALOGA_R2_BUCKET_NAME: ${{ secrets.CATALOGA_R2_BUCKET_NAME }}
-        run: |
-          set -euo pipefail
-
-          if [ -z "${CATALOGA_D1_DATABASE_ID}" ]; then
-            echo "CATALOGA_D1_DATABASE_ID is required" >&2
-            exit 1
-          fi
-          if [ -z "${CATALOGA_R2_BUCKET_NAME}" ]; then
-            echo "CATALOGA_R2_BUCKET_NAME is required" >&2
-            exit 1
-          fi
-
-          perl -0pi -e 's/database_id = ".*?"/database_id = "'$CATALOGA_D1_DATABASE_ID'"/' crates/cataloga-worker/wrangler.toml
-          perl -0pi -e 's/bucket_name = ".*?"/bucket_name = "'$CATALOGA_R2_BUCKET_NAME'"/' crates/cataloga-worker/wrangler.toml
       - name: Deploy Worker
         env:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
