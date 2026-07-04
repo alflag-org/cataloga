@@ -11,18 +11,18 @@ import { TextInput } from "../components/TextInput";
 import { TextareaInput } from "../components/TextareaInput";
 import { useI18n } from "../i18n";
 import {
+  parseJsonArray,
+  removeFieldFromAdvancedJson,
+  renameFieldInAdvancedJson,
+  type AdvancedResourceTypeJson,
+} from "../resourceTypeEditorState";
+import {
   defaultResourceType,
   deriveDisplayLabel,
   normalizeListColumns,
   type FieldDef,
   type ResourceType,
 } from "../types";
-
-function parseJsonArray(text: string): unknown[] {
-  const trimmed = text.trim();
-  if (!trimmed) return [];
-  return JSON.parse(trimmed);
-}
 
 const fieldTypes: FieldDef["type"][] = [
   "string",
@@ -47,7 +47,7 @@ export function ResourceTypeEditorPage({ mode }: { mode: "create" | "edit" }) {
   const [value, setValue] = useState<ResourceType>(defaultResourceType());
   const [allTypes, setAllTypes] = useState<ResourceType[]>([]);
   const [error, setError] = useState<string | null>(null);
-  const [advanced, setAdvanced] = useState({
+  const [advanced, setAdvanced] = useState<AdvancedResourceTypeJson>({
     form_layout: "[]",
     detail_sections: "[]",
     validation_rules: "[]",
@@ -127,33 +127,44 @@ export function ResourceTypeEditorPage({ mode }: { mode: "create" | "edit" }) {
       ? value.required_fields.filter((name) => name !== target)
       : value.required_fields;
     setValue({ ...value, fields, references, required_fields });
+    if (target) {
+      setAdvanced((prev) => removeFieldFromAdvancedJson(prev, target));
+    }
   };
 
   const setFieldName = (idx: number, name: string) => {
+    const oldName = value.fields[idx]?.name;
     setValue((prev) => {
       const current = prev.fields[idx];
       if (!current) return prev;
-      const oldName = current.name;
+      const previousName = current.name;
       const autoLabel =
         current.label.trim() === "" ||
-        current.label === deriveDisplayLabel(oldName);
+        current.label === deriveDisplayLabel(previousName);
       const nextLabel = autoLabel ? deriveDisplayLabel(name) : current.label;
       const fields = [...prev.fields];
       fields[idx] = { ...current, name, label: nextLabel };
       const references =
-        oldName && oldName !== name
+        previousName && previousName !== name
           ? prev.references.map((ref) =>
-              ref.field === oldName ? { ...ref, field: name } : ref,
+              ref.field === previousName ? { ...ref, field: name } : ref,
             )
           : prev.references;
       const required_fields =
-        oldName && oldName !== name
+        previousName && previousName !== name
           ? prev.required_fields.map((required) =>
-              required === oldName ? name : required,
+              required === previousName ? name : required,
             )
           : prev.required_fields;
       return { ...prev, fields, references, required_fields };
     });
+    if (oldName && oldName !== name) {
+      setAdvanced((prev) =>
+        name.trim()
+          ? renameFieldInAdvancedJson(prev, oldName, name)
+          : removeFieldFromAdvancedJson(prev, oldName),
+      );
+    }
   };
 
   const setFieldType = (idx: number, type: FieldDef["type"]) => {
