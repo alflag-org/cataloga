@@ -48,7 +48,7 @@ pub async fn serve(db_url: String, listen: SocketAddr, catalog_id: String) -> an
         .route(
             "/api/resources/{type_id}/{resource_id}",
             get(get_resource)
-                .put(upsert_resource)
+                .put(update_resource)
                 .delete(delete_resource),
         )
         .route(
@@ -138,6 +138,17 @@ async fn upsert_resource(
 ) -> Result<StatusCode, AppError> {
     let api = build_api(&state);
     api.create_or_update_resource(&state.catalog_id, payload)
+        .await?;
+    Ok(StatusCode::NO_CONTENT)
+}
+
+async fn update_resource(
+    State(state): State<AppState>,
+    Path((type_id, resource_id)): Path<(String, String)>,
+    Json(payload): Json<Resource>,
+) -> Result<StatusCode, AppError> {
+    let api = build_api(&state);
+    api.update_resource(&state.catalog_id, &type_id, &resource_id, payload)
         .await?;
     Ok(StatusCode::NO_CONTENT)
 }
