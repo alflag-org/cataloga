@@ -61,10 +61,16 @@ export const api = {
       headers: { "content-type": "application/json" },
       body: JSON.stringify(payload),
     }),
-  deleteResourceType: (type: string) =>
-    request<void>(`/resource-types/${type}`, {
-      method: "DELETE",
-    }),
+  deleteResourceType: (
+    type: string,
+    options: { deleteResources?: boolean } = {},
+  ) =>
+    request<void>(
+      `/resource-types/${type}${options.deleteResources ? "?deleteResources=true" : ""}`,
+      {
+        method: "DELETE",
+      },
+    ),
   listResources: (type: string) => request<Resource[]>(`/resources/${type}`),
   getResource: (type: string, id: string) =>
     request<Resource>(`/resources/${type}/${id}`),

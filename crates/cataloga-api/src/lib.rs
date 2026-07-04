@@ -201,14 +201,22 @@ impl<S: CatalogStore> ApiService<S> {
         &self,
         catalog_id: &str,
         type_id: &str,
+        delete_resources: bool,
     ) -> anyhow::Result<()> {
         let existing = self.store.list_resources(catalog_id, type_id).await?;
-        if !existing.is_empty() {
+        if !existing.is_empty() && !delete_resources {
             return Err(ApiError::Conflict(
-                "resource type has existing resources and cannot be deleted".to_string(),
+                "Resource Type has existing Resources and cannot be deleted".to_string(),
             )
             .into());
         }
+
+        for resource in existing {
+            self.store
+                .delete_resource(catalog_id, type_id, &resource.id)
+                .await?;
+        }
+
         self.store.delete_resource_type(catalog_id, type_id).await
     }
 
@@ -670,6 +678,148 @@ mod tests {
             custom_fields: serde_json::Map::new(),
             dependencies: serde_json::Map::new(),
         }
+    }
+
+    fn resource_type(id: &str, title: &str) -> ResourceType {
+        ResourceType {
+            id: id.to_string(),
+            title: title.to_string(),
+            group: String::new(),
+            description: String::new(),
+            fields: vec![],
+            required_fields: vec![],
+            list_columns: vec![],
+            form_layout: vec![],
+            detail_sections: vec![],
+            references: vec![],
+            validation_rules: vec![],
+        }
+    }
+
+    #[tokio::test]
+    async fn delete_resource_type_rejects_existing_resources_without_delete_resources() {
+        let store = MemoryStore::default();
+        let api = ApiService::new(store.clone());
+        store
+            .upsert_resource_type("default", resource_type("site", "Site"))
+            .await
+            .unwrap();
+        store
+            .upsert_resource(
+                "default",
+                resource("site", "tokyo", "Tokyo", serde_json::Map::new()),
+            )
+            .await
+            .unwrap();
+
+        let err = api
+            .delete_resource_type("default", "site", false)
+            .await
+            .expect_err("expected conflict");
+        let api_err = err.downcast_ref::<ApiError>().expect("api error");
+        match api_err {
+            ApiError::Conflict(msg) => {
+                assert!(msg.contains("Resource Type has existing Resources"))
+            }
+            other => panic!("unexpected error: {other:?}"),
+        }
+
+        assert!(
+            store
+                .get_resource_type("default", "site")
+                .await
+                .unwrap()
+                .is_some()
+        );
+        assert!(
+            store
+                .get_resource("default", "site", "tokyo")
+                .await
+                .unwrap()
+                .is_some()
+        );
+    }
+
+    #[tokio::test]
+    async fn delete_resource_type_removes_empty_type_without_delete_resources() {
+        let store = MemoryStore::default();
+        let api = ApiService::new(store.clone());
+        store
+            .upsert_resource_type("default", resource_type("site", "Site"))
+            .await
+            .unwrap();
+
+        api.delete_resource_type("default", "site", false)
+            .await
+            .unwrap();
+
+        assert!(
+            store
+                .get_resource_type("default", "site")
+                .await
+                .unwrap()
+                .is_none()
+        );
+    }
+
+    #[tokio::test]
+    async fn delete_resource_type_with_delete_resources_removes_resources_and_type() {
+        let store = MemoryStore::default();
+        let api = ApiService::new(store.clone());
+        store
+            .upsert_resource_type("default", resource_type("site", "Site"))
+            .await
+            .unwrap();
+        store
+            .upsert_resource_type("default", resource_type("device", "Device"))
+            .await
+            .unwrap();
+        for id in ["tokyo", "osaka"] {
+            store
+                .upsert_resource("default", resource("site", id, id, serde_json::Map::new()))
+                .await
+                .unwrap();
+        }
+        store
+            .upsert_resource(
+                "default",
+                resource("device", "router-1", "Router 1", serde_json::Map::new()),
+            )
+            .await
+            .unwrap();
+
+        api.delete_resource_type("default", "site", true)
+            .await
+            .unwrap();
+
+        assert!(
+            store
+                .get_resource_type("default", "site")
+                .await
+                .unwrap()
+                .is_none()
+        );
+        assert!(
+            store
+                .list_resources("default", "site")
+                .await
+                .unwrap()
+                .is_empty()
+        );
+        assert!(
+            store
+                .get_resource_type("default", "device")
+                .await
+                .unwrap()
+                .is_some()
+        );
+        assert!(
+            store
+                .get_resource("default", "device", "router-1")
+                .await
+                .unwrap()
+                .is_some()
+        );
     }
 
     #[tokio::test]

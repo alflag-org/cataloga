@@ -1,6 +1,6 @@
 use axum::{
     Json, Router,
-    extract::{Path, State},
+    extract::{Path, Query, State},
     http::StatusCode,
     response::IntoResponse,
     routing::{get, post},
@@ -25,6 +25,12 @@ struct AppState {
 #[derive(Deserialize)]
 struct ImportRequest {
     yaml: String,
+}
+
+#[derive(Default, Deserialize)]
+struct DeleteResourceTypeQuery {
+    #[serde(default, rename = "deleteResources")]
+    delete_resources: bool,
 }
 
 pub async fn serve(db_url: String, listen: SocketAddr, catalog_id: String) -> anyhow::Result<()> {
@@ -105,9 +111,10 @@ async fn upsert_resource_type(
 async fn delete_resource_type(
     State(state): State<AppState>,
     Path(type_id): Path<String>,
+    Query(query): Query<DeleteResourceTypeQuery>,
 ) -> Result<StatusCode, AppError> {
     let api = build_api(&state);
-    api.delete_resource_type(&state.catalog_id, &type_id)
+    api.delete_resource_type(&state.catalog_id, &type_id, query.delete_resources)
         .await?;
     Ok(StatusCode::NO_CONTENT)
 }

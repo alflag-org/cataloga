@@ -37,6 +37,14 @@ const ja: Record<string, string> = {
   Edit: "編集",
   Delete: "削除",
   "Delete Resource Type '{id}'?": "リソースタイプ '{id}' を削除しますか？",
+  "Delete {count} Resources with this Resource Type.":
+    "このリソースタイプと一緒に {count} 件のリソースを削除します。",
+  "This Resource Type has no Resources.":
+    "このリソースタイプにはリソースがありません。",
+  "Type Resource Type ID to confirm": "確認のためリソースタイプ ID を入力",
+  "Confirmation must match Resource Type ID.":
+    "リソースタイプ ID と完全に一致する必要があります。",
+  Discard: "破棄",
   "Administration / Resource Types": "管理 / リソースタイプ",
   "Administration / Import": "管理 / インポート",
   "Administration / Export": "管理 / エクスポート",
