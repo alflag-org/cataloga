@@ -151,7 +151,7 @@ export function ResourceForm({
             {t("ID")}
             <TextInput
               value={form.id}
-              disabled={mode === "edit"}
+              autoFocus={mode === "create"}
               onChange={(e) =>
                 setForm({
                   ...form,

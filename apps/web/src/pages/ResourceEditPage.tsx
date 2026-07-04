@@ -47,7 +47,7 @@ export function ResourceEditPage() {
         mode="edit"
         onSubmit={async (next) => {
           await api.updateResource(type, id, next);
-          navigate(`/resources/${type}/${id}`);
+          navigate(`/resources/${next.type}/${next.id}`);
         }}
       />
     </section>

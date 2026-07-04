@@ -467,17 +467,9 @@ async fn handle_api(
                 .json()
                 .await
                 .map_err(|e| ApiError::bad_request(e.to_string()))?;
-            let target_type = if payload.resource_type.is_empty() {
-                (*type_id).to_string()
-            } else {
-                payload.resource_type.clone()
-            };
-            let target_id = if payload.id.is_empty() {
-                (*resource_id).to_string()
-            } else {
-                payload.id.clone()
-            };
-            api.create_or_update_resource(CATALOG_ID, payload)
+            let target_type = payload.resource_type.clone();
+            let target_id = payload.id.clone();
+            api.update_resource(CATALOG_ID, type_id, resource_id, payload)
                 .await
                 .map_err(ApiError::from_service_error)?;
             emit_operation_log(
