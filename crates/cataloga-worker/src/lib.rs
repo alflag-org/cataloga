@@ -14,6 +14,11 @@ struct ImportRequest {
     yaml: String,
 }
 
+fn query_flag(url: &Url, name: &str) -> bool {
+    url.query_pairs()
+        .any(|(key, value)| key == name && value == "true")
+}
+
 #[derive(Clone, Copy)]
 enum ErrorKind {
     BadRequest,
@@ -283,6 +288,7 @@ async fn handle_api(
     api: &ApiService<D1Store>,
     path: &str,
     method: &Method,
+    url: &Url,
 ) -> std::result::Result<HandledResponse, ApiError> {
     let parts: Vec<&str> = path.split('/').filter(|p| !p.is_empty()).collect();
 
@@ -379,7 +385,7 @@ async fn handle_api(
             })
         }
         (Method::Delete, ["api", "resource-types", type_id]) => {
-            api.delete_resource_type(CATALOG_ID, type_id)
+            api.delete_resource_type(CATALOG_ID, type_id, query_flag(url, "deleteResources"))
                 .await
                 .map_err(ApiError::from_service_error)?;
             emit_operation_log("resource_type_deleted", Some(type_id), None);
@@ -649,6 +655,7 @@ async fn handle_api(
 pub async fn fetch(mut req: Request, env: Env, _ctx: Context) -> Result<Response> {
     let method = req.method();
     let path = req.path();
+    let url = req.url()?;
     let start = js_sys::Date::now();
     let cf_ray = maybe_non_empty(req.headers().get("cf-ray").ok().flatten());
 
@@ -657,7 +664,7 @@ pub async fn fetch(mut req: Request, env: Env, _ctx: Context) -> Result<Response
     let response_pack = {
         let db = env.d1("CATALOGA_DB")?;
         let api = ApiService::new(D1Store::new(db));
-        handle_api(&mut req, &api, &path, &method).await
+        handle_api(&mut req, &api, &path, &method, &url).await
     };
 
     let (response, route, err) = match response_pack {
@@ -759,10 +766,21 @@ mod tests {
     #[test]
     fn service_conflict_maps_to_conflict_error_kind() {
         let err = anyhow!(ServiceError::Conflict(
-            "resource type has existing resources and cannot be deleted".to_string()
+            "Resource Type has existing Resources and cannot be deleted".to_string()
         ));
         let api_err = ApiError::from_service_error(err);
         assert_eq!(api_err.kind.as_str(), "conflict");
         assert_eq!(api_err.kind.status(), 409);
+    }
+
+    #[test]
+    fn query_flag_only_matches_true_value() {
+        let url = Url::parse(
+            "https://example.test/api/resource-types/site?deleteResources=true&force=false",
+        )
+        .unwrap();
+        assert!(query_flag(&url, "deleteResources"));
+        assert!(!query_flag(&url, "force"));
+        assert!(!query_flag(&url, "missing"));
     }
 }
