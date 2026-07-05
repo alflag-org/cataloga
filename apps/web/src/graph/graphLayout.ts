@@ -1,19 +1,10 @@
-import {
-  forceCenter,
-  forceCollide,
-  forceLink,
-  forceManyBody,
-  forceSimulation,
-} from "d3-force";
+import { MultiDirectedGraph } from "graphology";
+import circular from "graphology-layout/circular";
+import forceAtlas2 from "graphology-layout-forceatlas2";
+import noverlap from "graphology-layout-noverlap";
 import type { Resource, ResourceType } from "../types";
 import { hashString } from "./hash";
-import { normalizeGroupName } from "./graphColors";
-
-export type GraphViewport = {
-  x: number;
-  y: number;
-  scale: number;
-};
+import { normalizeGroupName, pickTypeColor } from "./graphColors";
 
 export type GraphNode = {
   key: string;
@@ -38,18 +29,24 @@ export type GraphData = {
   edges: GraphEdge[];
 };
 
-type LayoutLink = {
-  source: string | GraphNode;
-  target: string | GraphNode;
-  field: string;
+export type ResourceGraphNodeAttributes = GraphNode & {
+  label: string;
+  color: string;
+  size: number;
+  forceLabel: boolean;
+  zIndex: number;
 };
 
-export const MIN_SCALE = 0.25;
-export const MAX_SCALE = 3.0;
+export type ResourceGraphEdgeAttributes = GraphEdge & {
+  label: string;
+  color: string;
+  size: number;
+};
 
-function clamp(value: number, min: number, max: number): number {
-  return Math.min(max, Math.max(min, value));
-}
+export type ResourceGraphologyGraph = MultiDirectedGraph<
+  ResourceGraphNodeAttributes,
+  ResourceGraphEdgeAttributes
+>;
 
 function nodeKey(typeId: string, resourceId: string): string {
   return `${typeId}/${resourceId}`;
@@ -63,10 +60,6 @@ function toTargetId(value: unknown): string | null {
     if (typeof row.id === "string") return row.id;
   }
   return null;
-}
-
-function linkEndpointKey(endpoint: string | GraphNode): string {
-  return typeof endpoint === "string" ? endpoint : endpoint.key;
 }
 
 export function buildGraphData(
@@ -211,80 +204,129 @@ export function computeNodeRadius(
   return base;
 }
 
-export function computeLayout(graph: GraphData): GraphData {
-  const nodes = graph.nodes.map((node) => ({ ...node }));
-  const links: LayoutLink[] = graph.edges.map((edge) => ({ ...edge }));
-
-  const simulation = forceSimulation(nodes)
-    .force(
-      "link",
-      forceLink<GraphNode, LayoutLink>(links)
-        .id((node) => node.key)
-        .distance(90)
-        .strength(0.35),
-    )
-    .force("charge", forceManyBody().strength(-220))
-    .force("center", forceCenter(0, 0))
-    .force(
-      "collision",
-      forceCollide<GraphNode>().radius((node) => computeNodeRadius(node) + 8),
-    );
-
-  for (let i = 0; i < 180; i += 1) simulation.tick();
-  simulation.stop();
-
-  return {
-    nodes,
-    edges: links.map((link) => ({
-      source: linkEndpointKey(link.source),
-      target: linkEndpointKey(link.target),
-      field: link.field,
-    })),
-  };
-}
-
-export function fitViewportToGraph(
+export function buildGraphologyGraph(
   graph: GraphData,
-  width: number,
-  height: number,
-  padding = 48,
-): GraphViewport {
-  if (!graph.nodes.length) return { x: 0, y: 0, scale: 1 };
+): ResourceGraphologyGraph {
+  const result = new MultiDirectedGraph<
+    ResourceGraphNodeAttributes,
+    ResourceGraphEdgeAttributes
+  >({ allowSelfLoops: false });
 
-  const minX = Math.min(
-    ...graph.nodes.map((n) => n.x - computeNodeRadius(n) - 120),
-  );
-  const maxX = Math.max(
-    ...graph.nodes.map((n) => n.x + computeNodeRadius(n) + 220),
-  );
-  const minY = Math.min(
-    ...graph.nodes.map((n) => n.y - computeNodeRadius(n) - 80),
-  );
-  const maxY = Math.max(
-    ...graph.nodes.map((n) => n.y + computeNodeRadius(n) + 80),
-  );
+  for (const node of graph.nodes) {
+    const size = computeNodeRadius(node);
+    result.addNode(node.key, {
+      ...node,
+      label: node.name || node.resourceId,
+      color: pickTypeColor(node.typeId),
+      size,
+      forceLabel: false,
+      zIndex: Math.max(1, node.degree),
+    });
+  }
 
-  const graphWidth = Math.max(1, maxX - minX);
-  const graphHeight = Math.max(1, maxY - minY);
+  graph.edges.forEach((edge, index) => {
+    const edgeKey = `${edge.source}|${edge.target}|${edge.field}|${index}`;
+    if (!result.hasNode(edge.source) || !result.hasNode(edge.target)) return;
+    if (edge.source === edge.target) return;
+    result.addDirectedEdgeWithKey(edgeKey, edge.source, edge.target, {
+      ...edge,
+      label: edge.field,
+      color: "#94a3b8",
+      size: 1.1,
+    });
+  });
 
-  const innerWidth = Math.max(1, width - padding * 2);
-  const innerHeight = Math.max(1, height - padding * 2);
-  const scale = clamp(
-    Math.min(innerWidth / graphWidth, innerHeight / graphHeight),
-    MIN_SCALE,
-    MAX_SCALE,
-  );
-
-  const centerX = (minX + maxX) / 2;
-  const centerY = (minY + maxY) / 2;
-
-  return {
-    x: width / 2 - centerX * scale,
-    y: height / 2 - centerY * scale,
-    scale,
-  };
+  return result;
 }
 
-export function clampScale(scale: number): number {
-  return clamp(scale, MIN_SCALE, MAX_SCALE);
+const TYPE_ATTRACTION_PASSES = 9;
+const TYPE_ATTRACTION_STRENGTH = 0.055;
+
+function finitePosition(value: number, fallback: number) {
+  return Number.isFinite(value) ? value : fallback;
+}
+
+function applyResourceTypeAttraction(graphology: ResourceGraphologyGraph) {
+  const typeIds = [
+    ...new Set(
+      graphology
+        .nodes()
+        .map((key) => graphology.getNodeAttribute(key, "typeId")),
+    ),
+  ].sort();
+
+  if (typeIds.length <= 1 || graphology.order <= 3) return;
+
+  const centerRadius = Math.max(
+    180,
+    Math.min(560, Math.sqrt(graphology.order) * 34 + typeIds.length * 14),
+  );
+  const centers = new Map<string, { x: number; y: number }>();
+  typeIds.forEach((typeId, index) => {
+    const angle = (Math.PI * 2 * index) / typeIds.length - Math.PI / 2;
+    centers.set(typeId, {
+      x: Math.cos(angle) * centerRadius,
+      y: Math.sin(angle) * centerRadius,
+    });
+  });
+
+  for (let pass = 0; pass < TYPE_ATTRACTION_PASSES; pass += 1) {
+    graphology.forEachNode((_key, attributes) => {
+      const center = centers.get(attributes.typeId);
+      if (!center) return;
+      const strength =
+        attributes.degree === 0
+          ? TYPE_ATTRACTION_STRENGTH * 0.75
+          : TYPE_ATTRACTION_STRENGTH;
+      const x = finitePosition(attributes.x, center.x);
+      const y = finitePosition(attributes.y, center.y);
+      graphology.mergeNodeAttributes(_key, {
+        x: x + (center.x - x) * strength,
+        y: y + (center.y - y) * strength,
+      });
+    });
+  }
+}
+
+export function computeLayout(graph: GraphData): GraphData {
+  const graphology = buildGraphologyGraph(graph);
+
+  if (graphology.order > 1) {
+    if (graphology.order <= 2) {
+      circular.assign(graphology, { scale: 120 });
+    } else {
+      forceAtlas2.assign(graphology, {
+        iterations: graphology.order > 120 ? 90 : 140,
+        settings: {
+          ...forceAtlas2.inferSettings(graphology),
+          adjustSizes: true,
+          barnesHutOptimize: graphology.order > 80,
+          gravity: 1.2,
+          scalingRatio: graphology.order > 80 ? 8 : 14,
+          slowDown: 5,
+        },
+      });
+      applyResourceTypeAttraction(graphology);
+      noverlap.assign(graphology, {
+        maxIterations: 80,
+        settings: {
+          expansion: 1.08,
+          margin: 8,
+          ratio: 1.25,
+        },
+      });
+    }
+  }
+
+  return {
+    nodes: graph.nodes.map((node) => {
+      const attributes = graphology.getNodeAttributes(node.key);
+      return {
+        ...node,
+        x: finitePosition(attributes.x, node.x),
+        y: finitePosition(attributes.y, node.y),
+      };
+    }),
+    edges: graph.edges.map((edge) => ({ ...edge })),
+  };
 }

@@ -5,7 +5,7 @@ import { DataCard } from "../components/DataCard";
 import { DataTable, type DataTableColumn } from "../components/DataTable";
 import { ErrorBanner } from "../components/ErrorBanner";
 import { PageHeader } from "../components/PageHeader";
-import { ResourceGraph } from "../components/ResourceGraph";
+import { LazyResourceGraph } from "../components/LazyResourceGraph";
 import { useI18n } from "../i18n";
 import type { Resource, ResourceType } from "../types";
 
@@ -114,7 +114,11 @@ export function DashboardPage() {
       <ErrorBanner message={error} />
 
       <DataCard title={t("Graph")}>
-        <ResourceGraph compact types={types} resourcesByType={resourceByType} />
+        <LazyResourceGraph
+          compact
+          types={types}
+          resourcesByType={resourceByType}
+        />
       </DataCard>
 
       <DataCard title={t("Resource search")}>

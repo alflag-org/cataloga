@@ -1,35 +1,21 @@
-import {
-  useEffect,
-  useMemo,
-  useRef,
-  useState,
-  type PointerEvent,
-  type RefObject,
-} from "react";
+import { useEffect, useMemo, useState } from "react";
+import { useNavigate } from "react-router-dom";
 import type { Resource, ResourceType } from "../types";
-import { GraphControls } from "./GraphControls";
-import { GraphDetailsPanel } from "./GraphDetailsPanel";
-import {
-  buildGraphData,
-  clampScale,
-  computeLayout,
-  computeNodeRadius,
-  fitViewportToGraph,
-  type GraphViewport,
-} from "../graph/graphLayout";
-import { pickTypeColor } from "../graph/graphColors";
+import { buildGraphData, computeLayout } from "../graph/graphLayout";
 import { useI18n } from "../i18n";
+import { GraphControls, type GraphViewMode } from "./GraphControls";
+import { SigmaGraphCanvas } from "./SigmaGraphCanvas";
 
-type Props = {
+export type ResourceGraphProps = {
   types: ResourceType[];
   resourcesByType: Record<string, Resource[]>;
   compact?: boolean;
   expanded?: boolean;
 };
 
-type GraphInteractionMode = "cooperative" | "greedy";
-
-const ZOOM_STEP = 1.12;
+const COMPACT_OVERVIEW_LIMIT = 32;
+const DEFAULT_OVERVIEW_LIMIT = 40;
+const EXPANDED_OVERVIEW_LIMIT = 56;
 
 function neighborSets(edges: Array<{ source: string; target: string }>) {
   const map = new Map<string, Set<string>>();
@@ -42,30 +28,66 @@ function neighborSets(edges: Array<{ source: string; target: string }>) {
   return map;
 }
 
-function edgePath(
-  source: { x: number; y: number },
-  target: { x: number; y: number },
-  sourceRadius: number,
-  targetRadius: number,
-): string {
-  const rawDx = target.x - source.x;
-  const rawDy = target.y - source.y;
-  const rawDistance = Math.hypot(rawDx, rawDy) || 1;
-  const unitX = rawDx / rawDistance;
-  const unitY = rawDy / rawDistance;
-  const startX = source.x + unitX * (sourceRadius + 2);
-  const startY = source.y + unitY * (sourceRadius + 2);
-  const endX = target.x - unitX * (targetRadius + 12);
-  const endY = target.y - unitY * (targetRadius + 12);
-  const dx = endX - startX;
-  const dy = endY - startY;
-  const distance = Math.hypot(dx, dy) || 1;
-  const curve = Math.min(48, Math.max(14, distance * 0.14));
-  const normalX = (-dy / distance) * curve;
-  const normalY = (dx / distance) * curve;
-  const midX = (startX + endX) / 2 + normalX;
-  const midY = (startY + endY) / 2 + normalY;
-  return `M ${startX} ${startY} Q ${midX} ${midY} ${endX} ${endY}`;
+function collectNeighborhoodKeys(
+  startKey: string,
+  edges: Array<{ source: string; target: string }>,
+  depth: number,
+) {
+  const neighbors = neighborSets(edges);
+  const seen = new Set<string>([startKey]);
+  let frontier = new Set<string>([startKey]);
+
+  for (let level = 0; level < depth; level += 1) {
+    const next = new Set<string>();
+    for (const key of frontier) {
+      for (const neighbor of neighbors.get(key) ?? []) {
+        if (seen.has(neighbor)) continue;
+        seen.add(neighbor);
+        next.add(neighbor);
+      }
+    }
+    frontier = next;
+    if (!frontier.size) break;
+  }
+
+  return seen;
+}
+
+function pickOverviewKeys(
+  nodes: Array<{ key: string; degree: number; group: string; name: string }>,
+  edges: Array<{ source: string; target: string }>,
+  limit: number,
+) {
+  if (nodes.length <= limit) return new Set(nodes.map((node) => node.key));
+
+  const allowedKeys = new Set(nodes.map((node) => node.key));
+  const neighbors = neighborSets(edges);
+  const degreeByKey = new Map(nodes.map((node) => [node.key, node.degree]));
+  const sortByImportance = (a: string, b: string) =>
+    (degreeByKey.get(b) ?? 0) - (degreeByKey.get(a) ?? 0) || a.localeCompare(b);
+  const seeds = [...nodes].sort(
+    (a, b) =>
+      (b.degree ?? 0) - (a.degree ?? 0) ||
+      a.group.localeCompare(b.group) ||
+      a.name.localeCompare(b.name) ||
+      a.key.localeCompare(b.key),
+  );
+  const selected = new Set<string>();
+
+  for (const seed of seeds) {
+    if (selected.size >= limit) break;
+    selected.add(seed.key);
+
+    const related = [...(neighbors.get(seed.key) ?? [])]
+      .filter((key) => allowedKeys.has(key))
+      .sort(sortByImportance);
+    for (const key of related) {
+      if (selected.size >= limit) break;
+      selected.add(key);
+    }
+  }
+
+  return selected;
 }
 
 export function ResourceGraph({
@@ -73,77 +95,138 @@ export function ResourceGraph({
   resourcesByType,
   compact = false,
   expanded = false,
-}: Props) {
+}: ResourceGraphProps) {
   const { t } = useI18n();
+  const navigate = useNavigate();
   const [isExpanded, setIsExpanded] = useState(expanded);
-  const compactContainerRef = useRef<HTMLDivElement | null>(null);
-  const expandedContainerRef = useRef<HTMLDivElement | null>(null);
-
   const [search, setSearch] = useState("");
   const [groupFilter, setGroupFilter] = useState("All");
   const [showMode, setShowMode] = useState<"all" | "connected" | "isolated">(
     "all",
   );
+  const defaultViewMode: GraphViewMode =
+    compact && !expanded ? "overview" : "all";
+  const [viewMode, setViewMode] = useState<GraphViewMode>(defaultViewMode);
   const [selectedKey, setSelectedKey] = useState<string | null>(null);
   const [hoveredKey, setHoveredKey] = useState<string | null>(null);
-  const [dragging, setDragging] = useState(false);
-  const [compactSize, setCompactSize] = useState({
-    width: 920,
-    height: compact ? 360 : 420,
-  });
-  const [expandedSize, setExpandedSize] = useState({
-    width: 1200,
-    height: 800,
-  });
-  const [viewport, setViewport] = useState<GraphViewport>({
-    x: 0,
-    y: 0,
-    scale: 1,
-  });
-  const dragState = useRef<{
-    pointerId: number;
-    startX: number;
-    startY: number;
-    viewportX: number;
-    viewportY: number;
-  } | null>(null);
+  const [manualNodePositions, setManualNodePositions] = useState<
+    Record<string, { x: number; y: number }>
+  >({});
 
-  const interactionMode: GraphInteractionMode = isExpanded
-    ? "greedy"
-    : "cooperative";
+  const searchQuery = search.trim().toLowerCase();
+  const overviewLimit = isExpanded
+    ? EXPANDED_OVERVIEW_LIMIT
+    : compact
+      ? COMPACT_OVERVIEW_LIMIT
+      : DEFAULT_OVERVIEW_LIMIT;
 
-  const size = isExpanded ? expandedSize : compactSize;
-  const fitPadding = isExpanded ? 180 : compact ? 96 : 120;
-
-  const baseGraph = useMemo(
+  const layoutGraph = useMemo(
     () => computeLayout(buildGraphData(types, resourcesByType)),
     [types, resourcesByType],
   );
+
+  const baseGraph = useMemo(
+    () => ({
+      nodes: layoutGraph.nodes.map((node) => {
+        const manualPosition = manualNodePositions[node.key];
+        if (!manualPosition) return node;
+        return {
+          ...node,
+          x: manualPosition.x,
+          y: manualPosition.y,
+        };
+      }),
+      edges: layoutGraph.edges,
+    }),
+    [layoutGraph, manualNodePositions],
+  );
+
+  useEffect(() => {
+    const validKeys = new Set(layoutGraph.nodes.map((node) => node.key));
+    setManualNodePositions((current) => {
+      const next = Object.fromEntries(
+        Object.entries(current).filter(([key]) => validKeys.has(key)),
+      );
+      return Object.keys(next).length === Object.keys(current).length
+        ? current
+        : next;
+    });
+  }, [layoutGraph.nodes]);
 
   const groups = useMemo(
     () => [...new Set(baseGraph.nodes.map((node) => node.group))].sort(),
     [baseGraph.nodes],
   );
 
-  const filteredNodes = useMemo(() => {
-    const q = search.trim().toLowerCase();
+  const nodesByKey = useMemo(
+    () => new Map(baseGraph.nodes.map((node) => [node.key, node])),
+    [baseGraph.nodes],
+  );
+
+  const controlFilteredNodes = useMemo(() => {
     return baseGraph.nodes.filter((node) => {
       if (groupFilter !== "All" && node.group !== groupFilter) return false;
       if (showMode === "connected" && node.degree === 0) return false;
       if (showMode === "isolated" && node.degree > 0) return false;
-      if (!q) return true;
-      return [
-        node.name,
-        node.resourceId,
-        node.typeTitle,
-        node.typeId,
-        node.group,
-      ]
+      return true;
+    });
+  }, [baseGraph.nodes, groupFilter, showMode]);
+
+  const controlVisibleKeys = useMemo(
+    () => new Set(controlFilteredNodes.map((node) => node.key)),
+    [controlFilteredNodes],
+  );
+
+  const controlEdges = useMemo(
+    () =>
+      baseGraph.edges.filter(
+        (edge) =>
+          controlVisibleKeys.has(edge.source) &&
+          controlVisibleKeys.has(edge.target),
+      ),
+    [baseGraph.edges, controlVisibleKeys],
+  );
+
+  const searchFilteredNodes = useMemo(() => {
+    if (!searchQuery) return controlFilteredNodes;
+    return controlFilteredNodes.filter((node) =>
+      [node.name, node.resourceId, node.typeTitle, node.typeId, node.group]
         .join(" ")
         .toLowerCase()
-        .includes(q);
-    });
-  }, [baseGraph.nodes, groupFilter, search, showMode]);
+        .includes(searchQuery),
+    );
+  }, [controlFilteredNodes, searchQuery]);
+
+  const filteredNodes = useMemo(() => {
+    if (
+      viewMode === "focus" &&
+      selectedKey &&
+      controlVisibleKeys.has(selectedKey)
+    ) {
+      const focusKeys = collectNeighborhoodKeys(selectedKey, controlEdges, 1);
+      return controlFilteredNodes.filter((node) => focusKeys.has(node.key));
+    }
+
+    if (viewMode === "overview" && !searchQuery) {
+      const overviewKeys = pickOverviewKeys(
+        controlFilteredNodes,
+        controlEdges,
+        overviewLimit,
+      );
+      return controlFilteredNodes.filter((node) => overviewKeys.has(node.key));
+    }
+
+    return searchFilteredNodes;
+  }, [
+    controlEdges,
+    controlFilteredNodes,
+    controlVisibleKeys,
+    overviewLimit,
+    searchFilteredNodes,
+    searchQuery,
+    selectedKey,
+    viewMode,
+  ]);
 
   const visibleKeys = useMemo(
     () => new Set(filteredNodes.map((node) => node.key)),
@@ -164,9 +247,7 @@ export function ResourceGraph({
   );
 
   const neighbors = useMemo(() => neighborSets(filteredEdges), [filteredEdges]);
-
   const activeKey = hoveredKey || selectedKey;
-
   const activeSet = useMemo(() => {
     if (!activeKey) return null;
     const set = new Set<string>([activeKey]);
@@ -175,65 +256,13 @@ export function ResourceGraph({
   }, [activeKey, neighbors]);
 
   useEffect(() => {
-    if (!compactContainerRef.current) return;
-    const observer = new ResizeObserver((entries) => {
-      const rect = entries[0]?.contentRect;
-      if (!rect) return;
-      setCompactSize({
-        width: Math.max(360, Math.floor(rect.width)),
-        height: Math.max(compact ? 360 : 420, Math.floor(rect.height)),
-      });
-    });
-    observer.observe(compactContainerRef.current);
-    return () => observer.disconnect();
-  }, [compact]);
-
-  useEffect(() => {
-    if (!expandedContainerRef.current) return;
-    const observer = new ResizeObserver((entries) => {
-      const rect = entries[0]?.contentRect;
-      if (!rect) return;
-      setExpandedSize({
-        width: Math.max(800, Math.floor(rect.width)),
-        height: Math.max(640, Math.floor(rect.height)),
-      });
-    });
-    observer.observe(expandedContainerRef.current);
-    return () => observer.disconnect();
-  }, [isExpanded]);
-
-  useEffect(() => {
-    if (isExpanded) return;
-    setViewport(
-      fitViewportToGraph(
-        filteredGraph,
-        compactSize.width,
-        compactSize.height,
-        fitPadding,
-      ),
-    );
-  }, [
-    compactSize.height,
-    compactSize.width,
-    filteredGraph,
-    fitPadding,
-    isExpanded,
-  ]);
-
-  useEffect(() => {
-    if (!isExpanded) return;
-    const frame = window.requestAnimationFrame(() => {
-      setViewport(
-        fitViewportToGraph(
-          filteredGraph,
-          expandedSize.width,
-          expandedSize.height,
-          180,
-        ),
-      );
-    });
-    return () => window.cancelAnimationFrame(frame);
-  }, [expandedSize.height, expandedSize.width, filteredGraph, isExpanded]);
+    if (
+      viewMode === "focus" &&
+      (!selectedKey || !controlVisibleKeys.has(selectedKey))
+    ) {
+      setViewMode(defaultViewMode);
+    }
+  }, [controlVisibleKeys, defaultViewMode, selectedKey, viewMode]);
 
   useEffect(() => {
     if (selectedKey && !visibleKeys.has(selectedKey)) setSelectedKey(null);
@@ -260,90 +289,32 @@ export function ResourceGraph({
     return () => window.removeEventListener("keydown", onKeyDown);
   }, [isExpanded]);
 
-  const positionMap = useMemo(
-    () => new Map(filteredGraph.nodes.map((node) => [node.key, node])),
-    [filteredGraph.nodes],
+  const selectNode = (key: string) => {
+    setSelectedKey(key);
+    setViewMode("focus");
+  };
+
+  const openNode = (key: string) => {
+    const node = nodesByKey.get(key);
+    if (!node) return;
+    navigate(`/resources/${node.typeId}/${node.resourceId}`);
+  };
+
+  const clearSelectedNode = () => {
+    setSelectedKey(null);
+    setHoveredKey(null);
+    if (viewMode === "focus") setViewMode(defaultViewMode);
+  };
+
+  const resetLayout = () => {
+    setManualNodePositions({});
+  };
+
+  const hiddenResourceCount = Math.max(
+    0,
+    controlFilteredNodes.length - filteredGraph.nodes.length,
   );
-
-  const onPointerDown = (event: PointerEvent<SVGSVGElement>) => {
-    if (event.button !== 0) return;
-    const target = event.target as Element;
-    if (target.closest("[data-node='true']")) return;
-    dragState.current = {
-      pointerId: event.pointerId,
-      startX: event.clientX,
-      startY: event.clientY,
-      viewportX: viewport.x,
-      viewportY: viewport.y,
-    };
-    setDragging(true);
-    event.currentTarget.setPointerCapture(event.pointerId);
-  };
-
-  const onPointerMove = (event: PointerEvent<SVGSVGElement>) => {
-    const state = dragState.current;
-    if (!state || state.pointerId !== event.pointerId) return;
-    const deltaX = event.clientX - state.startX;
-    const deltaY = event.clientY - state.startY;
-    setViewport((current) => ({
-      ...current,
-      x: state.viewportX + deltaX,
-      y: state.viewportY + deltaY,
-    }));
-  };
-
-  const endDrag = (event: PointerEvent<SVGSVGElement>) => {
-    const state = dragState.current;
-    if (!state || state.pointerId !== event.pointerId) return;
-    dragState.current = null;
-    setDragging(false);
-    event.currentTarget.releasePointerCapture(event.pointerId);
-  };
-
-  const onWheel = (event: React.WheelEvent<SVGSVGElement>) => {
-    event.preventDefault();
-
-    const rect = event.currentTarget.getBoundingClientRect();
-    const mouseX = event.clientX - rect.left;
-    const mouseY = event.clientY - rect.top;
-    setViewport((current) => {
-      const oldScale = current.scale;
-      const zoomFactor = event.deltaY < 0 ? ZOOM_STEP : 1 / ZOOM_STEP;
-      const newScale = clampScale(oldScale * zoomFactor);
-      const worldX = (mouseX - current.x) / oldScale;
-      const worldY = (mouseY - current.y) / oldScale;
-      return {
-        x: mouseX - worldX * newScale,
-        y: mouseY - worldY * newScale,
-        scale: newScale,
-      };
-    });
-  };
-
-  const zoomFromCenter = (factor: number) => {
-    setViewport((current) => {
-      const centerX = size.width / 2;
-      const centerY = size.height / 2;
-      const newScale = clampScale(current.scale * factor);
-      const worldX = (centerX - current.x) / current.scale;
-      const worldY = (centerY - current.y) / current.scale;
-      return {
-        x: centerX - worldX * newScale,
-        y: centerY - worldY * newScale,
-        scale: newScale,
-      };
-    });
-  };
-
-  const fitGraph = () => {
-    setViewport(
-      fitViewportToGraph(filteredGraph, size.width, size.height, fitPadding),
-    );
-  };
-
-  const zoomPercent = Math.round(viewport.scale * 100);
-  const selectedNode =
-    filteredGraph.nodes.find((node) => node.key === selectedKey) ?? null;
+  const hasManualLayout = Object.keys(manualNodePositions).length > 0;
 
   if (!baseGraph.nodes.length) {
     return (
@@ -356,251 +327,71 @@ export function ResourceGraph({
     );
   }
 
-  const graphGridClass = "grid gap-3 lg:grid-cols-[1fr_320px]";
-
-  const renderCanvas = (
-    containerRef: RefObject<HTMLDivElement | null>,
-    canvasSize: { width: number; height: number },
-    mode: GraphInteractionMode,
+  const renderGraphCanvas = (
+    mode: "cooperative" | "greedy",
     showExpandButton: boolean,
     showCloseButton: boolean,
     panelClassName: string,
   ) => (
-    <div ref={containerRef} className={panelClassName}>
-      <div className="pointer-events-none absolute left-4 top-4 z-10 rounded-full border border-gray-200 bg-white/90 px-3 py-1 text-xs font-medium text-gray-700 shadow-lg backdrop-blur">
-        {filteredGraph.nodes.length} nodes · {filteredGraph.edges.length} links
-      </div>
-
-      {showExpandButton ? (
-        <div className="absolute right-3 top-3 z-20">
-          <button
-            type="button"
-            className="rounded-lg border border-gray-200 bg-white/95 px-3 py-1.5 text-xs font-medium text-gray-700 shadow-md hover:bg-gray-50"
-            onClick={() => setIsExpanded(true)}
-          >
-            {t("Expand")}
-          </button>
-        </div>
-      ) : null}
-
-      {showCloseButton ? (
-        <div className="absolute right-3 top-3 z-20">
-          <button
-            type="button"
-            className="rounded-lg border border-gray-200 bg-white/95 px-3 py-1.5 text-xs font-medium text-gray-700 shadow-md hover:bg-gray-50"
-            onClick={() => setIsExpanded(false)}
-          >
-            {t("Close")}
-          </button>
-        </div>
-      ) : null}
-
-      <div className="absolute bottom-3 right-3 z-20 flex flex-col overflow-hidden rounded-xl border border-gray-200 bg-white/95 shadow-lg backdrop-blur">
-        <button
-          type="button"
-          onClick={() => zoomFromCenter(ZOOM_STEP)}
-          className="border-b border-gray-200 px-3 py-2 text-sm font-semibold text-gray-700 hover:bg-gray-50"
-          aria-label={t("Zoom in")}
-        >
-          +
-        </button>
-        <button
-          type="button"
-          onClick={() => zoomFromCenter(1 / ZOOM_STEP)}
-          className="border-b border-gray-200 px-3 py-2 text-sm font-semibold text-gray-700 hover:bg-gray-50"
-          aria-label={t("Zoom out")}
-        >
-          −
-        </button>
-        <button
-          type="button"
-          onClick={fitGraph}
-          className="border-b border-gray-200 px-3 py-2 text-xs font-medium text-gray-700 hover:bg-gray-50"
-        >
-          {t("Fit")}
-        </button>
-        {mode === "greedy" ? (
-          <div className="px-3 py-1.5 text-center text-[11px] font-medium text-gray-500">
-            {zoomPercent}%
-          </div>
-        ) : null}
-      </div>
-
-      <svg
-        width={canvasSize.width}
-        height={canvasSize.height}
-        className={dragging ? "cursor-grabbing" : "cursor-grab"}
-        onWheel={onWheel}
-        onPointerDown={onPointerDown}
-        onPointerMove={onPointerMove}
-        onPointerUp={endDrag}
-        onPointerCancel={endDrag}
-        onClick={(event) => {
-          const target = event.target as Element;
-          if (!target.closest("[data-node='true']")) setSelectedKey(null);
-        }}
-      >
-        <defs>
-          <radialGradient id="graph-node-glow" cx="50%" cy="50%" r="50%">
-            <stop offset="0%" stopColor="#ffffff" stopOpacity="0.45" />
-            <stop offset="100%" stopColor="#ffffff" stopOpacity="0" />
-          </radialGradient>
-          <marker
-            id="graph-edge-arrow"
-            markerWidth="10"
-            markerHeight="10"
-            refX="8"
-            refY="4"
-            orient="auto"
-            markerUnits="userSpaceOnUse"
-          >
-            <path d="M 0 0 L 8 4 L 0 8 z" fill="#94a3b8" opacity="0.55" />
-          </marker>
-          <marker
-            id="graph-edge-arrow-active"
-            markerWidth="10"
-            markerHeight="10"
-            refX="8"
-            refY="4"
-            orient="auto"
-            markerUnits="userSpaceOnUse"
-          >
-            <path d="M 0 0 L 8 4 L 0 8 z" fill="#38bdf8" opacity="0.95" />
-          </marker>
-        </defs>
-        <g
-          transform={`translate(${viewport.x}, ${viewport.y}) scale(${viewport.scale})`}
-        >
-          <g>
-            {filteredGraph.edges.map((edge, index) => {
-              const source = positionMap.get(edge.source);
-              const target = positionMap.get(edge.target);
-              if (!source || !target) return null;
-              const active = activeKey
-                ? edge.source === activeKey || edge.target === activeKey
-                : false;
-              const dimmed = Boolean(activeSet) && !active;
-              const sourceRadius = computeNodeRadius(source);
-              const targetRadius = computeNodeRadius(target);
-              return (
-                <path
-                  key={`${edge.source}-${edge.target}-${edge.field}-${index}`}
-                  d={edgePath(source, target, sourceRadius, targetRadius)}
-                  fill="none"
-                  stroke={active ? "#38bdf8" : "#94a3b8"}
-                  strokeOpacity={active ? 0.9 : dimmed ? 0.08 : 0.28}
-                  strokeWidth={active ? 2.2 : 1.2}
-                  markerEnd={
-                    active
-                      ? "url(#graph-edge-arrow-active)"
-                      : "url(#graph-edge-arrow)"
-                  }
-                  vectorEffect="non-scaling-stroke"
-                />
-              );
-            })}
-          </g>
-
-          <g>
-            {filteredGraph.nodes.map((node) => {
-              const isHovered = hoveredKey === node.key;
-              const isSelected = selectedKey === node.key;
-              const isActive = isHovered || isSelected;
-              const isRelated = activeSet?.has(node.key) ?? false;
-              const opacity = activeSet ? (isRelated ? 1 : 0.18) : 1;
-              const radius = computeNodeRadius(
-                node,
-                isSelected ? "selected" : isHovered ? "hover" : "base",
-              );
-              const showLabel =
-                isActive ||
-                (!activeSet && viewport.scale >= 1.1) ||
-                (activeSet && isRelated && viewport.scale >= 1.1);
-
-              return (
-                <g
-                  key={node.key}
-                  data-node="true"
-                  transform={`translate(${node.x}, ${node.y})`}
-                  className="cursor-pointer"
-                  onPointerEnter={() => setHoveredKey(node.key)}
-                  onPointerLeave={() =>
-                    setHoveredKey((prev) => (prev === node.key ? null : prev))
-                  }
-                  onClick={(event) => {
-                    event.stopPropagation();
-                    setSelectedKey(node.key);
-                  }}
-                  opacity={opacity}
-                >
-                  {isRelated ? (
-                    <circle
-                      r={radius + 7}
-                      fill="url(#graph-node-glow)"
-                      opacity={isActive ? 0.9 : 0.45}
-                    />
-                  ) : null}
-                  <circle
-                    r={radius}
-                    fill={pickTypeColor(node.typeId)}
-                    stroke={isSelected ? "#f8fafc" : "#0f172a"}
-                    strokeWidth={isSelected ? 2.4 : 1.4}
-                  />
-                  <circle
-                    r={Math.max(1.8, radius * 0.32)}
-                    fill="#ffffff"
-                    opacity={0.38}
-                  />
-                  {showLabel ? (
-                    <text
-                      x={radius + 7}
-                      y={-radius - 4}
-                      fontSize={11}
-                      fill="#334155"
-                      stroke="#f8fafc"
-                      strokeWidth={3}
-                      paintOrder="stroke"
-                    >
-                      {node.name || node.resourceId}
-                    </text>
-                  ) : null}
-                </g>
-              );
-            })}
-          </g>
-        </g>
-      </svg>
-    </div>
+    <SigmaGraphCanvas
+      graph={filteredGraph}
+      activeKey={activeKey}
+      activeSet={activeSet}
+      selectedKey={selectedKey}
+      viewMode={viewMode}
+      hiddenResourceCount={hiddenResourceCount}
+      hasManualLayout={hasManualLayout}
+      mode={mode}
+      showExpandButton={showExpandButton}
+      showCloseButton={showCloseButton}
+      panelClassName={panelClassName}
+      onExpand={() => setIsExpanded(true)}
+      onClose={() => setIsExpanded(false)}
+      onSelectNode={selectNode}
+      onOpenNode={openNode}
+      onHoverNode={setHoveredKey}
+      onClearHover={(key) =>
+        setHoveredKey((prev) => (prev === key ? null : prev))
+      }
+      onClearSelected={clearSelectedNode}
+      onResetLayout={resetLayout}
+      onNodePositionChange={(key, position) => {
+        setManualNodePositions((current) => ({
+          ...current,
+          [key]: position,
+        }));
+      }}
+    />
   );
 
   return (
     <>
-      <div className="space-y-3">
-        <GraphControls
-          search={search}
-          onSearchChange={setSearch}
-          groups={groups}
-          selectedGroup={groupFilter}
-          onGroupChange={setGroupFilter}
-          showMode={showMode}
-          onShowModeChange={setShowMode}
-        />
-
-        <div className={graphGridClass}>
-          {renderCanvas(
-            compactContainerRef,
-            compactSize,
-            isExpanded ? "greedy" : "cooperative",
-            !isExpanded,
-            false,
-            "graph-panel relative h-[360px] overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-sm md:h-[420px]",
-          )}
-          <GraphDetailsPanel
-            selectedNode={selectedNode}
-            edges={filteredGraph.edges}
+      {!isExpanded ? (
+        <div className="space-y-3">
+          <GraphControls
+            search={search}
+            onSearchChange={setSearch}
+            viewMode={viewMode}
+            onViewModeChange={setViewMode}
+            canFocus={Boolean(selectedKey)}
+            groups={groups}
+            selectedGroup={groupFilter}
+            onGroupChange={setGroupFilter}
+            showMode={showMode}
+            onShowModeChange={setShowMode}
+            showViewControls={false}
           />
+
+          <div className="grid gap-3">
+            {renderGraphCanvas(
+              "cooperative",
+              true,
+              false,
+              "graph-panel relative h-[360px] overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-sm md:h-[420px]",
+            )}
+          </div>
         </div>
-      </div>
+      ) : null}
 
       {isExpanded ? (
         <div className="fixed inset-0 z-50 bg-gray-800/35 p-3 md:p-6">
@@ -612,7 +403,7 @@ export function ResourceGraph({
               <button
                 type="button"
                 onClick={() => setIsExpanded(false)}
-                className="rounded-lg border border-gray-300 bg-white px-3 py-1.5 text-xs font-medium text-gray-700 hover:bg-gray-50"
+                className="min-h-11 rounded-lg border border-gray-300 bg-white px-3 py-2 text-xs font-medium text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-blue-500/30"
               >
                 {t("Close")}
               </button>
@@ -621,30 +412,24 @@ export function ResourceGraph({
               <GraphControls
                 search={search}
                 onSearchChange={setSearch}
+                viewMode={viewMode}
+                onViewModeChange={setViewMode}
+                canFocus={Boolean(selectedKey)}
                 groups={groups}
                 selectedGroup={groupFilter}
                 onGroupChange={setGroupFilter}
                 showMode={showMode}
                 onShowModeChange={setShowMode}
+                showViewControls={false}
               />
             </div>
-            <div className="grid min-h-0 flex-1 gap-3 xl:grid-cols-[1fr_360px]">
-              <div className="min-h-0">
-                {renderCanvas(
-                  expandedContainerRef,
-                  expandedSize,
-                  "greedy",
-                  false,
-                  true,
-                  "graph-panel relative h-full min-h-[640px] overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-sm",
-                )}
-              </div>
-              <div className="min-h-0 overflow-auto">
-                <GraphDetailsPanel
-                  selectedNode={selectedNode}
-                  edges={filteredGraph.edges}
-                />
-              </div>
+            <div className="min-h-0 flex-1">
+              {renderGraphCanvas(
+                "greedy",
+                false,
+                false,
+                "graph-panel relative h-full min-h-[420px] overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-sm",
+              )}
             </div>
           </div>
         </div>
