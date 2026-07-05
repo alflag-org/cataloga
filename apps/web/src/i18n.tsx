@@ -177,6 +177,7 @@ const ja: Record<string, string> = {
   Failed: "失敗",
   Errors: "エラー",
   Warnings: "警告",
+  "Resource Type": "リソースタイプ",
   Resource: "リソース",
   Field: "フィールド",
   Message: "メッセージ",

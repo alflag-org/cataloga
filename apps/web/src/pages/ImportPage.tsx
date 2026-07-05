@@ -23,7 +23,10 @@ export function ImportPage() {
           <TextareaInput
             rows={20}
             value={yaml}
-            onChange={(e) => setYaml(e.target.value)}
+            onChange={(e) => {
+              setYaml(e.target.value);
+              setPreview(null);
+            }}
           />
           <Button
             variant="secondary"
@@ -60,6 +63,37 @@ export function ImportPage() {
             <p>
               {t("Validation errors")}: {preview.validation_errors.length}
             </p>
+            {preview.validation_errors.length > 0 ? (
+              <div className="space-y-2 pt-2">
+                {preview.validation_errors.map((item, idx) => (
+                  <div
+                    key={idx}
+                    className="rounded border border-red-200 bg-red-50 px-3 py-2 text-red-900"
+                  >
+                    <div className="grid grid-cols-1 gap-2 md:grid-cols-3">
+                      <p>
+                        <span className="font-semibold">
+                          {t("Resource Type")}:
+                        </span>{" "}
+                        {item.resource_type || "-"}
+                      </p>
+                      <p>
+                        <span className="font-semibold">{t("Resource")}:</span>{" "}
+                        {item.resource_id || "-"}
+                      </p>
+                      <p>
+                        <span className="font-semibold">{t("Field")}:</span>{" "}
+                        {item.field || "-"}
+                      </p>
+                    </div>
+                    <p className="mt-2 break-words">
+                      <span className="font-semibold">{t("Message")}:</span>{" "}
+                      {item.message}
+                    </p>
+                  </div>
+                ))}
+              </div>
+            ) : null}
             <Button
               onClick={async () => {
                 try {

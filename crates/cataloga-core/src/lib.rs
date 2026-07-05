@@ -1,4 +1,7 @@
-use std::collections::{HashMap, HashSet};
+use std::{
+    collections::{HashMap, HashSet},
+    fmt,
+};
 
 use ipnet::IpNet;
 use regex::Regex;
@@ -232,6 +235,70 @@ pub struct ResourceValidationIssue {
     pub resource_id: String,
     pub field: String,
     pub message: String,
+}
+
+#[derive(Debug)]
+pub enum ImportYamlError {
+    Deserialize {
+        path: String,
+        line: Option<usize>,
+        column: Option<usize>,
+        message: String,
+    },
+    UnsupportedVersion {
+        found: u8,
+    },
+}
+
+impl ImportYamlError {
+    fn from_deserialize_error(err: serde_path_to_error::Error<serde_yaml::Error>) -> Self {
+        let path = format_yaml_path(&err.path().to_string());
+        let source = err.into_inner();
+        let location = source.location();
+        Self::Deserialize {
+            path,
+            line: location.as_ref().map(|location| location.line()),
+            column: location.as_ref().map(|location| location.column()),
+            message: source.to_string(),
+        }
+    }
+}
+
+impl fmt::Display for ImportYamlError {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            Self::Deserialize {
+                path,
+                line,
+                column,
+                message,
+            } => {
+                write!(f, "Import YAML parse failed")?;
+                match (line, column) {
+                    (Some(line), Some(column)) => write!(f, " at line {line}, column {column}")?,
+                    (Some(line), None) => write!(f, " at line {line}")?,
+                    _ => {}
+                }
+                write!(f, " (path `{path}`): {message}")
+            }
+            Self::UnsupportedVersion { found } => {
+                write!(
+                    f,
+                    "unsupported Import YAML version at path `version`: {found}; expected 1"
+                )
+            }
+        }
+    }
+}
+
+impl std::error::Error for ImportYamlError {}
+
+fn format_yaml_path(path: &str) -> String {
+    if path.is_empty() || path == "." {
+        "root".to_string()
+    } else {
+        path.to_string()
+    }
 }
 
 pub fn validate_resource_type(rt: &ResourceType) -> Result<(), ValidationError> {
@@ -783,11 +850,14 @@ pub fn import_yaml(input: &str) -> anyhow::Result<(Vec<ResourceType>, Vec<Resour
         resources: Vec<ImportResource>,
     }
 
-    let parsed: CatalogDataset = serde_yaml::from_str(input)?;
+    let deserializer = serde_yaml::Deserializer::from_str(input);
+    let parsed: CatalogDataset = serde_path_to_error::deserialize(deserializer)
+        .map_err(ImportYamlError::from_deserialize_error)?;
     anyhow::ensure!(
         parsed.version == 1,
-        "unsupported catalog version: {}",
-        parsed.version
+        ImportYamlError::UnsupportedVersion {
+            found: parsed.version
+        }
     );
     let resources = parsed
         .resources
@@ -918,6 +988,40 @@ resources:
     spec: {}
 "#;
         assert!(import_yaml(legacy).is_err());
+    }
+
+    #[test]
+    fn import_yaml_reports_path_and_location_for_invalid_resource_shape() {
+        let invalid = r#"
+version: 1
+resource_types: []
+resources:
+  - type: provider
+    name: ONPREM
+    spec:
+      status: active
+"#;
+
+        let err = import_yaml(invalid).expect_err("expected invalid YAML shape");
+        let msg = err.to_string();
+        assert!(msg.contains("line "));
+        assert!(msg.contains("column "));
+        assert!(msg.contains("resources[0]"));
+        assert!(msg.contains("id"));
+    }
+
+    #[test]
+    fn import_yaml_reports_path_for_unsupported_version() {
+        let invalid = r#"
+version: 2
+resource_types: []
+resources: []
+"#;
+
+        let err = import_yaml(invalid).expect_err("expected unsupported version");
+        let msg = err.to_string();
+        assert!(msg.contains("path `version`"));
+        assert!(msg.contains("expected 1"));
     }
 
     #[test]

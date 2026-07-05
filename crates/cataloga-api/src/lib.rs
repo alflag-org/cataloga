@@ -480,9 +480,10 @@ impl<S: CatalogStore> ApiService<S> {
     pub async fn import_catalog_yaml(&self, catalog_id: &str, input: &str) -> anyhow::Result<()> {
         let preview = self.import_catalog_preview(catalog_id, input).await?;
         if !preview.validation_errors.is_empty() {
-            return Err(
-                ApiError::Validation("import preview failed validation".to_string()).into(),
-            );
+            return Err(ApiError::Validation(format_import_validation_errors(
+                &preview.validation_errors,
+            ))
+            .into());
         }
 
         let (imported_types, imported_resources) = parse_import_yaml(input)?;
@@ -565,10 +566,50 @@ impl<S: CatalogStore> ApiService<S> {
 fn parse_import_yaml(input: &str) -> anyhow::Result<(Vec<ResourceType>, Vec<Resource>)> {
     import_yaml(input).map_err(|e| {
         ApiError::BadRequest(format!(
-            "invalid import YAML format: {e}. expected top-level keys `version`, `resource_types`, and `resources`; `version` must be 1, and each resource must include `id`, `type`, `name`, and `spec`"
+            "invalid Import YAML format: {e}. expected top-level keys `version`, `resource_types`, and `resources`; `version` must be 1, and each Resource must include `id`, `type`, `name`, and `spec`"
         ))
         .into()
     })
+}
+
+fn format_import_validation_errors(errors: &[ValidationIssue]) -> String {
+    let shown = errors
+        .iter()
+        .take(5)
+        .map(format_import_validation_issue)
+        .collect::<Vec<_>>();
+    let remaining = errors.len().saturating_sub(shown.len());
+    let suffix = if remaining == 0 {
+        String::new()
+    } else {
+        format!("; and {remaining} more")
+    };
+
+    format!(
+        "Import validation failed with {} error(s): {}{}",
+        errors.len(),
+        shown.join("; "),
+        suffix
+    )
+}
+
+fn format_import_validation_issue(issue: &ValidationIssue) -> String {
+    let mut location = Vec::new();
+    if !issue.resource_type.is_empty() {
+        location.push(format!("Resource Type `{}`", issue.resource_type));
+    }
+    if !issue.resource_id.is_empty() {
+        location.push(format!("Resource `{}`", issue.resource_id));
+    }
+    if !issue.field.is_empty() {
+        location.push(format!("Field `{}`", issue.field));
+    }
+
+    if location.is_empty() {
+        issue.message.clone()
+    } else {
+        format!("{}: {}", location.join(", "), issue.message)
+    }
 }
 
 fn build_validation_result(types: &[ResourceType], resources: &[Resource]) -> ValidationResult {
@@ -1506,8 +1547,42 @@ resources:
         let api_err = err.downcast_ref::<ApiError>().expect("api error");
         match api_err {
             ApiError::BadRequest(msg) => {
-                assert!(msg.contains("invalid import YAML format"));
+                assert!(msg.contains("invalid Import YAML format"));
+                assert!(msg.contains("line "));
+                assert!(msg.contains("column "));
+                assert!(msg.contains("resources[0]"));
                 assert!(msg.contains("id"));
+            }
+            other => panic!("unexpected error: {other:?}"),
+        }
+    }
+
+    #[tokio::test]
+    async fn import_apply_reports_validation_error_locations() {
+        let store = MemoryStore::default();
+        let api = ApiService::new(store);
+        let invalid = r#"
+version: 1
+resource_types: []
+resources:
+  - id: oci
+    type: provider
+    name: OCI
+    spec:
+      status: active
+"#;
+
+        let err = api
+            .import_catalog_yaml("default", invalid)
+            .await
+            .expect_err("expected validation error");
+        let api_err = err.downcast_ref::<ApiError>().expect("api error");
+        match api_err {
+            ApiError::Validation(msg) => {
+                assert!(msg.contains("Import validation failed"));
+                assert!(msg.contains("Resource Type `provider`"));
+                assert!(msg.contains("Resource `oci`"));
+                assert!(msg.contains("unknown resource type"));
             }
             other => panic!("unexpected error: {other:?}"),
         }
