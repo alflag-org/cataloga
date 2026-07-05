@@ -3,7 +3,7 @@ import { Link } from "react-router-dom";
 import { api } from "../api/client";
 import { ErrorBanner } from "../components/ErrorBanner";
 import { PageHeader } from "../components/PageHeader";
-import { ResourceGraph } from "../components/ResourceGraph";
+import { LazyResourceGraph } from "../components/LazyResourceGraph";
 import { useI18n } from "../i18n";
 import type { Resource, ResourceType } from "../types";
 
@@ -48,7 +48,11 @@ export function GraphPage() {
         }
       />
       <ErrorBanner message={error} />
-      <ResourceGraph expanded types={types} resourcesByType={resourceByType} />
+      <LazyResourceGraph
+        expanded
+        types={types}
+        resourcesByType={resourceByType}
+      />
     </section>
   );
 }

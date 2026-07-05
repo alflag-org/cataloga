@@ -241,7 +241,7 @@ impl CatalogStore for SqliteStore {
         resource_id: &str,
     ) -> anyhow::Result<Option<Resource>> {
         let row = sqlx::query(
-            "SELECT body FROM resources WHERE catalog_id = ? AND type_id = ? AND resource_id = ?",
+            "SELECT type_id, resource_id, body FROM resources WHERE catalog_id = ? AND type_id = ? AND resource_id = ?",
         )
         .bind(catalog_id)
         .bind(type_id)
@@ -339,5 +339,12 @@ mod tests {
         store.upsert_resource("default", resource).await.unwrap();
         let resources = store.list_resources("default", "site").await.unwrap();
         assert_eq!(resources.len(), 1);
+        let resource = store
+            .get_resource("default", "site", "tokyo")
+            .await
+            .unwrap()
+            .unwrap();
+        assert_eq!(resource.id, "tokyo");
+        assert_eq!(resource.resource_type, "site");
     }
 }
