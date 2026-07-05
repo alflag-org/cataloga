@@ -16,7 +16,6 @@ import {
   type GraphData,
   type ResourceGraphEdgeAttributes,
   type ResourceGraphNodeAttributes,
-  type ResourceGraphologyGraph,
 } from "../graph/graphLayout";
 import { useI18n } from "../i18n";
 import type { GraphViewMode } from "./GraphControls";
@@ -30,7 +29,6 @@ type Props = {
   selectedKey: string | null;
   viewMode: GraphViewMode;
   hiddenResourceCount: number;
-  hasManualLayout: boolean;
   mode: GraphInteractionMode;
   showExpandButton: boolean;
   showCloseButton: boolean;
@@ -42,11 +40,6 @@ type Props = {
   onHoverNode: (key: string) => void;
   onClearHover: (key: string) => void;
   onClearSelected: () => void;
-  onResetLayout: () => void;
-  onNodePositionChange: (
-    key: string,
-    position: { x: number; y: number },
-  ) => void;
 };
 
 type Renderer = Sigma<ResourceGraphNodeAttributes, ResourceGraphEdgeAttributes>;
@@ -59,23 +52,6 @@ type DisplayState = {
   nodeCount: number;
 };
 
-type DragBounds = {
-  minX: number;
-  maxX: number;
-  minY: number;
-  maxY: number;
-};
-
-type DragState = {
-  node: string;
-  moved: boolean;
-  offsetX: number;
-  offsetY: number;
-  startX: number;
-  startY: number;
-  bounds: DragBounds;
-};
-
 type Callbacks = Pick<
   Props,
   | "onSelectNode"
@@ -83,72 +59,10 @@ type Callbacks = Pick<
   | "onHoverNode"
   | "onClearHover"
   | "onClearSelected"
-  | "onNodePositionChange"
 >;
 
 const ZOOM_FACTOR = 1.18;
 const CAMERA_DURATION_MS = 160;
-const DRAG_START_THRESHOLD_PX = 3;
-
-function clamp(value: number, min: number, max: number) {
-  return Math.min(max, Math.max(min, value));
-}
-
-function getDragBounds(
-  graph: ResourceGraphologyGraph,
-  fallbackPadding = 240,
-): DragBounds {
-  let minX = Infinity;
-  let maxX = -Infinity;
-  let minY = Infinity;
-  let maxY = -Infinity;
-
-  graph.forEachNode((_key, attributes) => {
-    if (Number.isFinite(attributes.x)) {
-      minX = Math.min(minX, attributes.x);
-      maxX = Math.max(maxX, attributes.x);
-    }
-    if (Number.isFinite(attributes.y)) {
-      minY = Math.min(minY, attributes.y);
-      maxY = Math.max(maxY, attributes.y);
-    }
-  });
-
-  if (
-    !Number.isFinite(minX) ||
-    !Number.isFinite(maxX) ||
-    !Number.isFinite(minY) ||
-    !Number.isFinite(maxY)
-  ) {
-    return {
-      minX: -fallbackPadding,
-      maxX: fallbackPadding,
-      minY: -fallbackPadding,
-      maxY: fallbackPadding,
-    };
-  }
-
-  const width = Math.max(1, maxX - minX);
-  const height = Math.max(1, maxY - minY);
-  const padding = Math.max(fallbackPadding, Math.max(width, height) * 0.18);
-
-  return {
-    minX: minX - padding,
-    maxX: maxX + padding,
-    minY: minY - padding,
-    maxY: maxY + padding,
-  };
-}
-
-function clampDragPosition(
-  position: { x: number; y: number },
-  bounds: DragBounds,
-) {
-  return {
-    x: clamp(position.x, bounds.minX, bounds.maxX),
-    y: clamp(position.y, bounds.minY, bounds.maxY),
-  };
-}
 
 function dimColor(color: string, amount = 0.22) {
   const hex = color.replace("#", "");
@@ -269,7 +183,6 @@ export function SigmaGraphCanvas({
   selectedKey,
   viewMode,
   hiddenResourceCount,
-  hasManualLayout,
   mode,
   showExpandButton,
   showCloseButton,
@@ -281,15 +194,10 @@ export function SigmaGraphCanvas({
   onHoverNode,
   onClearHover,
   onClearSelected,
-  onResetLayout,
-  onNodePositionChange,
 }: Props) {
   const { t } = useI18n();
   const containerRef = useRef<HTMLDivElement | null>(null);
   const rendererRef = useRef<Renderer | null>(null);
-  const dragRef = useRef<DragState | null>(null);
-  const suppressNextClickRef = useRef(false);
-  const suppressClickTimeoutRef = useRef<number | null>(null);
   const [zoomPercent, setZoomPercent] = useState(100);
   const graphology = useMemo(() => buildGraphologyGraph(graph), [graph]);
   const stateRef = useRef<DisplayState>({
@@ -305,7 +213,6 @@ export function SigmaGraphCanvas({
     onHoverNode,
     onClearHover,
     onClearSelected,
-    onNodePositionChange,
   });
 
   stateRef.current = {
@@ -321,7 +228,6 @@ export function SigmaGraphCanvas({
     onHoverNode,
     onClearHover,
     onClearSelected,
-    onNodePositionChange,
   };
 
   useEffect(() => {
@@ -397,29 +303,7 @@ export function SigmaGraphCanvas({
     });
     resizeObserver.observe(container);
 
-    const clearSuppressedClick = () => {
-      suppressNextClickRef.current = false;
-      if (suppressClickTimeoutRef.current !== null) {
-        window.clearTimeout(suppressClickTimeoutRef.current);
-        suppressClickTimeoutRef.current = null;
-      }
-    };
-    const consumeSuppressedClick = () => {
-      if (!suppressNextClickRef.current) return false;
-      clearSuppressedClick();
-      return true;
-    };
-    const suppressNextClickTemporarily = () => {
-      clearSuppressedClick();
-      suppressNextClickRef.current = true;
-      suppressClickTimeoutRef.current = window.setTimeout(
-        clearSuppressedClick,
-        180,
-      );
-    };
-
     const onClickNode = ({ node }: { node: string }) => {
-      if (consumeSuppressedClick()) return;
       callbacksRef.current.onSelectNode(node);
     };
     const onDoubleClickNode = ({
@@ -435,32 +319,6 @@ export function SigmaGraphCanvas({
       event.original.preventDefault();
       callbacksRef.current.onOpenNode(node);
     };
-    const onDownNode = ({
-      node,
-      event,
-      preventSigmaDefault,
-    }: {
-      node: string;
-      event: MouseCoords;
-      preventSigmaDefault: () => void;
-    }) => {
-      preventSigmaDefault();
-      event.original.preventDefault();
-      event.original.stopPropagation();
-      renderer.getCamera().disable();
-      const pointer = renderer.viewportToGraph({ x: event.x, y: event.y });
-      const attributes = graphology.getNodeAttributes(node);
-      dragRef.current = {
-        node,
-        moved: false,
-        offsetX: attributes.x - pointer.x,
-        offsetY: attributes.y - pointer.y,
-        startX: event.x,
-        startY: event.y,
-        bounds: getDragBounds(graphology),
-      };
-      callbacksRef.current.onHoverNode(node);
-    };
     const onEnterNode = ({ node }: { node: string }) => {
       callbacksRef.current.onHoverNode(node);
     };
@@ -468,59 +326,14 @@ export function SigmaGraphCanvas({
       callbacksRef.current.onClearHover(node);
     };
     const onClickStage = () => {
-      if (consumeSuppressedClick()) return;
       callbacksRef.current.onClearSelected();
     };
 
     renderer.on("clickNode", onClickNode);
     renderer.on("doubleClickNode", onDoubleClickNode);
-    renderer.on("downNode", onDownNode);
     renderer.on("enterNode", onEnterNode);
     renderer.on("leaveNode", onLeaveNode);
     renderer.on("clickStage", onClickStage);
-
-    const mouseCaptor = renderer.getMouseCaptor();
-    const onMouseMoveBody = (event: MouseCoords) => {
-      const dragging = dragRef.current;
-      if (!dragging) return;
-      event.preventSigmaDefault();
-      event.original.preventDefault();
-      event.original.stopPropagation();
-      const movedPixels = Math.hypot(
-        event.x - dragging.startX,
-        event.y - dragging.startY,
-      );
-      if (movedPixels < DRAG_START_THRESHOLD_PX) return;
-      const pointer = renderer.viewportToGraph({ x: event.x, y: event.y });
-      const position = clampDragPosition(
-        {
-          x: pointer.x + dragging.offsetX,
-          y: pointer.y + dragging.offsetY,
-        },
-        dragging.bounds,
-      );
-      graphology.setNodeAttribute(dragging.node, "x", position.x);
-      graphology.setNodeAttribute(dragging.node, "y", position.y);
-      dragging.moved = true;
-      renderer.refresh({ schedule: true });
-    };
-    const onMouseUp = () => {
-      const dragging = dragRef.current;
-      renderer.getCamera().enable();
-      if (!dragging) return;
-      if (dragging.moved) {
-        const attributes = graphology.getNodeAttributes(dragging.node);
-        const node = dragging.node;
-        const position = { x: attributes.x, y: attributes.y };
-        suppressNextClickTemporarily();
-        window.setTimeout(() => {
-          callbacksRef.current.onNodePositionChange(node, position);
-        }, 0);
-      }
-      dragRef.current = null;
-    };
-    mouseCaptor.on("mousemovebody", onMouseMoveBody);
-    mouseCaptor.on("mouseup", onMouseUp);
 
     const resizeFrame = window.requestAnimationFrame(() =>
       syncContainerSize(true),
@@ -535,8 +348,6 @@ export function SigmaGraphCanvas({
       camera.off("updated", updateZoom);
       renderer.kill();
       rendererRef.current = null;
-      dragRef.current = null;
-      clearSuppressedClick();
     };
   }, [graphology, mode]);
 
@@ -624,22 +435,15 @@ export function SigmaGraphCanvas({
         <button
           type="button"
           onClick={fitGraph}
-          className="min-h-11 min-w-11 border-b border-gray-200 px-3 py-2 text-xs font-medium text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-inset focus:ring-blue-500/30"
+          className={[
+            "min-h-11 min-w-11 px-3 py-2 text-xs font-medium text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-inset focus:ring-blue-500/30",
+            mode === "greedy" ? "border-b border-gray-200" : "",
+          ].join(" ")}
         >
           {t("Fit")}
         </button>
-        <button
-          type="button"
-          onClick={onResetLayout}
-          disabled={!hasManualLayout}
-          className="min-h-11 min-w-11 px-3 py-2 text-xs font-medium text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-inset focus:ring-blue-500/30 disabled:cursor-not-allowed disabled:opacity-45"
-          aria-label={t("Reset Layout")}
-          title={t("Reset Layout")}
-        >
-          {t("Reset")}
-        </button>
         {mode === "greedy" ? (
-          <div className="border-t border-gray-200 px-3 py-1.5 text-center text-[11px] font-medium text-gray-500">
+          <div className="px-3 py-1.5 text-center text-[11px] font-medium text-gray-500">
             {zoomPercent}%
           </div>
         ) : null}

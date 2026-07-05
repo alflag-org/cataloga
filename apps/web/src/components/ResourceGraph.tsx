@@ -109,9 +109,6 @@ export function ResourceGraph({
   const [viewMode, setViewMode] = useState<GraphViewMode>(defaultViewMode);
   const [selectedKey, setSelectedKey] = useState<string | null>(null);
   const [hoveredKey, setHoveredKey] = useState<string | null>(null);
-  const [manualNodePositions, setManualNodePositions] = useState<
-    Record<string, { x: number; y: number }>
-  >({});
 
   const searchQuery = search.trim().toLowerCase();
   const overviewLimit = isExpanded
@@ -124,34 +121,7 @@ export function ResourceGraph({
     () => computeLayout(buildGraphData(types, resourcesByType)),
     [types, resourcesByType],
   );
-
-  const baseGraph = useMemo(
-    () => ({
-      nodes: layoutGraph.nodes.map((node) => {
-        const manualPosition = manualNodePositions[node.key];
-        if (!manualPosition) return node;
-        return {
-          ...node,
-          x: manualPosition.x,
-          y: manualPosition.y,
-        };
-      }),
-      edges: layoutGraph.edges,
-    }),
-    [layoutGraph, manualNodePositions],
-  );
-
-  useEffect(() => {
-    const validKeys = new Set(layoutGraph.nodes.map((node) => node.key));
-    setManualNodePositions((current) => {
-      const next = Object.fromEntries(
-        Object.entries(current).filter(([key]) => validKeys.has(key)),
-      );
-      return Object.keys(next).length === Object.keys(current).length
-        ? current
-        : next;
-    });
-  }, [layoutGraph.nodes]);
+  const baseGraph = layoutGraph;
 
   const groups = useMemo(
     () => [...new Set(baseGraph.nodes.map((node) => node.group))].sort(),
@@ -306,15 +276,10 @@ export function ResourceGraph({
     if (viewMode === "focus") setViewMode(defaultViewMode);
   };
 
-  const resetLayout = () => {
-    setManualNodePositions({});
-  };
-
   const hiddenResourceCount = Math.max(
     0,
     controlFilteredNodes.length - filteredGraph.nodes.length,
   );
-  const hasManualLayout = Object.keys(manualNodePositions).length > 0;
 
   if (!baseGraph.nodes.length) {
     return (
@@ -340,7 +305,6 @@ export function ResourceGraph({
       selectedKey={selectedKey}
       viewMode={viewMode}
       hiddenResourceCount={hiddenResourceCount}
-      hasManualLayout={hasManualLayout}
       mode={mode}
       showExpandButton={showExpandButton}
       showCloseButton={showCloseButton}
@@ -354,13 +318,6 @@ export function ResourceGraph({
         setHoveredKey((prev) => (prev === key ? null : prev))
       }
       onClearSelected={clearSelectedNode}
-      onResetLayout={resetLayout}
-      onNodePositionChange={(key, position) => {
-        setManualNodePositions((current) => ({
-          ...current,
-          [key]: position,
-        }));
-      }}
     />
   );
 
