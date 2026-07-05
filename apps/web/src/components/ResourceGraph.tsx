@@ -1,7 +1,11 @@
 import { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import type { Resource, ResourceType } from "../types";
-import { buildGraphData, computeLayout } from "../graph/graphLayout";
+import {
+  buildGraphData,
+  computeLayout,
+  type GraphNode,
+} from "../graph/graphLayout";
 import { useI18n } from "../i18n";
 import { GraphControls, type GraphViewMode } from "./GraphControls";
 import { SigmaGraphCanvas } from "./SigmaGraphCanvas";
@@ -16,6 +20,9 @@ export type ResourceGraphProps = {
 const COMPACT_OVERVIEW_LIMIT = 32;
 const DEFAULT_OVERVIEW_LIMIT = 40;
 const EXPANDED_OVERVIEW_LIMIT = 56;
+
+type GraphPosition = { x: number; y: number };
+type RelationCounts = { incoming: number; outgoing: number };
 
 function neighborSets(edges: Array<{ source: string; target: string }>) {
   const map = new Map<string, Set<string>>();
@@ -109,6 +116,15 @@ export function ResourceGraph({
   const [viewMode, setViewMode] = useState<GraphViewMode>(defaultViewMode);
   const [selectedKey, setSelectedKey] = useState<string | null>(null);
   const [hoveredKey, setHoveredKey] = useState<string | null>(null);
+  const [expandedDepth, setExpandedDepth] = useState<1 | 2>(1);
+  const [hiddenNodeKeys, setHiddenNodeKeys] = useState<Set<string>>(
+    () => new Set(),
+  );
+  const [pinnedPositions, setPinnedPositions] = useState<
+    Record<string, GraphPosition>
+  >({});
+  const [arrangeMode, setArrangeMode] = useState(false);
+  const allowArrangeControls = expanded;
 
   const searchQuery = search.trim().toLowerCase();
   const overviewLimit = isExpanded
@@ -121,7 +137,44 @@ export function ResourceGraph({
     () => computeLayout(buildGraphData(types, resourcesByType)),
     [types, resourcesByType],
   );
-  const baseGraph = layoutGraph;
+
+  const baseGraph = useMemo(() => {
+    if (Object.keys(pinnedPositions).length === 0) return layoutGraph;
+    return {
+      nodes: layoutGraph.nodes.map((node) => {
+        const pinnedPosition = pinnedPositions[node.key];
+        if (!pinnedPosition) return node;
+        return {
+          ...node,
+          x: pinnedPosition.x,
+          y: pinnedPosition.y,
+        };
+      }),
+      edges: layoutGraph.edges,
+    };
+  }, [layoutGraph, pinnedPositions]);
+
+  useEffect(() => {
+    const validKeys = new Set(layoutGraph.nodes.map((node) => node.key));
+
+    setPinnedPositions((current) => {
+      const next = Object.fromEntries(
+        Object.entries(current).filter(([key]) => validKeys.has(key)),
+      );
+      return Object.keys(next).length === Object.keys(current).length
+        ? current
+        : next;
+    });
+
+    setHiddenNodeKeys((current) => {
+      const next = new Set([...current].filter((key) => validKeys.has(key)));
+      return next.size === current.size ? current : next;
+    });
+  }, [layoutGraph.nodes]);
+
+  useEffect(() => {
+    if (!allowArrangeControls && arrangeMode) setArrangeMode(false);
+  }, [allowArrangeControls, arrangeMode]);
 
   const groups = useMemo(
     () => [...new Set(baseGraph.nodes.map((node) => node.group))].sort(),
@@ -135,12 +188,13 @@ export function ResourceGraph({
 
   const controlFilteredNodes = useMemo(() => {
     return baseGraph.nodes.filter((node) => {
+      if (hiddenNodeKeys.has(node.key)) return false;
       if (groupFilter !== "All" && node.group !== groupFilter) return false;
       if (showMode === "connected" && node.degree === 0) return false;
       if (showMode === "isolated" && node.degree > 0) return false;
       return true;
     });
-  }, [baseGraph.nodes, groupFilter, showMode]);
+  }, [baseGraph.nodes, groupFilter, hiddenNodeKeys, showMode]);
 
   const controlVisibleKeys = useMemo(
     () => new Set(controlFilteredNodes.map((node) => node.key)),
@@ -173,7 +227,11 @@ export function ResourceGraph({
       selectedKey &&
       controlVisibleKeys.has(selectedKey)
     ) {
-      const focusKeys = collectNeighborhoodKeys(selectedKey, controlEdges, 1);
+      const focusKeys = collectNeighborhoodKeys(
+        selectedKey,
+        controlEdges,
+        expandedDepth,
+      );
       return controlFilteredNodes.filter((node) => focusKeys.has(node.key));
     }
 
@@ -191,6 +249,7 @@ export function ResourceGraph({
     controlEdges,
     controlFilteredNodes,
     controlVisibleKeys,
+    expandedDepth,
     overviewLimit,
     searchFilteredNodes,
     searchQuery,
@@ -224,6 +283,27 @@ export function ResourceGraph({
     for (const key of neighbors.get(activeKey) ?? []) set.add(key);
     return set;
   }, [activeKey, neighbors]);
+
+  const selectedNode = useMemo<GraphNode | null>(() => {
+    if (!selectedKey) return null;
+    return nodesByKey.get(selectedKey) ?? null;
+  }, [nodesByKey, selectedKey]);
+
+  const selectedRelationCounts = useMemo<RelationCounts>(() => {
+    if (!selectedKey) return { incoming: 0, outgoing: 0 };
+    let incoming = 0;
+    let outgoing = 0;
+    for (const edge of baseGraph.edges) {
+      if (edge.source === selectedKey) outgoing += 1;
+      if (edge.target === selectedKey) incoming += 1;
+    }
+    return { incoming, outgoing };
+  }, [baseGraph.edges, selectedKey]);
+
+  const pinnedKeys = useMemo(
+    () => new Set(Object.keys(pinnedPositions)),
+    [pinnedPositions],
+  );
 
   useEffect(() => {
     if (
@@ -262,6 +342,7 @@ export function ResourceGraph({
   const selectNode = (key: string) => {
     setSelectedKey(key);
     setViewMode("focus");
+    setExpandedDepth(1);
   };
 
   const openNode = (key: string) => {
@@ -273,13 +354,84 @@ export function ResourceGraph({
   const clearSelectedNode = () => {
     setSelectedKey(null);
     setHoveredKey(null);
+    setExpandedDepth(1);
     if (viewMode === "focus") setViewMode(defaultViewMode);
   };
 
-  const hiddenResourceCount = Math.max(
+  const focusFilteredCount = Math.max(
     0,
     controlFilteredNodes.length - filteredGraph.nodes.length,
   );
+  const hiddenByActionCount = baseGraph.nodes.filter((node) => {
+    if (!hiddenNodeKeys.has(node.key)) return false;
+    if (groupFilter !== "All" && node.group !== groupFilter) return false;
+    if (showMode === "connected" && node.degree === 0) return false;
+    if (showMode === "isolated" && node.degree > 0) return false;
+    return true;
+  }).length;
+  const hiddenResourceCount = hiddenByActionCount + focusFilteredCount;
+  const hasPinnedNodes = pinnedKeys.size > 0;
+  const hasHiddenNodes = hiddenNodeKeys.size > 0;
+
+  const focusSelectedNode = () => {
+    if (!selectedKey) return;
+    setViewMode("focus");
+    setExpandedDepth(1);
+  };
+
+  const expandSelectedNeighborhood = () => {
+    if (!selectedKey) return;
+    setViewMode("focus");
+    setExpandedDepth(2);
+  };
+
+  const pinSelectedNode = () => {
+    if (!selectedKey) return;
+    const node = nodesByKey.get(selectedKey);
+    if (!node) return;
+    setPinnedPositions((current) => ({
+      ...current,
+      [selectedKey]: { x: node.x, y: node.y },
+    }));
+  };
+
+  const hideSelectedNode = () => {
+    if (!selectedKey) return;
+    const key = selectedKey;
+    setHiddenNodeKeys((current) => {
+      const next = new Set(current);
+      next.add(key);
+      return next;
+    });
+    setSelectedKey(null);
+    setHoveredKey(null);
+    setExpandedDepth(1);
+    if (viewMode === "focus") setViewMode(defaultViewMode);
+  };
+
+  const showAllNodes = () => {
+    setHiddenNodeKeys(new Set());
+    setSelectedKey(null);
+    setHoveredKey(null);
+    setExpandedDepth(1);
+    setViewMode(defaultViewMode);
+  };
+
+  const unpinAll = () => {
+    setPinnedPositions({});
+  };
+
+  const relaxLayout = () => {
+    setPinnedPositions({});
+    setArrangeMode(false);
+  };
+
+  const updateNodePosition = (key: string, position: GraphPosition) => {
+    setPinnedPositions((current) => ({
+      ...current,
+      [key]: position,
+    }));
+  };
 
   if (!baseGraph.nodes.length) {
     return (
@@ -303,8 +455,15 @@ export function ResourceGraph({
       activeKey={activeKey}
       activeSet={activeSet}
       selectedKey={selectedKey}
+      selectedNode={selectedNode}
+      selectedRelationCounts={selectedRelationCounts}
       viewMode={viewMode}
       hiddenResourceCount={hiddenResourceCount}
+      pinnedKeys={pinnedKeys}
+      hasPinnedNodes={hasPinnedNodes}
+      hasHiddenNodes={hasHiddenNodes}
+      arrangeMode={allowArrangeControls ? arrangeMode : false}
+      allowArrangeControls={allowArrangeControls}
       mode={mode}
       showExpandButton={showExpandButton}
       showCloseButton={showCloseButton}
@@ -318,6 +477,15 @@ export function ResourceGraph({
         setHoveredKey((prev) => (prev === key ? null : prev))
       }
       onClearSelected={clearSelectedNode}
+      onArrangeModeChange={setArrangeMode}
+      onFocusSelected={focusSelectedNode}
+      onExpandSelected={expandSelectedNeighborhood}
+      onPinSelected={pinSelectedNode}
+      onHideSelected={hideSelectedNode}
+      onShowAll={showAllNodes}
+      onUnpinAll={unpinAll}
+      onRelaxLayout={relaxLayout}
+      onNodePositionChange={updateNodePosition}
     />
   );
 
