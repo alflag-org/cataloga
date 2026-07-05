@@ -14,8 +14,10 @@ import type {
 import {
   buildGraphologyGraph,
   type GraphData,
+  type GraphNode,
   type ResourceGraphEdgeAttributes,
   type ResourceGraphNodeAttributes,
+  type ResourceGraphologyGraph,
 } from "../graph/graphLayout";
 import { useI18n } from "../i18n";
 import type { GraphViewMode } from "./GraphControls";
@@ -27,8 +29,15 @@ type Props = {
   activeKey: string | null;
   activeSet: Set<string> | null;
   selectedKey: string | null;
+  selectedNode: GraphNode | null;
+  selectedRelationCounts: { incoming: number; outgoing: number };
   viewMode: GraphViewMode;
   hiddenResourceCount: number;
+  pinnedKeys: Set<string>;
+  hasPinnedNodes: boolean;
+  hasHiddenNodes: boolean;
+  arrangeMode: boolean;
+  allowArrangeControls: boolean;
   mode: GraphInteractionMode;
   showExpandButton: boolean;
   showCloseButton: boolean;
@@ -40,6 +49,18 @@ type Props = {
   onHoverNode: (key: string) => void;
   onClearHover: (key: string) => void;
   onClearSelected: () => void;
+  onArrangeModeChange: (value: boolean) => void;
+  onFocusSelected: () => void;
+  onExpandSelected: () => void;
+  onPinSelected: () => void;
+  onHideSelected: () => void;
+  onShowAll: () => void;
+  onUnpinAll: () => void;
+  onRelaxLayout: () => void;
+  onNodePositionChange: (
+    key: string,
+    position: { x: number; y: number },
+  ) => void;
 };
 
 type Renderer = Sigma<ResourceGraphNodeAttributes, ResourceGraphEdgeAttributes>;
@@ -50,6 +71,25 @@ type DisplayState = {
   selectedKey: string | null;
   viewMode: GraphViewMode;
   nodeCount: number;
+  pinnedKeys: Set<string>;
+  arrangeMode: boolean;
+};
+
+type DragBounds = {
+  minX: number;
+  maxX: number;
+  minY: number;
+  maxY: number;
+};
+
+type DragState = {
+  node: string;
+  moved: boolean;
+  offsetX: number;
+  offsetY: number;
+  startX: number;
+  startY: number;
+  bounds: DragBounds;
 };
 
 type Callbacks = Pick<
@@ -59,10 +99,72 @@ type Callbacks = Pick<
   | "onHoverNode"
   | "onClearHover"
   | "onClearSelected"
+  | "onNodePositionChange"
 >;
 
 const ZOOM_FACTOR = 1.18;
 const CAMERA_DURATION_MS = 160;
+const DRAG_START_THRESHOLD_PX = 3;
+
+function clamp(value: number, min: number, max: number) {
+  return Math.min(max, Math.max(min, value));
+}
+
+function getDragBounds(
+  graph: ResourceGraphologyGraph,
+  fallbackPadding = 240,
+): DragBounds {
+  let minX = Infinity;
+  let maxX = -Infinity;
+  let minY = Infinity;
+  let maxY = -Infinity;
+
+  graph.forEachNode((_key, attributes) => {
+    if (Number.isFinite(attributes.x)) {
+      minX = Math.min(minX, attributes.x);
+      maxX = Math.max(maxX, attributes.x);
+    }
+    if (Number.isFinite(attributes.y)) {
+      minY = Math.min(minY, attributes.y);
+      maxY = Math.max(maxY, attributes.y);
+    }
+  });
+
+  if (
+    !Number.isFinite(minX) ||
+    !Number.isFinite(maxX) ||
+    !Number.isFinite(minY) ||
+    !Number.isFinite(maxY)
+  ) {
+    return {
+      minX: -fallbackPadding,
+      maxX: fallbackPadding,
+      minY: -fallbackPadding,
+      maxY: fallbackPadding,
+    };
+  }
+
+  const width = Math.max(1, maxX - minX);
+  const height = Math.max(1, maxY - minY);
+  const padding = Math.max(fallbackPadding, Math.max(width, height) * 0.18);
+
+  return {
+    minX: minX - padding,
+    maxX: maxX + padding,
+    minY: minY - padding,
+    maxY: maxY + padding,
+  };
+}
+
+function clampDragPosition(
+  position: { x: number; y: number },
+  bounds: DragBounds,
+) {
+  return {
+    x: clamp(position.x, bounds.minX, bounds.maxX),
+    y: clamp(position.y, bounds.minY, bounds.maxY),
+  };
+}
 
 function dimColor(color: string, amount = 0.22) {
   const hex = color.replace("#", "");
@@ -87,6 +189,7 @@ function makeNodeReducer(stateRef: { current: DisplayState }) {
     const isSelected = key === state.selectedKey;
     const isRelated = state.activeSet?.has(key) ?? false;
     const isDimmed = Boolean(state.activeSet) && !isRelated;
+    const isPinned = state.pinnedKeys.has(key);
     const showFocusLabel =
       state.viewMode === "focus" && state.nodeCount <= 24 && isRelated;
     const showLabel =
@@ -104,8 +207,10 @@ function makeNodeReducer(stateRef: { current: DisplayState }) {
         ? data.size + 3
         : isHoveredOrSelected
           ? data.size + 2
-          : data.size,
-      zIndex: isHoveredOrSelected ? 3 : isRelated ? 2 : 1,
+          : isPinned
+            ? data.size + 1
+            : data.size,
+      zIndex: isHoveredOrSelected ? 4 : isPinned ? 3 : isRelated ? 2 : 1,
     };
   };
 }
@@ -181,8 +286,15 @@ export function SigmaGraphCanvas({
   activeKey,
   activeSet,
   selectedKey,
+  selectedNode,
+  selectedRelationCounts,
   viewMode,
   hiddenResourceCount,
+  pinnedKeys,
+  hasPinnedNodes,
+  hasHiddenNodes,
+  arrangeMode,
+  allowArrangeControls,
   mode,
   showExpandButton,
   showCloseButton,
@@ -194,10 +306,22 @@ export function SigmaGraphCanvas({
   onHoverNode,
   onClearHover,
   onClearSelected,
+  onArrangeModeChange,
+  onFocusSelected,
+  onExpandSelected,
+  onPinSelected,
+  onHideSelected,
+  onShowAll,
+  onUnpinAll,
+  onRelaxLayout,
+  onNodePositionChange,
 }: Props) {
   const { t } = useI18n();
   const containerRef = useRef<HTMLDivElement | null>(null);
   const rendererRef = useRef<Renderer | null>(null);
+  const dragRef = useRef<DragState | null>(null);
+  const suppressNextClickRef = useRef(false);
+  const suppressClickTimeoutRef = useRef<number | null>(null);
   const [zoomPercent, setZoomPercent] = useState(100);
   const graphology = useMemo(() => buildGraphologyGraph(graph), [graph]);
   const stateRef = useRef<DisplayState>({
@@ -206,6 +330,8 @@ export function SigmaGraphCanvas({
     selectedKey,
     viewMode,
     nodeCount: graph.nodes.length,
+    pinnedKeys,
+    arrangeMode,
   });
   const callbacksRef = useRef<Callbacks>({
     onSelectNode,
@@ -213,6 +339,7 @@ export function SigmaGraphCanvas({
     onHoverNode,
     onClearHover,
     onClearSelected,
+    onNodePositionChange,
   });
 
   stateRef.current = {
@@ -221,6 +348,8 @@ export function SigmaGraphCanvas({
     selectedKey,
     viewMode,
     nodeCount: graph.nodes.length,
+    pinnedKeys,
+    arrangeMode,
   };
   callbacksRef.current = {
     onSelectNode,
@@ -228,13 +357,22 @@ export function SigmaGraphCanvas({
     onHoverNode,
     onClearHover,
     onClearSelected,
+    onNodePositionChange,
   };
 
   useEffect(() => {
     const renderer = rendererRef.current;
     if (!renderer) return;
     renderer.refresh({ schedule: true });
-  }, [activeKey, activeSet, graph.nodes.length, selectedKey, viewMode]);
+  }, [
+    activeKey,
+    activeSet,
+    arrangeMode,
+    graph.nodes.length,
+    pinnedKeys,
+    selectedKey,
+    viewMode,
+  ]);
 
   useEffect(() => {
     const container = containerRef.current;
@@ -303,7 +441,29 @@ export function SigmaGraphCanvas({
     });
     resizeObserver.observe(container);
 
+    const clearSuppressedClick = () => {
+      suppressNextClickRef.current = false;
+      if (suppressClickTimeoutRef.current !== null) {
+        window.clearTimeout(suppressClickTimeoutRef.current);
+        suppressClickTimeoutRef.current = null;
+      }
+    };
+    const consumeSuppressedClick = () => {
+      if (!suppressNextClickRef.current) return false;
+      clearSuppressedClick();
+      return true;
+    };
+    const suppressNextClickTemporarily = () => {
+      clearSuppressedClick();
+      suppressNextClickRef.current = true;
+      suppressClickTimeoutRef.current = window.setTimeout(
+        clearSuppressedClick,
+        180,
+      );
+    };
+
     const onClickNode = ({ node }: { node: string }) => {
+      if (consumeSuppressedClick()) return;
       callbacksRef.current.onSelectNode(node);
     };
     const onDoubleClickNode = ({
@@ -319,6 +479,33 @@ export function SigmaGraphCanvas({
       event.original.preventDefault();
       callbacksRef.current.onOpenNode(node);
     };
+    const onDownNode = ({
+      node,
+      event,
+      preventSigmaDefault,
+    }: {
+      node: string;
+      event: MouseCoords;
+      preventSigmaDefault: () => void;
+    }) => {
+      if (!stateRef.current.arrangeMode) return;
+      preventSigmaDefault();
+      event.original.preventDefault();
+      event.original.stopPropagation();
+      renderer.getCamera().disable();
+      const pointer = renderer.viewportToGraph({ x: event.x, y: event.y });
+      const attributes = graphology.getNodeAttributes(node);
+      dragRef.current = {
+        node,
+        moved: false,
+        offsetX: attributes.x - pointer.x,
+        offsetY: attributes.y - pointer.y,
+        startX: event.x,
+        startY: event.y,
+        bounds: getDragBounds(graphology),
+      };
+      callbacksRef.current.onHoverNode(node);
+    };
     const onEnterNode = ({ node }: { node: string }) => {
       callbacksRef.current.onHoverNode(node);
     };
@@ -326,14 +513,59 @@ export function SigmaGraphCanvas({
       callbacksRef.current.onClearHover(node);
     };
     const onClickStage = () => {
+      if (consumeSuppressedClick()) return;
       callbacksRef.current.onClearSelected();
     };
 
     renderer.on("clickNode", onClickNode);
     renderer.on("doubleClickNode", onDoubleClickNode);
+    renderer.on("downNode", onDownNode);
     renderer.on("enterNode", onEnterNode);
     renderer.on("leaveNode", onLeaveNode);
     renderer.on("clickStage", onClickStage);
+
+    const mouseCaptor = renderer.getMouseCaptor();
+    const onMouseMoveBody = (event: MouseCoords) => {
+      const dragging = dragRef.current;
+      if (!dragging) return;
+      event.preventSigmaDefault();
+      event.original.preventDefault();
+      event.original.stopPropagation();
+      const movedPixels = Math.hypot(
+        event.x - dragging.startX,
+        event.y - dragging.startY,
+      );
+      if (movedPixels < DRAG_START_THRESHOLD_PX) return;
+      const pointer = renderer.viewportToGraph({ x: event.x, y: event.y });
+      const position = clampDragPosition(
+        {
+          x: pointer.x + dragging.offsetX,
+          y: pointer.y + dragging.offsetY,
+        },
+        dragging.bounds,
+      );
+      graphology.setNodeAttribute(dragging.node, "x", position.x);
+      graphology.setNodeAttribute(dragging.node, "y", position.y);
+      dragging.moved = true;
+      renderer.refresh({ schedule: true });
+    };
+    const onMouseUp = () => {
+      const dragging = dragRef.current;
+      renderer.getCamera().enable();
+      if (!dragging) return;
+      if (dragging.moved) {
+        const attributes = graphology.getNodeAttributes(dragging.node);
+        const node = dragging.node;
+        const position = { x: attributes.x, y: attributes.y };
+        suppressNextClickTemporarily();
+        window.setTimeout(() => {
+          callbacksRef.current.onNodePositionChange(node, position);
+        }, 0);
+      }
+      dragRef.current = null;
+    };
+    mouseCaptor.on("mousemovebody", onMouseMoveBody);
+    mouseCaptor.on("mouseup", onMouseUp);
 
     const resizeFrame = window.requestAnimationFrame(() =>
       syncContainerSize(true),
@@ -348,6 +580,8 @@ export function SigmaGraphCanvas({
       camera.off("updated", updateZoom);
       renderer.kill();
       rendererRef.current = null;
+      dragRef.current = null;
+      clearSuppressedClick();
     };
   }, [graphology, mode]);
 
@@ -368,11 +602,24 @@ export function SigmaGraphCanvas({
       ?.getCamera()
       .animatedReset({ duration: CAMERA_DURATION_MS });
   };
+  const unpinAll = () => {
+    onUnpinAll();
+    window.requestAnimationFrame(fitGraph);
+  };
+  const relaxGraph = () => {
+    onRelaxLayout();
+    window.requestAnimationFrame(fitGraph);
+  };
 
   return (
     <div
       className={panelClassName}
       onKeyDown={(event) => {
+        if (event.key === "Enter" && selectedKey) {
+          event.preventDefault();
+          onOpenNode(selectedKey);
+          return;
+        }
         const renderer = rendererRef.current;
         if (renderer) moveCameraWithKeyboard(event, renderer);
       }}
@@ -415,6 +662,66 @@ export function SigmaGraphCanvas({
         </div>
       ) : null}
 
+      {selectedNode ? (
+        <div className="absolute bottom-3 left-3 right-20 z-20 rounded-xl border border-gray-200 bg-white/95 p-3 shadow-lg ring-1 ring-black/5 backdrop-blur sm:right-auto sm:max-w-sm">
+          <div className="flex items-start justify-between gap-3">
+            <div className="min-w-0">
+              <div className="truncate text-sm font-semibold text-gray-900">
+                {selectedNode.name || selectedNode.resourceId}
+              </div>
+              <div className="mt-0.5 text-xs text-gray-600">
+                {selectedNode.typeTitle} · {selectedRelationCounts.outgoing}{" "}
+                {t("out")} / {selectedRelationCounts.incoming} {t("in")}
+              </div>
+            </div>
+            {pinnedKeys.has(selectedNode.key) ? (
+              <span className="shrink-0 rounded-full bg-blue-50 px-2 py-1 text-[11px] font-medium text-blue-700">
+                {t("Pinned")}
+              </span>
+            ) : null}
+          </div>
+          <div className="mt-3 flex flex-wrap gap-2">
+            <button
+              type="button"
+              onClick={() => onOpenNode(selectedNode.key)}
+              className="min-h-9 rounded-lg border border-gray-200 bg-white px-3 py-1.5 text-xs font-medium text-gray-700 shadow-sm hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-blue-500/30"
+            >
+              {t("Open")}
+            </button>
+            <button
+              type="button"
+              onClick={onFocusSelected}
+              className="min-h-9 rounded-lg border border-gray-200 bg-white px-3 py-1.5 text-xs font-medium text-gray-700 shadow-sm hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-blue-500/30"
+            >
+              {t("Focus")}
+            </button>
+            <button
+              type="button"
+              onClick={onExpandSelected}
+              className="min-h-9 rounded-lg border border-gray-200 bg-white px-3 py-1.5 text-xs font-medium text-gray-700 shadow-sm hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-blue-500/30"
+            >
+              {t("Expand Relations")}
+            </button>
+            {allowArrangeControls ? (
+              <button
+                type="button"
+                onClick={onPinSelected}
+                className="min-h-9 rounded-lg border border-gray-200 bg-white px-3 py-1.5 text-xs font-medium text-gray-700 shadow-sm hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-blue-500/30"
+              >
+                {t("Pin temporarily")}
+              </button>
+            ) : null}
+            <button
+              type="button"
+              onClick={onHideSelected}
+              className="min-h-9 rounded-lg border border-gray-200 bg-white px-3 py-1.5 text-xs font-medium text-gray-700 shadow-sm hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-blue-500/30"
+            >
+              {t("Hide")}
+            </button>
+          </div>
+        </div>
+      ) : null}
+
       <div className="absolute bottom-3 right-3 z-20 flex flex-col overflow-hidden rounded-xl border border-gray-200 bg-white/95 shadow-lg backdrop-blur">
         <button
           type="button"
@@ -437,11 +744,63 @@ export function SigmaGraphCanvas({
           onClick={fitGraph}
           className={[
             "min-h-11 min-w-11 px-3 py-2 text-xs font-medium text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-inset focus:ring-blue-500/30",
-            mode === "greedy" ? "border-b border-gray-200" : "",
+            mode === "greedy" || allowArrangeControls || hasHiddenNodes
+              ? "border-b border-gray-200"
+              : "",
           ].join(" ")}
         >
           {t("Fit")}
         </button>
+        {allowArrangeControls ? (
+          <>
+            <button
+              type="button"
+              onClick={() => onArrangeModeChange(!arrangeMode)}
+              aria-pressed={arrangeMode}
+              className={[
+                "min-h-11 min-w-11 border-b border-gray-200 px-3 py-2 text-xs font-medium focus:outline-none focus:ring-2 focus:ring-inset focus:ring-blue-500/30",
+                arrangeMode
+                  ? "bg-blue-600 text-white hover:bg-blue-700"
+                  : "text-gray-700 hover:bg-gray-50",
+              ].join(" ")}
+            >
+              {t("Arrange")}
+            </button>
+            <button
+              type="button"
+              onClick={unpinAll}
+              disabled={!hasPinnedNodes}
+              className="min-h-11 min-w-11 border-b border-gray-200 px-3 py-2 text-xs font-medium text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-inset focus:ring-blue-500/30 disabled:cursor-not-allowed disabled:opacity-45"
+            >
+              {t("Unpin all")}
+            </button>
+            <button
+              type="button"
+              onClick={relaxGraph}
+              disabled={!hasPinnedNodes}
+              className={[
+                "min-h-11 min-w-11 px-3 py-2 text-xs font-medium text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-inset focus:ring-blue-500/30 disabled:cursor-not-allowed disabled:opacity-45",
+                mode === "greedy" || hasHiddenNodes
+                  ? "border-b border-gray-200"
+                  : "",
+              ].join(" ")}
+            >
+              {t("Relax")}
+            </button>
+          </>
+        ) : null}
+        {hasHiddenNodes ? (
+          <button
+            type="button"
+            onClick={onShowAll}
+            className={[
+              "min-h-11 min-w-11 px-3 py-2 text-xs font-medium text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-inset focus:ring-blue-500/30",
+              mode === "greedy" ? "border-b border-gray-200" : "",
+            ].join(" ")}
+          >
+            {t("Show all")}
+          </button>
+        ) : null}
         {mode === "greedy" ? (
           <div className="px-3 py-1.5 text-center text-[11px] font-medium text-gray-500">
             {zoomPercent}%
